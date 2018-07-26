@@ -178,6 +178,23 @@ func (ps ParticipationStatus) KeyValue(s ...interface{}) (string, []string) {
   return string(ParameterParticipationStatus), []string { string(ps), }
 }
 
+type ObjectStatus string
+
+const (
+  ObjectStatusTentative ObjectStatus = "TENTATIVE"
+  ObjectStatusConfirmed ObjectStatus = "CONFIRMED"
+  ObjectStatusCancelled ObjectStatus = "CANCELLED"
+  ObjectStatusNeedsAction ObjectStatus = "NEEDS-ACTION"
+  ObjectStatusCompleted ObjectStatus = "COMPLETED"
+  ObjectStatusInProcess ObjectStatus = "IN-PROCESS"
+  ObjectStatusDraft ObjectStatus = "DRAFT"
+  ObjectStatusFinal ObjectStatus = "FINAL"
+)
+
+func (ps ObjectStatus) KeyValue(s ...interface{}) (string, []string) {
+  return string(PropertyStatus), []string { string(ps), }
+}
+
 type RelationshipType string
 
 const (

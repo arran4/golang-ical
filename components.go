@@ -110,6 +110,10 @@ func (event *VEvent) SetSummary(s string, props ...PropertyParameter) {
   event.setProperty(ComponentPropertySummary, s, props...)
 }
 
+func (event *VEvent) SetStatus(s ObjectStatus, props ...PropertyParameter) {
+  event.setProperty(ComponentPropertyStatus, string(s), props...)
+}
+
 func (event *VEvent) SetDescription(s string, props ...PropertyParameter) {
   event.setProperty(ComponentPropertyDescription, s, props...)
 }
