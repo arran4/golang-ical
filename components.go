@@ -57,26 +57,26 @@ const (
 )
 
 func (event *VEvent) SetCreatedTime(t time.Time, props ...PropertyParameter) {
-  event.setProperty(ComponentPropertyCreated, t.UTC().Format(icalTimeFormat), props...)
+  event.SetProperty(ComponentPropertyCreated, t.UTC().Format(icalTimeFormat), props...)
 }
 
 func (event *VEvent) SetDtStampTime(t time.Time, props ...PropertyParameter) {
-  event.setProperty(ComponentPropertyDtstamp, t.UTC().Format(icalTimeFormat), props...)
+  event.SetProperty(ComponentPropertyDtstamp, t.UTC().Format(icalTimeFormat), props...)
 }
 
 func (event *VEvent) SetModifiedAt(t time.Time, props ...PropertyParameter) {
-  event.setProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimeFormat), props...)
+  event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimeFormat), props...)
 }
 
 func (event *VEvent) SetStartAt(t time.Time, props ...PropertyParameter) {
-  event.setProperty(ComponentPropertyDtStart, t.UTC().Format(icalTimeFormat), props...)
+  event.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalTimeFormat), props...)
 }
 
 func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
-  event.setProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimeFormat), props...)
+  event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimeFormat), props...)
 }
 
-func (event *VEvent) setProperty(property ComponentProperty, value string, props ...PropertyParameter) {
+func (event *VEvent) SetProperty(property ComponentProperty, value string, props ...PropertyParameter) {
   for i := range event.Properties {
     if event.Properties[i].IANAToken == string(property) {
       event.Properties[i].Value = value
@@ -88,10 +88,10 @@ func (event *VEvent) setProperty(property ComponentProperty, value string, props
       return
     }
   }
-  event.addProperty(property, value, props...)
+  event.AddProperty(property, value, props...)
 }
 
-func (event *VEvent) addProperty(property ComponentProperty, value string, props ...PropertyParameter) {
+func (event *VEvent) AddProperty(property ComponentProperty, value string, props ...PropertyParameter) {
   r := IANAProperty{
     BaseProperty{
       IANAToken: string(property),
@@ -107,31 +107,31 @@ func (event *VEvent) addProperty(property ComponentProperty, value string, props
 }
 
 func (event *VEvent) SetSummary(s string, props ...PropertyParameter) {
-  event.setProperty(ComponentPropertySummary, s, props...)
+  event.SetProperty(ComponentPropertySummary, s, props...)
 }
 
 func (event *VEvent) SetStatus(s ObjectStatus, props ...PropertyParameter) {
-  event.setProperty(ComponentPropertyStatus, string(s), props...)
+  event.SetProperty(ComponentPropertyStatus, string(s), props...)
 }
 
 func (event *VEvent) SetDescription(s string, props ...PropertyParameter) {
-  event.setProperty(ComponentPropertyDescription, s, props...)
+  event.SetProperty(ComponentPropertyDescription, s, props...)
 }
 
 func (event *VEvent) SetLocation(s string, props ...PropertyParameter) {
-  event.setProperty(ComponentPropertyLocation, s, props...)
+  event.SetProperty(ComponentPropertyLocation, s, props...)
 }
 
 func (event *VEvent) SetURL(s string, props ...PropertyParameter) {
-  event.setProperty(ComponentPropertyUrl, s, props...)
+  event.SetProperty(ComponentPropertyUrl, s, props...)
 }
 
 func (event *VEvent) SetOrganizer(s string, props ...PropertyParameter) {
-  event.setProperty(ComponentPropertyOrganizer, s, props...)
+  event.SetProperty(ComponentPropertyOrganizer, s, props...)
 }
 
 func (event *VEvent) AddAttendee(s string, props ...PropertyParameter) {
-  event.addProperty(ComponentPropertyAttendee,  "mailto:"+s, props...)
+  event.AddProperty(ComponentPropertyAttendee,  "mailto:"+s, props...)
 }
 
 type Attendee struct {
@@ -179,14 +179,14 @@ func (event *VEvent) Attendees() (r []*Attendee) {
 }
 
 func (event *VEvent) Id() string {
-  p := event.getProperty(ComponentPropertyUniqueId)
+  p := event.GetProperty(ComponentPropertyUniqueId)
   if p != nil {
     return p.Value
   }
   return ""
 }
 
-func (event *VEvent) getProperty(componentProperty ComponentProperty) *IANAProperty {
+func (event *VEvent) GetProperty(componentProperty ComponentProperty) *IANAProperty {
   for i := range event.Properties {
     if event.Properties[i].IANAToken == string(componentProperty) {
       return &event.Properties[i]
