@@ -2,6 +2,7 @@ package ics
 
 import (
 	"io"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -173,7 +174,9 @@ END:VFREEBUSY
 END:VCALENDAR
 `,
 	}
+	rnReplace := regexp.MustCompile("\r?\n")
 	for i, input := range inputs {
+		input = rnReplace.ReplaceAllString(input, "\r\n")
 		structure, err := ParseCalendar(strings.NewReader(input))
 		if err != nil {
 			t.Logf("%s", input)
@@ -187,10 +190,12 @@ END:VCALENDAR
 			t.Fail()
 			return
 		}
+		// This test should fail as the sample data doesn't conform to https://tools.ietf.org/html/rfc5545#page-45 Probably
+		// due to RFC width guides
 		output := structure.Serialize()
 		//structurejson, _ := json.MarshalIndent(structure, "", " ")
 		//t.Logf("\n\n\n%s \nvs\n \n\n\n%s \nvs \n\n%s\n\n", string(structurejson), input, output)
-		t.Logf("\n%s \nvs\n \n\n\n%s", input, output)
+		t.Logf("Input:\n\n%s \nvs\n \nOutput\n\n%s", input, output)
 		t.Fail()
 	}
 }

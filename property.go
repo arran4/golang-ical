@@ -65,16 +65,16 @@ func (property *BaseProperty) serialize(w io.Writer) {
 	fmt.Fprint(b, property.Value)
 	r := b.String()
 	if len(r) > 75 {
-		fmt.Fprintln(w, r[:75])
+		fmt.Fprint(w, r[:75], "\r\n")
 		r = r[75:]
 		fmt.Fprint(w, " ")
 	}
 	for len(r) > 74 {
-		fmt.Fprintln(w, r[:74])
+		fmt.Fprint(w, r[:74], "\r\n")
 		r = r[74:]
 		fmt.Fprint(w, " ")
 	}
-	fmt.Fprintln(w, r)
+	fmt.Fprint(w, r, "\r\n")
 }
 
 type IANAProperty struct {

@@ -267,14 +267,14 @@ func NewCalendar() *Calendar {
 
 func (calendar *Calendar) Serialize() string {
 	b := bytes.NewBufferString("")
-	fmt.Fprintln(b, "BEGIN:VCALENDAR")
+	fmt.Fprint(b, "BEGIN:VCALENDAR", "\r\n")
 	for _, p := range calendar.CalendarProperties {
 		p.serialize(b)
 	}
 	for _, c := range calendar.Components {
 		c.serialize(b)
 	}
-	fmt.Fprintln(b, "END:VCALENDAR")
+	fmt.Fprint(b, "END:VCALENDAR", "\r\n")
 	return b.String()
 }
 
@@ -446,7 +446,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			}
 		} else if b[len(b)-1] == '\n' {
 			o := 1
-			if b[len(b)-2] == '\r' {
+			if len(b) > 1 && b[len(b)-2] == '\r' {
 				o = 2
 			}
 			p, err := cs.b.Peek(1)

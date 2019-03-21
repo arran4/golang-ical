@@ -28,14 +28,14 @@ func (cb *ComponentBase) SubComponents() []Component {
 	return cb.Components
 }
 func (base ComponentBase) serializeThis(writer io.Writer, componentType string) {
-	fmt.Fprintln(writer, "BEGIN:"+componentType)
+	fmt.Fprint(writer, "BEGIN:"+componentType, "\r\n")
 	for _, p := range base.Properties {
 		p.serialize(writer)
 	}
 	for _, c := range base.Components {
 		c.serialize(writer)
 	}
-	fmt.Fprintln(writer, "END:"+componentType)
+	fmt.Fprint(writer, "END:"+componentType, "\r\n")
 }
 
 type VEvent struct {
