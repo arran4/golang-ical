@@ -1,65 +1,64 @@
 package ics
 
 import (
-  "io"
-  "strings"
-  "testing"
+	"io"
+	"strings"
+	"testing"
 )
 
 func TestCalendarStream(t *testing.T) {
- i := `
+	i := `
 ATTENDEE;RSVP=TRUE;ROLE=REQ-PARTICIPANT;CUTYPE=GROUP:
  mailto:employee-A@example.com
 DESCRIPTION:Project XYZ Review Meeting
 CATEGORIES:MEETING
 CLASS:PUBLIC
 `
-  expected := []ContentLine {
-    ContentLine("ATTENDEE;RSVP=TRUE;ROLE=REQ-PARTICIPANT;CUTYPE=GROUP:mailto:employee-A@example.com"),
-    ContentLine("DESCRIPTION:Project XYZ Review Meeting"),
-    ContentLine("CATEGORIES:MEETING"),
-    ContentLine("CLASS:PUBLIC"),
-  }
-  c := NewCalendarStream(strings.NewReader(i))
-  cont := true
-  for i := 0; cont; i++ {
-  l, err := c.ReadLine()
-    if err != nil {
-      switch err {
-      case io.EOF:
-        cont = false
-      default:
-        t.Logf("Unknown error; %v", err)
-        t.Fail()
-        return
-      }
-    }
-    if l == nil {
-      if err == io.EOF && i == len(expected) {
-        cont = false
-      } else {
-        t.Logf("Nil response...")
-        t.Fail()
-        return
-      }
-    }
-    if i < len(expected) {
-      if string(*l) != string(expected[i]) {
-        t.Logf("Got %s expected %s", string(*l), string(expected[i]))
-        t.Fail()
-      }
-    } else if l != nil {
-      t.Logf("Larger than expected")
-      t.Fail()
-      return
-    }
-  }
+	expected := []ContentLine{
+		ContentLine("ATTENDEE;RSVP=TRUE;ROLE=REQ-PARTICIPANT;CUTYPE=GROUP:mailto:employee-A@example.com"),
+		ContentLine("DESCRIPTION:Project XYZ Review Meeting"),
+		ContentLine("CATEGORIES:MEETING"),
+		ContentLine("CLASS:PUBLIC"),
+	}
+	c := NewCalendarStream(strings.NewReader(i))
+	cont := true
+	for i := 0; cont; i++ {
+		l, err := c.ReadLine()
+		if err != nil {
+			switch err {
+			case io.EOF:
+				cont = false
+			default:
+				t.Logf("Unknown error; %v", err)
+				t.Fail()
+				return
+			}
+		}
+		if l == nil {
+			if err == io.EOF && i == len(expected) {
+				cont = false
+			} else {
+				t.Logf("Nil response...")
+				t.Fail()
+				return
+			}
+		}
+		if i < len(expected) {
+			if string(*l) != string(expected[i]) {
+				t.Logf("Got %s expected %s", string(*l), string(expected[i]))
+				t.Fail()
+			}
+		} else if l != nil {
+			t.Logf("Larger than expected")
+			t.Fail()
+			return
+		}
+	}
 }
 
-
 func TestRfc5545Sec4Examples(t *testing.T) {
-  inputs := []string{
-  `
+	inputs := []string{
+		`
 BEGIN:VCALENDAR
 PRODID:-//xyz Corp//NONSGML PDA Calendar Version 1.0//EN
 VERSION:2.0
@@ -78,7 +77,7 @@ DESCRIPTION:Networld+Interop Conference
 END:VEVENT
 END:VCALENDAR
 `,
-`BEGIN:VCALENDAR
+		`BEGIN:VCALENDAR
 PRODID:-//RDU Software//NONSGML HandCal//EN
 VERSION:2.0
 BEGIN:VTIMEZONE
@@ -113,7 +112,7 @@ LOCATION:1CP Conference Room 4350
 END:VEVENT
 END:VCALENDAR
 `,
-`BEGIN:VCALENDAR
+		`BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//ABC Corporation//NONSGML My Product//EN
 BEGIN:VTODO
@@ -136,7 +135,7 @@ END:VALARM
 END:VTODO
 END:VCALENDAR
 `,
-`BEGIN:VCALENDAR
+		`BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//ABC Corporation//NONSGML My Product//EN
 BEGIN:VJOURNAL
@@ -159,7 +158,7 @@ DESCRIPTION:Project xyz Review Meeting Minutes\n
  Next weeks meeting is cancelled. No meeting until 3/23.
 END:VJOURNAL
 END:VCALENDAR`,
-`BEGIN:VCALENDAR
+		`BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//RDU Software//NONSGML HandCal//EN
 BEGIN:VFREEBUSY
@@ -173,26 +172,25 @@ URL:http://www.example.com/calendar/busytime/jsmith.ifb
 END:VFREEBUSY
 END:VCALENDAR
 `,
+	}
+	for i, input := range inputs {
+		structure, err := ParseCalendar(strings.NewReader(input))
+		if err != nil {
+			t.Logf("%s", input)
+			t.Logf("%d. Error: %v", i, err)
+			t.Fail()
+			return
+		}
+		if structure == nil {
+			t.Logf("%s", input)
+			t.Logf("%d. Error: %v", i, "nil output")
+			t.Fail()
+			return
+		}
+		output := structure.Serialize()
+		//structurejson, _ := json.MarshalIndent(structure, "", " ")
+		//t.Logf("\n\n\n%s \nvs\n \n\n\n%s \nvs \n\n%s\n\n", string(structurejson), input, output)
+		t.Logf("\n%s \nvs\n \n\n\n%s", input, output)
+		t.Fail()
+	}
 }
-  for i, input := range inputs {
-    structure, err := ParseCalendar(strings.NewReader(input))
-    if err != nil {
-      t.Logf("%s", input)
-      t.Logf("%d. Error: %v", i, err)
-      t.Fail()
-      return
-    }
-    if structure == nil {
-      t.Logf("%s", input)
-      t.Logf("%d. Error: %v", i, "nil output")
-      t.Fail()
-      return
-    }
-    output := structure.Serialize()
-    //structurejson, _ := json.MarshalIndent(structure, "", " ")
-    //t.Logf("\n\n\n%s \nvs\n \n\n\n%s \nvs \n\n%s\n\n", string(structurejson), input, output)
-    t.Logf("\n%s \nvs\n \n\n\n%s", input, output)
-    t.Fail()
-  }
-}
-
