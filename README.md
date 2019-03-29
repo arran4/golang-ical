@@ -21,7 +21,7 @@ Creating:
   event.SetEndAt(time.Now())
   event.SetSummary("Summary")
   event.SetLocation("Address")
-  event.SetDescription("Description)
+  event.SetDescription("Description")
   event.SetURL("https://URL/")
   event.SetOrganizer("sender@domain", ics.WithCN("This Machine"))
   event.AddAttendee("reciever or participant", ics.CalendarUserTypeIndividual, ics.ParticipationStatusNeedsAction, ics.ParticipationRoleReqParticipant, ics.WithRSVP(true))
