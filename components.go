@@ -53,7 +53,8 @@ func (c *VEvent) Serialize() string {
 }
 
 const (
-	icalTimeFormat = "20060102T150405Z"
+	icalTimeFormat       = "20060102T150405Z"
+	icalAllDayTimeFormat = "20060102"
 )
 
 func (event *VEvent) SetCreatedTime(t time.Time, props ...PropertyParameter) {
@@ -70,6 +71,10 @@ func (event *VEvent) SetModifiedAt(t time.Time, props ...PropertyParameter) {
 
 func (event *VEvent) SetStartAt(t time.Time, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalTimeFormat), props...)
+}
+
+func (event *VEvent) SetAllDayStartAt(t time.Time, props ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalAllDayTimeFormat), props...)
 }
 
 func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
