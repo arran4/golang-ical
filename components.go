@@ -81,6 +81,10 @@ func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimeFormat), props...)
 }
 
+func (event *VEvent) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalAllDayTimeFormat), props...)
+}
+
 func (event *VEvent) SetProperty(property ComponentProperty, value string, props ...PropertyParameter) {
 	for i := range event.Properties {
 		if event.Properties[i].IANAToken == string(property) {
