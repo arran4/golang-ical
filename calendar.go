@@ -50,6 +50,7 @@ const (
 	PropertyMethod          Property = "METHOD"
 	PropertyProductId       Property = "PRODID"
 	PropertyVersion         Property = "VERSION"
+	PropertyXPublishedTTL   Property = "X-PUBLISHED-TTL"
 	PropertyAttach          Property = "ATTACH"
 	PropertyCategories      Property = "CATEGORIES"
 	PropertyClass           Property = "CLASS"
@@ -280,6 +281,10 @@ func (calendar *Calendar) Serialize() string {
 
 func (calendar *Calendar) SetMethod(method Method, props ...PropertyParameter) {
 	calendar.setProperty(PropertyMethod, string(method), props...)
+}
+
+func (calendar *Calendar) SetXPublishedTTL(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyXPublishedTTL, string(s), props...)
 }
 
 func (calendar *Calendar) SetVersion(s string, props ...PropertyParameter) {
