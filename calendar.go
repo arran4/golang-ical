@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 )
 
 type ComponentType string
@@ -51,11 +52,13 @@ const (
 	PropertyProductId       Property = "PRODID"
 	PropertyVersion         Property = "VERSION"
 	PropertyXPublishedTTL   Property = "X-PUBLISHED-TTL"
+	PropertyRefreshInterval Property = "REFRESH-INTERVAL;VALUE=DURATION"
 	PropertyAttach          Property = "ATTACH"
 	PropertyCategories      Property = "CATEGORIES"
 	PropertyClass           Property = "CLASS"
 	PropertyComment         Property = "COMMENT"
 	PropertyDescription     Property = "DESCRIPTION"
+	PropertyXWRCalDesc      Property = "X-WR-CALDESC"
 	PropertyGeo             Property = "GEO"
 	PropertyLocation        Property = "LOCATION"
 	PropertyPercentComplete Property = "PERCENT-COMPLETE"
@@ -94,6 +97,8 @@ const (
 	PropertyLastModified    Property = "LAST-MODIFIED"
 	PropertySequence        Property = "SEQUENCE"
 	PropertyRequestStatus   Property = "REQUEST-STATUS"
+	PropertyName            Property = "NAME"
+	PropertyXWRCalName      Property = "X-WR-CALNAME"
 )
 
 type Parameter string
@@ -293,6 +298,30 @@ func (calendar *Calendar) SetVersion(s string, props ...PropertyParameter) {
 
 func (calendar *Calendar) SetProductId(s string, props ...PropertyParameter) {
 	calendar.setProperty(PropertyProductId, string(s), props...)
+}
+
+func (calendar *Calendar) SetName(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyName, string(s), props...)
+}
+
+func (calendar *Calendar) SetXWRCalName(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyXWRCalName, string(s), props...)
+}
+
+func (calendar *Calendar) SetXWRCalDesc(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyXWRCalDesc, string(s), props...)
+}
+
+func (calendar *Calendar) SetDescription(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyDescription, string(s), props...)
+}
+
+func (calendar *Calendar) SetLastModified(t time.Time, props ...PropertyParameter) {
+	calendar.setProperty(PropertyLastModified, t.UTC().Format(icalTimeFormat), props...)
+}
+
+func (calendar *Calendar) SetRefreshInterval(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyRefreshInterval, string(s), props...)
 }
 
 func (calendar *Calendar) setProperty(property Property, value string, props ...PropertyParameter) {
