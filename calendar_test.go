@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestCalendarStream(t *testing.T) {
@@ -197,5 +198,17 @@ END:VCALENDAR
 		//t.Logf("\n\n\n%s \nvs\n \n\n\n%s \nvs \n\n%s\n\n", string(structurejson), input, output)
 		t.Logf("Input:\n\n%s \nvs\n \nOutput\n\n%s", input, output)
 		t.Fail()
+	}
+}
+
+func TestLineFolding(t *testing.T) {
+	c := NewCalendar()
+	// Repeating a string that contains long runes (size > 1 byte)
+	// 75 time to be sure that line folding is needed.
+	const runesToOverflowLine = 75
+	c.SetDescription(strings.Repeat("世界", runesToOverflowLine))
+	text := c.Serialize()
+	if !utf8.ValidString(text) {
+		t.Fatalf("Serialized .ics calendar isn't valid UTF-8 string")
 	}
 }

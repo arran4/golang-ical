@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 type BaseProperty struct {
@@ -43,6 +44,18 @@ func WithRSVP(b bool) PropertyParameter {
 	}
 }
 
+func trimUT8StringUpTo(maxLength int, s string) string {
+	length := 0
+	for _, r := range s {
+		newLength := length + utf8.RuneLen(r)
+		if newLength > maxLength {
+			break
+		}
+		length = newLength
+	}
+	return s[:length]
+}
+
 func (property *BaseProperty) serialize(w io.Writer) {
 	b := bytes.NewBufferString("")
 	fmt.Fprint(b, property.IANAToken)
@@ -65,13 +78,15 @@ func (property *BaseProperty) serialize(w io.Writer) {
 	fmt.Fprint(b, property.Value)
 	r := b.String()
 	if len(r) > 75 {
-		fmt.Fprint(w, r[:75], "\r\n")
-		r = r[75:]
+		l := trimUT8StringUpTo(75, r)
+		fmt.Fprint(w, l, "\r\n")
+		r = r[len(l):]
 		fmt.Fprint(w, " ")
 	}
 	for len(r) > 74 {
-		fmt.Fprint(w, r[:74], "\r\n")
-		r = r[74:]
+		l := trimUT8StringUpTo(74, r)
+		fmt.Fprint(w, l, "\r\n")
+		r = r[len(l):]
 		fmt.Fprint(w, " ")
 	}
 	fmt.Fprint(w, r, "\r\n")
