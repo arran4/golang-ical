@@ -2,6 +2,7 @@ package ics
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -141,6 +142,20 @@ func (event *VEvent) SetOrganizer(s string, props ...PropertyParameter) {
 
 func (event *VEvent) AddAttendee(s string, props ...PropertyParameter) {
 	event.AddProperty(ComponentPropertyAttendee, "mailto:"+s, props...)
+}
+
+func (event *VEvent) AddAttachment(s string, props ...PropertyParameter) {
+	event.AddProperty(ComponentPropertyAttach, s, props...)
+}
+
+func (event *VEvent) AddAttachmentURL(uri string, contentType string) {
+	event.AddAttachment(uri, WithFmtType(contentType))
+}
+
+func (event *VEvent) AddAttachmentBinary(binary []byte, contentType string) {
+	event.AddAttachment(base64.StdEncoding.EncodeToString(binary),
+		WithFmtType(contentType), WithEncoding("base64"), WithValue("binary"),
+	)
 }
 
 type Attendee struct {
