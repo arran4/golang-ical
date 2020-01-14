@@ -197,3 +197,31 @@ func parsePropertyValue(r *BaseProperty, contentLine string, p int) *BasePropert
 	r.Value = string(contentLine[p : p+tokenPos[1]])
 	return r
 }
+
+var textEscaper = strings.NewReplacer(
+	`\`, `\\`,
+	"\n", `\n`,
+	`;`, `\;`,
+	`,`, `\,`,
+	`"`, `\"`,
+)
+
+func ToText(s string) string {
+	// Some special characters for iCalendar format should be escaped while
+	// setting a value of a property with a TEXT type.
+	return textEscaper.Replace(s)
+}
+
+var textUnescaper = strings.NewReplacer(
+	`\\`, `\`,
+	`\n`, "\n",
+	`\;`, `;`,
+	`\,`, `,`,
+	`\"`, `"`,
+)
+
+func FromText(s string) string {
+	// Some special characters for iCalendar format should be escaped while
+	// setting a value of a property with a TEXT type.
+	return textUnescaper.Replace(s)
+}
