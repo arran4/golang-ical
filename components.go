@@ -116,19 +116,19 @@ func (event *VEvent) AddProperty(property ComponentProperty, value string, props
 }
 
 func (event *VEvent) SetSummary(s string, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertySummary, s, props...)
+	event.SetProperty(ComponentPropertySummary, ToText(s), props...)
 }
 
 func (event *VEvent) SetStatus(s ObjectStatus, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyStatus, string(s), props...)
+	event.SetProperty(ComponentPropertyStatus, ToText(string(s)), props...)
 }
 
 func (event *VEvent) SetDescription(s string, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyDescription, s, props...)
+	event.SetProperty(ComponentPropertyDescription, ToText(s), props...)
 }
 
 func (event *VEvent) SetLocation(s string, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyLocation, s, props...)
+	event.SetProperty(ComponentPropertyLocation, ToText(s), props...)
 }
 
 func (event *VEvent) SetURL(s string, props ...PropertyParameter) {
@@ -190,7 +190,7 @@ func (event *VEvent) Attendees() (r []*Attendee) {
 func (event *VEvent) Id() string {
 	p := event.GetProperty(ComponentPropertyUniqueId)
 	if p != nil {
-		return p.Value
+		return FromText(p.Value)
 	}
 	return ""
 }
