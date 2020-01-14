@@ -203,7 +203,6 @@ var textEscaper = strings.NewReplacer(
 	"\n", `\n`,
 	`;`, `\;`,
 	`,`, `\,`,
-	`"`, `\"`,
 )
 
 func ToText(s string) string {
@@ -215,9 +214,9 @@ func ToText(s string) string {
 var textUnescaper = strings.NewReplacer(
 	`\\`, `\`,
 	`\n`, "\n",
+	`\N`, "\n",
 	`\;`, `;`,
 	`\,`, `,`,
-	`\"`, `"`,
 )
 
 func FromText(s string) string {
