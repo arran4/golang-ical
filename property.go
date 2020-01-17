@@ -37,6 +37,27 @@ func WithCN(cn string) PropertyParameter {
 	}
 }
 
+func WithEncoding(encType string) PropertyParameter {
+	return &KeyValues{
+		Key:   string(ParameterEncoding),
+		Value: []string{encType},
+	}
+}
+
+func WithFmtType(contentType string) PropertyParameter {
+	return &KeyValues{
+		Key:   string(ParameterFmttype),
+		Value: []string{contentType},
+	}
+}
+
+func WithValue(kind string) PropertyParameter {
+	return &KeyValues{
+		Key:   string(ParameterValue),
+		Value: []string{kind},
+	}
+}
+
 func WithRSVP(b bool) PropertyParameter {
 	return &KeyValues{
 		Key:   string(ParameterRsvp),

@@ -30,6 +30,7 @@ const (
 	ComponentPropertyDtstamp      ComponentProperty = "DTSTAMP"
 	ComponentPropertyOrganizer    ComponentProperty = "ORGANIZER"
 	ComponentPropertyAttendee     ComponentProperty = "ATTENDEE"
+	ComponentPropertyAttach       ComponentProperty = "ATTACH"
 	ComponentPropertyDescription  ComponentProperty = "DESCRIPTION" // TEXT
 	ComponentPropertyCategories   ComponentProperty = "CATEGORIES"  // TEXT
 	ComponentPropertyClass        ComponentProperty = "CLASS"       // TEXT
