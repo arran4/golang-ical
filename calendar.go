@@ -26,20 +26,20 @@ const (
 type ComponentProperty string
 
 const (
-	ComponentPropertyUniqueId     ComponentProperty = "UID"
+	ComponentPropertyUniqueId     ComponentProperty = "UID" // TEXT
 	ComponentPropertyDtstamp      ComponentProperty = "DTSTAMP"
 	ComponentPropertyOrganizer    ComponentProperty = "ORGANIZER"
 	ComponentPropertyAttendee     ComponentProperty = "ATTENDEE"
 	ComponentPropertyAttach       ComponentProperty = "ATTACH"
-	ComponentPropertyDescription  ComponentProperty = "DESCRIPTION"
-	ComponentPropertyCategories   ComponentProperty = "CATEGORIES"
-	ComponentPropertyClass        ComponentProperty = "CLASS"
+	ComponentPropertyDescription  ComponentProperty = "DESCRIPTION" // TEXT
+	ComponentPropertyCategories   ComponentProperty = "CATEGORIES"  // TEXT
+	ComponentPropertyClass        ComponentProperty = "CLASS"       // TEXT
 	ComponentPropertyCreated      ComponentProperty = "CREATED"
-	ComponentPropertySummary      ComponentProperty = "SUMMARY"
+	ComponentPropertySummary      ComponentProperty = "SUMMARY" // TEXT
 	ComponentPropertyDtStart      ComponentProperty = "DTSTART"
 	ComponentPropertyDtEnd        ComponentProperty = "DTEND"
-	ComponentPropertyLocation     ComponentProperty = "LOCATION"
-	ComponentPropertyStatus       ComponentProperty = "STATUS"
+	ComponentPropertyLocation     ComponentProperty = "LOCATION" // TEXT
+	ComponentPropertyStatus       ComponentProperty = "STATUS"   // TEXT
 	ComponentPropertyFreebusy     ComponentProperty = "FREEBUSY"
 	ComponentPropertyLastModified ComponentProperty = "LAST-MODIFIED"
 	ComponentPropertyUrl          ComponentProperty = "URL"
@@ -48,56 +48,56 @@ const (
 type Property string
 
 const (
-	PropertyCalscale        Property = "CALSCALE"
-	PropertyMethod          Property = "METHOD"
-	PropertyProductId       Property = "PRODID"
-	PropertyVersion         Property = "VERSION"
+	PropertyCalscale        Property = "CALSCALE" // TEXT
+	PropertyMethod          Property = "METHOD"   // TEXT
+	PropertyProductId       Property = "PRODID"   // TEXT
+	PropertyVersion         Property = "VERSION"  // TEXT
 	PropertyXPublishedTTL   Property = "X-PUBLISHED-TTL"
 	PropertyRefreshInterval Property = "REFRESH-INTERVAL;VALUE=DURATION"
 	PropertyAttach          Property = "ATTACH"
-	PropertyCategories      Property = "CATEGORIES"
-	PropertyClass           Property = "CLASS"
-	PropertyComment         Property = "COMMENT"
-	PropertyDescription     Property = "DESCRIPTION"
+	PropertyCategories      Property = "CATEGORIES"  // TEXT
+	PropertyClass           Property = "CLASS"       // TEXT
+	PropertyComment         Property = "COMMENT"     // TEXT
+	PropertyDescription     Property = "DESCRIPTION" // TEXT
 	PropertyXWRCalDesc      Property = "X-WR-CALDESC"
 	PropertyGeo             Property = "GEO"
-	PropertyLocation        Property = "LOCATION"
+	PropertyLocation        Property = "LOCATION" // TEXT
 	PropertyPercentComplete Property = "PERCENT-COMPLETE"
 	PropertyPriority        Property = "PRIORITY"
-	PropertyResources       Property = "RESOURCES"
-	PropertyStatus          Property = "STATUS"
-	PropertySummary         Property = "SUMMARY"
+	PropertyResources       Property = "RESOURCES" // TEXT
+	PropertyStatus          Property = "STATUS"    // TEXT
+	PropertySummary         Property = "SUMMARY"   // TEXT
 	PropertyCompleted       Property = "COMPLETED"
 	PropertyDtend           Property = "DTEND"
 	PropertyDue             Property = "DUE"
 	PropertyDtstart         Property = "DTSTART"
 	PropertyDuration        Property = "DURATION"
 	PropertyFreebusy        Property = "FREEBUSY"
-	PropertyTransp          Property = "TRANSP"
-	PropertyTzid            Property = "TZID"
-	PropertyTzname          Property = "TZNAME"
+	PropertyTransp          Property = "TRANSP" // TEXT
+	PropertyTzid            Property = "TZID"   // TEXT
+	PropertyTzname          Property = "TZNAME" // TEXT
 	PropertyTzoffsetfrom    Property = "TZOFFSETFROM"
 	PropertyTzoffsetto      Property = "TZOFFSETTO"
 	PropertyTzurl           Property = "TZURL"
 	PropertyAttendee        Property = "ATTENDEE"
-	PropertyContact         Property = "CONTACT"
+	PropertyContact         Property = "CONTACT" // TEXT
 	PropertyOrganizer       Property = "ORGANIZER"
 	PropertyRecurrenceId    Property = "RECURRENCE-ID"
-	PropertyRelatedTo       Property = "RELATED-TO"
+	PropertyRelatedTo       Property = "RELATED-TO" // TEXT
 	PropertyUrl             Property = "URL"
-	PropertyUid             Property = "UID"
+	PropertyUid             Property = "UID" // TEXT
 	PropertyExdate          Property = "EXDATE"
 	PropertyExrule          Property = "EXRULE"
 	PropertyRdate           Property = "RDATE"
 	PropertyRrule           Property = "RRULE"
-	PropertyAction          Property = "ACTION"
+	PropertyAction          Property = "ACTION" // TEXT
 	PropertyRepeat          Property = "REPEAT"
 	PropertyTrigger         Property = "TRIGGER"
 	PropertyCreated         Property = "CREATED"
 	PropertyDtstamp         Property = "DTSTAMP"
 	PropertyLastModified    Property = "LAST-MODIFIED"
 	PropertySequence        Property = "SEQUENCE"
-	PropertyRequestStatus   Property = "REQUEST-STATUS"
+	PropertyRequestStatus   Property = "REQUEST-STATUS" // TEXT
 	PropertyName            Property = "NAME"
 	PropertyXWRCalName      Property = "X-WR-CALNAME"
 )
@@ -199,7 +199,7 @@ const (
 )
 
 func (ps ObjectStatus) KeyValue(s ...interface{}) (string, []string) {
-	return string(PropertyStatus), []string{string(ps)}
+	return string(PropertyStatus), []string{ToText(string(ps))}
 }
 
 type RelationshipType string
@@ -286,7 +286,7 @@ func (calendar *Calendar) Serialize() string {
 }
 
 func (calendar *Calendar) SetMethod(method Method, props ...PropertyParameter) {
-	calendar.setProperty(PropertyMethod, string(method), props...)
+	calendar.setProperty(PropertyMethod, ToText(string(method)), props...)
 }
 
 func (calendar *Calendar) SetXPublishedTTL(s string, props ...PropertyParameter) {
@@ -294,11 +294,11 @@ func (calendar *Calendar) SetXPublishedTTL(s string, props ...PropertyParameter)
 }
 
 func (calendar *Calendar) SetVersion(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyVersion, string(s), props...)
+	calendar.setProperty(PropertyVersion, ToText(s), props...)
 }
 
 func (calendar *Calendar) SetProductId(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyProductId, string(s), props...)
+	calendar.setProperty(PropertyProductId, ToText(s), props...)
 }
 
 func (calendar *Calendar) SetName(s string, props ...PropertyParameter) {
@@ -314,7 +314,7 @@ func (calendar *Calendar) SetXWRCalDesc(s string, props ...PropertyParameter) {
 }
 
 func (calendar *Calendar) SetDescription(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyDescription, string(s), props...)
+	calendar.setProperty(PropertyDescription, ToText(s), props...)
 }
 
 func (calendar *Calendar) SetLastModified(t time.Time, props ...PropertyParameter) {
@@ -354,7 +354,7 @@ func (calendar *Calendar) AddEvent(id string) *VEvent {
 	e := &VEvent{
 		ComponentBase{
 			Properties: []IANAProperty{
-				IANAProperty{BaseProperty{IANAToken: string(ComponentPropertyUniqueId), Value: id}},
+				IANAProperty{BaseProperty{IANAToken: ToText(string(ComponentPropertyUniqueId)), Value: id}},
 			},
 		},
 	}
