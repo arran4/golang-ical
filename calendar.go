@@ -43,6 +43,7 @@ const (
 	ComponentPropertyFreebusy     ComponentProperty = "FREEBUSY"
 	ComponentPropertyLastModified ComponentProperty = "LAST-MODIFIED"
 	ComponentPropertyUrl          ComponentProperty = "URL"
+	ComponentPropertyGeo          ComponentProperty = "GEO"
 )
 
 type Property string
