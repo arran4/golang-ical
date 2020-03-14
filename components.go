@@ -133,7 +133,7 @@ func (event *VEvent) SetLocation(s string, props ...PropertyParameter) {
 }
 
 func (event *VEvent) SetGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyGeo, ToText(fmt.Sprintf("%v;%v", lat, lng)), props...)
+	event.SetProperty(ComponentPropertyGeo, fmt.Sprintf("%v;%v", lat, lng), props...)
 }
 
 func (event *VEvent) SetURL(s string, props ...PropertyParameter) {
