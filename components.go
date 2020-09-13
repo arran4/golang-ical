@@ -86,6 +86,17 @@ func (event *VEvent) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalAllDayTimeFormat), props...)
 }
 
+type TimeTransparency string
+
+const (
+	TransparencyOpaque      TimeTransparency = "OPAQUE" // default
+	TransparencyTransparent TimeTransparency = "TRANSPARENT"
+)
+
+func (event *VEvent) SetTimeTransparency(v TimeTransparency, props ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyTransp, string(v), props...)
+}
+
 func (event *VEvent) SetProperty(property ComponentProperty, value string, props ...PropertyParameter) {
 	for i := range event.Properties {
 		if event.Properties[i].IANAToken == string(property) {

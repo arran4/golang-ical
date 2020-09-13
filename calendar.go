@@ -23,27 +23,28 @@ const (
 	ComponentDaylight  ComponentType = "DAYLIGHT"
 )
 
-type ComponentProperty string
+type ComponentProperty Property
 
 const (
-	ComponentPropertyUniqueId     ComponentProperty = "UID" // TEXT
-	ComponentPropertyDtstamp      ComponentProperty = "DTSTAMP"
-	ComponentPropertyOrganizer    ComponentProperty = "ORGANIZER"
-	ComponentPropertyAttendee     ComponentProperty = "ATTENDEE"
-	ComponentPropertyAttach       ComponentProperty = "ATTACH"
-	ComponentPropertyDescription  ComponentProperty = "DESCRIPTION" // TEXT
-	ComponentPropertyCategories   ComponentProperty = "CATEGORIES"  // TEXT
-	ComponentPropertyClass        ComponentProperty = "CLASS"       // TEXT
-	ComponentPropertyCreated      ComponentProperty = "CREATED"
-	ComponentPropertySummary      ComponentProperty = "SUMMARY" // TEXT
-	ComponentPropertyDtStart      ComponentProperty = "DTSTART"
-	ComponentPropertyDtEnd        ComponentProperty = "DTEND"
-	ComponentPropertyLocation     ComponentProperty = "LOCATION" // TEXT
-	ComponentPropertyStatus       ComponentProperty = "STATUS"   // TEXT
-	ComponentPropertyFreebusy     ComponentProperty = "FREEBUSY"
-	ComponentPropertyLastModified ComponentProperty = "LAST-MODIFIED"
-	ComponentPropertyUrl          ComponentProperty = "URL"
-	ComponentPropertyGeo          ComponentProperty = "GEO"
+	ComponentPropertyUniqueId     = ComponentProperty(PropertyUid) // TEXT
+	ComponentPropertyDtstamp      = ComponentProperty(PropertyDtstamp)
+	ComponentPropertyOrganizer    = ComponentProperty(PropertyOrganizer)
+	ComponentPropertyAttendee     = ComponentProperty(PropertyAttendee)
+	ComponentPropertyAttach       = ComponentProperty(PropertyAttach)
+	ComponentPropertyDescription  = ComponentProperty(PropertyDescription) // TEXT
+	ComponentPropertyCategories   = ComponentProperty(PropertyCategories)  // TEXT
+	ComponentPropertyClass        = ComponentProperty(PropertyClass)       // TEXT
+	ComponentPropertyCreated      = ComponentProperty(PropertyCreated)
+	ComponentPropertySummary      = ComponentProperty(PropertySummary) // TEXT
+	ComponentPropertyDtStart      = ComponentProperty(PropertyDtstart)
+	ComponentPropertyDtEnd        = ComponentProperty(PropertyDtend)
+	ComponentPropertyLocation     = ComponentProperty(PropertyLocation) // TEXT
+	ComponentPropertyStatus       = ComponentProperty(PropertyStatus)   // TEXT
+	ComponentPropertyFreebusy     = ComponentProperty(PropertyFreebusy)
+	ComponentPropertyLastModified = ComponentProperty(PropertyLastModified)
+	ComponentPropertyUrl          = ComponentProperty(PropertyUrl)
+	ComponentPropertyGeo          = ComponentProperty(PropertyGeo)
+	ComponentPropertyTransp       = ComponentProperty(PropertyTransp)
 )
 
 type Property string
