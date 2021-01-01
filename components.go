@@ -70,6 +70,10 @@ func (event *VEvent) SetModifiedAt(t time.Time, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimeFormat), props...)
 }
 
+func (event *VEvent) SetSequence(seq int, props ...PropertyParameter) {
+	event.SetProperty(ComponentPropertySequence, strconv.Itoa(seq), props...)
+}
+
 func (event *VEvent) SetStartAt(t time.Time, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalTimeFormat), props...)
 }
