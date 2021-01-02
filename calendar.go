@@ -99,7 +99,6 @@ const (
 	PropertyCreated         Property = "CREATED"
 	PropertyDtstamp         Property = "DTSTAMP"
 	PropertyLastModified    Property = "LAST-MODIFIED"
-	PropertySequence        Property = "SEQUENCE"
 	PropertyRequestStatus   Property = "REQUEST-STATUS" // TEXT
 	PropertyName            Property = "NAME"
 	PropertyXWRCalName      Property = "X-WR-CALNAME"
