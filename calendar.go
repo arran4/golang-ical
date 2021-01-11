@@ -357,7 +357,7 @@ func (calendar *Calendar) AddEvent(id string) *VEvent {
 	e := &VEvent{
 		ComponentBase{
 			Properties: []IANAProperty{
-				IANAProperty{BaseProperty{IANAToken: ToText(string(ComponentPropertyUniqueId)), Value: id}},
+				{BaseProperty{IANAToken: ToText(string(ComponentPropertyUniqueId)), Value: id}},
 			},
 		},
 	}
