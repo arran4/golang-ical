@@ -476,7 +476,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 	for c {
 		var b []byte
 		b, err = cs.b.ReadBytes('\n')
-		if b == nil || len(b) == 0 {
+		if len(b) == 0 {
 			if err == nil {
 				continue
 			} else {
