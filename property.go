@@ -172,7 +172,6 @@ func ParseProperty(contentLine ContentLine) *BaseProperty {
 			return nil
 		}
 	}
-	return nil
 }
 
 func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProperty, int) {
@@ -207,7 +206,6 @@ func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProper
 			return r, p
 		}
 	}
-	return nil, p
 }
 
 func parsePropertyValue(r *BaseProperty, contentLine string, p int) *BaseProperty {
