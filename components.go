@@ -195,7 +195,7 @@ func (attendee *Attendee) ParticipationStatus() ParticipationStatus {
 
 func (attendee *Attendee) getPropertyFirst(parameter Parameter) string {
 	vs := attendee.getProperty(parameter)
-	if vs != nil && len(vs) > 0 {
+	if len(vs) > 0 {
 		return vs[0]
 	}
 	return ""

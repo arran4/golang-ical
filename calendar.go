@@ -357,7 +357,7 @@ func (calendar *Calendar) AddEvent(id string) *VEvent {
 	e := &VEvent{
 		ComponentBase{
 			Properties: []IANAProperty{
-				IANAProperty{BaseProperty{IANAToken: ToText(string(ComponentPropertyUniqueId)), Value: id}},
+				{BaseProperty{IANAToken: ToText(string(ComponentPropertyUniqueId)), Value: id}},
 			},
 		},
 	}
@@ -476,7 +476,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 	for c {
 		var b []byte
 		b, err = cs.b.ReadBytes('\n')
-		if b == nil || len(b) == 0 {
+		if len(b) == 0 {
 			if err == nil {
 				continue
 			} else {
@@ -495,7 +495,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			if len(p) == 0 {
 				c = false
 			} else if p[0] == ' ' {
-				cs.b.Discard(1)
+				cs.b.Discard(1) // nolint:errcheck
 			} else {
 				c = false
 			}
