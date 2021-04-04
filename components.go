@@ -160,8 +160,28 @@ func (event *VEvent) SetOrganizer(s string, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyOrganizer, s, props...)
 }
 
+func (event *VEvent) SetClass(c Classification, props ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyClass, string(c), props...)
+}
+
 func (event *VEvent) AddAttendee(s string, props ...PropertyParameter) {
 	event.AddProperty(ComponentPropertyAttendee, "mailto:"+s, props...)
+}
+
+func (event *VEvent) AddExdate(s string, props ...PropertyParameter) {
+	event.AddProperty(ComponentPropertyExdate, s, props...)
+}
+
+func (event *VEvent) AddExrule(s string, props ...PropertyParameter) {
+	event.AddProperty(ComponentPropertyExrule, s, props...)
+}
+
+func (event *VEvent) AddRdate(s string, props ...PropertyParameter) {
+	event.AddProperty(ComponentPropertyRdate, s, props...)
+}
+
+func (event *VEvent) AddRrule(s string, props ...PropertyParameter) {
+	event.AddProperty(ComponentPropertyRrule, s, props...)
 }
 
 func (event *VEvent) AddAttachment(s string, props ...PropertyParameter) {
@@ -239,6 +259,25 @@ func (event *VEvent) GetProperty(componentProperty ComponentProperty) *IANAPrope
 	return nil
 }
 
+func (event *VEvent) AddAlarm() *VAlarm {
+	a := &VAlarm{
+		ComponentBase: ComponentBase{},
+	}
+	event.Components = append(event.Components, a)
+	return a
+}
+
+func (event *VEvent) Alarms() (r []*VAlarm) {
+	r = []*VAlarm{}
+	for i := range event.Components {
+		switch alarm := event.Components[i].(type) {
+		case *VAlarm:
+			r = append(r, alarm)
+		}
+	}
+	return
+}
+
 type VTodo struct {
 	ComponentBase
 }
@@ -307,6 +346,44 @@ func (c *VAlarm) Serialize() string {
 
 func (c *VAlarm) serialize(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "VALARM")
+}
+
+func (alarm *VAlarm) SetProperty(property ComponentProperty, value string, props ...PropertyParameter) {
+	for i := range alarm.Properties {
+		if alarm.Properties[i].IANAToken == string(property) {
+			alarm.Properties[i].Value = value
+			alarm.Properties[i].ICalParameters = map[string][]string{}
+			for _, p := range props {
+				k, v := p.KeyValue()
+				alarm.Properties[i].ICalParameters[k] = v
+			}
+			return
+		}
+	}
+	alarm.AddProperty(property, value, props...)
+}
+
+func (alarm *VAlarm) AddProperty(property ComponentProperty, value string, props ...PropertyParameter) {
+	r := IANAProperty{
+		BaseProperty{
+			IANAToken:      string(property),
+			Value:          value,
+			ICalParameters: map[string][]string{},
+		},
+	}
+	for _, p := range props {
+		k, v := p.KeyValue()
+		r.ICalParameters[k] = v
+	}
+	alarm.Properties = append(alarm.Properties, r)
+}
+
+func (alarm *VAlarm) SetAction(a Action, props ...PropertyParameter) {
+	alarm.SetProperty(ComponentPropertyAction, string(a), props...)
+}
+
+func (alarm *VAlarm) SetTrigger(s string, props ...PropertyParameter) {
+	alarm.SetProperty(ComponentPropertyTrigger, s, props...)
 }
 
 type Standard struct {
