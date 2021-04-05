@@ -46,6 +46,12 @@ const (
 	ComponentPropertyGeo          = ComponentProperty(PropertyGeo)
 	ComponentPropertyTransp       = ComponentProperty(PropertyTransp)
 	ComponentPropertySequence     = ComponentProperty(PropertySequence)
+	ComponentPropertyExdate       = ComponentProperty(PropertyExdate)
+	ComponentPropertyExrule       = ComponentProperty(PropertyExrule)
+	ComponentPropertyRdate        = ComponentProperty(PropertyRdate)
+	ComponentPropertyRrule        = ComponentProperty(PropertyRrule)
+	ComponentPropertyAction       = ComponentProperty(PropertyAction)
+	ComponentPropertyTrigger      = ComponentProperty(PropertyTrigger)
 )
 
 type Property string
@@ -102,6 +108,7 @@ const (
 	PropertyRequestStatus   Property = "REQUEST-STATUS" // TEXT
 	PropertyName            Property = "NAME"
 	PropertyXWRCalName      Property = "X-WR-CALNAME"
+	PropertyXWRTimezone     Property = "X-WR-TIMEZONE"
 	PropertySequence        Property = "SEQUENCE"
 )
 
@@ -316,6 +323,10 @@ func (calendar *Calendar) SetXWRCalDesc(s string, props ...PropertyParameter) {
 	calendar.setProperty(PropertyXWRCalDesc, string(s), props...)
 }
 
+func (calendar *Calendar) SetXWRTimezone(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyXWRTimezone, string(s), props...)
+}
+
 func (calendar *Calendar) SetDescription(s string, props ...PropertyParameter) {
 	calendar.setProperty(PropertyDescription, ToText(s), props...)
 }
@@ -326,6 +337,14 @@ func (calendar *Calendar) SetLastModified(t time.Time, props ...PropertyParamete
 
 func (calendar *Calendar) SetRefreshInterval(s string, props ...PropertyParameter) {
 	calendar.setProperty(PropertyRefreshInterval, string(s), props...)
+}
+
+func (calendar *Calendar) SetCalscale(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyCalscale, string(s), props...)
+}
+
+func (calendar *Calendar) SetTzid(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyTzid, string(s), props...)
 }
 
 func (calendar *Calendar) setProperty(property Property, value string, props ...PropertyParameter) {
