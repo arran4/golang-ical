@@ -160,6 +160,10 @@ func (event *VEvent) SetOrganizer(s string, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyOrganizer, s, props...)
 }
 
+func (event *VEvent) SetColor(s string, props ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyColor, s, props...)
+}
+
 func (event *VEvent) SetClass(c Classification, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyClass, string(c), props...)
 }

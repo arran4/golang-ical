@@ -34,6 +34,7 @@ const (
 	ComponentPropertyDescription  = ComponentProperty(PropertyDescription) // TEXT
 	ComponentPropertyCategories   = ComponentProperty(PropertyCategories)  // TEXT
 	ComponentPropertyClass        = ComponentProperty(PropertyClass)       // TEXT
+	ComponentPropertyColor        = ComponentProperty(PropertyColor)       // TEXT
 	ComponentPropertyCreated      = ComponentProperty(PropertyCreated)
 	ComponentPropertySummary      = ComponentProperty(PropertySummary) // TEXT
 	ComponentPropertyDtStart      = ComponentProperty(PropertyDtstart)
@@ -66,6 +67,7 @@ const (
 	PropertyAttach          Property = "ATTACH"
 	PropertyCategories      Property = "CATEGORIES"  // TEXT
 	PropertyClass           Property = "CLASS"       // TEXT
+	PropertyColor           Property = "COLOR"       // TEXT
 	PropertyComment         Property = "COMMENT"     // TEXT
 	PropertyDescription     Property = "DESCRIPTION" // TEXT
 	PropertyXWRCalDesc      Property = "X-WR-CALDESC"
@@ -313,6 +315,10 @@ func (calendar *Calendar) SetProductId(s string, props ...PropertyParameter) {
 
 func (calendar *Calendar) SetName(s string, props ...PropertyParameter) {
 	calendar.setProperty(PropertyName, string(s), props...)
+}
+
+func (calendar *Calendar) SetColor(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyColor, string(s), props...)
 }
 
 func (calendar *Calendar) SetXWRCalName(s string, props ...PropertyParameter) {
