@@ -1,6 +1,10 @@
 package ics
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestPropertyParse(t *testing.T) {
 	tests := []struct {
@@ -15,12 +19,8 @@ func TestPropertyParse(t *testing.T) {
 		}},
 		{Input: "ATTENDEE;RSVP=T\"RUE\";ROLE=REQ-PARTICIPANT;CUTYPE=GROUP:mailto:employee-A@example.com", Expected: func(output *BaseProperty) bool { return output == nil }},
 	}
-	for i, test := range tests {
+	for _, test := range tests {
 		output := ParseProperty(ContentLine(test.Input))
-		if !test.Expected(output) {
-			t.Logf("Got: %#v", output)
-			t.Logf("Failed %d %#v", i, test)
-			t.Fail()
-		}
+		assert.True(t, test.Expected(output))
 	}
 }
