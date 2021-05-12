@@ -2,8 +2,8 @@ package ics
 
 import (
 	"io"
-	"io/fs"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -66,7 +66,7 @@ CLASS:PUBLIC
 func TestRfc5545Sec4Examples(t *testing.T) {
 	rnReplace := regexp.MustCompile("\r?\n")
 
-	err := filepath.Walk("./testdata/rfc5545sec4/", func(path string, info fs.FileInfo, _ error) error {
+	err := filepath.Walk("./testdata/rfc5545sec4/", func(path string, info os.FileInfo, _ error) error {
 		if info.IsDir() {
 			return nil
 		}
