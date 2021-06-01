@@ -275,26 +275,35 @@ type Calendar struct {
 }
 
 func NewCalendar() *Calendar {
+	return NewCalendarFor("arran4")
+}
+
+func NewCalendarFor(service string) *Calendar {
 	c := &Calendar{
 		Components:         []Component{},
 		CalendarProperties: []CalendarProperty{},
 	}
 	c.SetVersion("2.0")
-	c.SetProductId("-//Arran Ubels//Golang ICS library")
+	c.SetProductId("-//" + service + "//Golang ICS Library")
 	return c
 }
 
 func (calendar *Calendar) Serialize() string {
 	b := bytes.NewBufferString("")
-	fmt.Fprint(b, "BEGIN:VCALENDAR", "\r\n")
+	calendar.SerializeTo(b)
+	return b.String()
+}
+
+func (calendar *Calendar) SerializeTo(w io.Writer) error {
+	fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
 	for _, p := range calendar.CalendarProperties {
-		p.serialize(b)
+		p.serialize(w)
 	}
 	for _, c := range calendar.Components {
-		c.serialize(b)
+		c.serialize(w)
 	}
-	fmt.Fprint(b, "END:VCALENDAR", "\r\n")
-	return b.String()
+	fmt.Fprint(w, "END:VCALENDAR", "\r\n")
+	return nil
 }
 
 func (calendar *Calendar) SetMethod(method Method, props ...PropertyParameter) {
