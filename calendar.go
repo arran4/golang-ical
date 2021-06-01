@@ -275,7 +275,7 @@ type Calendar struct {
 }
 
 func NewCalendar() *Calendar {
-	return NewCalendarFor("Arran Ubels")
+	return NewCalendarFor("arran4")
 }
 
 func NewCalendarFor(service string) *Calendar {
@@ -284,7 +284,7 @@ func NewCalendarFor(service string) *Calendar {
 		CalendarProperties: []CalendarProperty{},
 	}
 	c.SetVersion("2.0")
-	c.SetProductId("-//" + service + "//Golang ICS library")
+	c.SetProductId("-//" + service + "//Golang ICS Library")
 	return c
 }
 
