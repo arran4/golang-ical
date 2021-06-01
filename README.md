@@ -23,6 +23,7 @@ Creating:
   event.SetLocation("Address")
   event.SetDescription("Description")
   event.SetURL("https://URL/")
+  event.AddRrule(fmt.Sprintf("FREQ=YEARLY;BYMONTH=%d;BYMONTHDAY=%d", time.Now().Month(), time.Now().Day()))
   event.SetOrganizer("sender@domain", ics.WithCN("This Machine"))
   event.AddAttendee("reciever or participant", ics.CalendarUserTypeIndividual, ics.ParticipationStatusNeedsAction, ics.ParticipationRoleReqParticipant, ics.WithRSVP(true))
   return cal.Serialize()
