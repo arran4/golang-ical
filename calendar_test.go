@@ -95,7 +95,8 @@ func TestRfc5545Sec4Examples(t *testing.T) {
 	}
 }
 
-func TestLineFolding(t *testing.T) {
+//Is that what this is actually testing?
+func TestCreatesUTF8String(t *testing.T) {
 	c := NewCalendar()
 	// Repeating a string that contains long runes (size > 1 byte)
 	// 75 time to be sure that line folding is needed.
@@ -103,4 +104,61 @@ func TestLineFolding(t *testing.T) {
 	c.SetDescription(strings.Repeat("世界", runesToOverflowLine))
 	text := c.Serialize()
 	assert.True(t, utf8.ValidString(text), "Serialized .ics calendar isn't valid UTF-8 string")
+}
+
+func TestLineFolding(t *testing.T) {
+	testCases := []struct {
+		name   string
+		input  string
+		output string
+	}{
+		{
+			name:  "fold lines at nearest space",
+			input: "some really long line with spaces to fold on and the line should fold",
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:some really long line with spaces to fold on and the line
+ should fold
+END:VCALENDAR
+`,
+		},
+		{
+			name:  "fold lines if no space",
+			input: "somereallylonglinewithnospacestofoldonandthelineshouldfoldtothenextline",
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:somereallylonglinewithnospacestofoldonandthelineshouldfoldtothe
+nextline
+END:VCALENDAR
+`,
+		},
+		{
+			name:  "fold lines at nearest space",
+			input: "some really long line with spaces howeverthelastpartofthelineisactuallytoolongtofitonsowehavetofoldpartwaythrough",
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:some really long line with spaces
+ howeverthelastpartofthelineisactuallytoolongtofitonsowehavetofoldpartwayt
+hrough
+END:VCALENDAR
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := NewCalendar()
+			// Repeating a string that contains long runes (size > 1 byte)
+			// 75 time to be sure that line folding is needed.
+			const runesToOverflowLine = 75
+			c.SetDescription(tc.input)
+			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
+			text := strings.Replace(c.Serialize(), "\r\n", "\n", -1)
+
+			assert.Equal(t, tc.output, text)
+		})
+	}
 }

@@ -67,13 +67,22 @@ func WithRSVP(b bool) PropertyParameter {
 
 func trimUT8StringUpTo(maxLength int, s string) string {
 	length := 0
-	for _, r := range s {
+	lastSpace := -1
+	for i, r := range s {
+		if r == ' ' {
+			lastSpace = i
+		}
+
 		newLength := length + utf8.RuneLen(r)
 		if newLength > maxLength {
 			break
 		}
 		length = newLength
 	}
+	if lastSpace > 0 {
+		return s[:lastSpace]
+	}
+
 	return s[:length]
 }
 
@@ -102,13 +111,11 @@ func (property *BaseProperty) serialize(w io.Writer) {
 		l := trimUT8StringUpTo(75, r)
 		fmt.Fprint(w, l, "\r\n")
 		r = r[len(l):]
-		fmt.Fprint(w, " ")
 	}
 	for len(r) > 74 {
 		l := trimUT8StringUpTo(74, r)
 		fmt.Fprint(w, l, "\r\n")
 		r = r[len(l):]
-		fmt.Fprint(w, " ")
 	}
 	fmt.Fprint(w, r, "\r\n")
 }
