@@ -91,6 +91,31 @@ func (event *VEvent) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalAllDayTimeFormat), props...)
 }
 
+func (event *VEvent) getTimeProp(componentProperty ComponentProperty, tFormat string) (time.Time, error) {
+	timeProp := event.GetProperty(componentProperty)
+	if timeProp == nil {
+		return time.Time{}, errors.New("property not found")
+	}
+	timeVal := timeProp.BaseProperty.Value
+	return time.Parse(tFormat, timeVal)
+}
+
+func (event *VEvent) GetStartAt() (time.Time, error) {
+	return event.getTimeProp(ComponentPropertyDtStart, icalTimeFormat)
+}
+
+func (event *VEvent) GetEndAt() (time.Time, error) {
+	return event.getTimeProp(ComponentPropertyDtEnd, icalTimeFormat)
+}
+
+func (event *VEvent) GetAllDayStartAt() (time.Time, error) {
+	return event.getTimeProp(ComponentPropertyDtStart, icalAllDayTimeFormat)
+}
+
+func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
+	return event.getTimeProp(ComponentPropertyDtEnd, icalAllDayTimeFormat)
+}
+
 type TimeTransparency string
 
 const (
