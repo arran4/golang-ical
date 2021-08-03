@@ -112,7 +112,7 @@ const (
 	PropertyXWRCalName      Property = "X-WR-CALNAME"
 	PropertyXWRTimezone     Property = "X-WR-TIMEZONE"
 	PropertySequence        Property = "SEQUENCE"
-	PropertyXWRCalID      	Property = "X-WR-RELCALID"
+	PropertyXWRCalID        Property = "X-WR-RELCALID"
 )
 
 type Parameter string
@@ -276,7 +276,7 @@ type Calendar struct {
 }
 
 func NewCalendar() *Calendar {
-	return NewCalendarFor("arran4")
+	return NewCalendarFor("johnjones4")
 }
 
 func NewCalendarFor(service string) *Calendar {

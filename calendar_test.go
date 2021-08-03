@@ -117,7 +117,7 @@ func TestLineFolding(t *testing.T) {
 			input: "some really long line with spaces to fold on and the line should fold",
 			output: `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//arran4//Golang ICS Library
+PRODID:-//johnjones4//Golang ICS Library
 DESCRIPTION:some really long line with spaces to fold on and the line
  should fold
 END:VCALENDAR
@@ -128,7 +128,7 @@ END:VCALENDAR
 			input: "somereallylonglinewithnospacestofoldonandthelineshouldfoldtothenextline",
 			output: `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//arran4//Golang ICS Library
+PRODID:-//johnjones4//Golang ICS Library
 DESCRIPTION:somereallylonglinewithnospacestofoldonandthelineshouldfoldtothe
 nextline
 END:VCALENDAR
@@ -139,7 +139,7 @@ END:VCALENDAR
 			input: "some really long line with spaces howeverthelastpartofthelineisactuallytoolongtofitonsowehavetofoldpartwaythrough",
 			output: `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//arran4//Golang ICS Library
+PRODID:-//johnjones4//Golang ICS Library
 DESCRIPTION:some really long line with spaces
  howeverthelastpartofthelineisactuallytoolongtofitonsowehavetofoldpartwayt
 hrough

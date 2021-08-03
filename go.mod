@@ -1,4 +1,4 @@
-module github.com/arran4/golang-ical
+module github.com/johnjones4/golang-ical
 
 go 1.13
 
