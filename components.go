@@ -101,19 +101,19 @@ func (event *VEvent) getTimeProp(componentProperty ComponentProperty, tFormat st
 }
 
 func (event *VEvent) GetStartAt() (time.Time, error) {
-	return event.GetTimeProp(ComponentPropertyDtStart, icalTimeFormat)
+	return event.getTimeProp(ComponentPropertyDtStart, icalTimeFormat)
 }
 
 func (event *VEvent) GetEndAt() (time.Time, error) {
-	return event.GetTimeProp(ComponentPropertyDtEnd, icalTimeFormat)
+	return event.getTimeProp(ComponentPropertyDtEnd, icalTimeFormat)
 }
 
 func (event *VEvent) GetAllDayStartAt() (time.Time, error) {
-	return event.GetTimeProp(ComponentPropertyDtStart, icalAllDayTimeFormat)
+	return event.getTimeProp(ComponentPropertyDtStart, icalAllDayTimeFormat)
 }
 
 func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
-	return event.GetTimeProp(ComponentPropertyDtEnd, icalAllDayTimeFormat)
+	return event.getTimeProp(ComponentPropertyDtEnd, icalAllDayTimeFormat)
 }
 
 type TimeTransparency string
