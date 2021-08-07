@@ -112,7 +112,7 @@ const (
 	PropertyXWRCalName      Property = "X-WR-CALNAME"
 	PropertyXWRTimezone     Property = "X-WR-TIMEZONE"
 	PropertySequence        Property = "SEQUENCE"
-	PropertyXWRCalID      	Property = "X-WR-RELCALID"
+	PropertyXWRCalID        Property = "X-WR-RELCALID"
 )
 
 type Parameter string
@@ -291,7 +291,8 @@ func NewCalendarFor(service string) *Calendar {
 
 func (calendar *Calendar) Serialize() string {
 	b := bytes.NewBufferString("")
-	calendar.SerializeTo(b)
+	// We are intentionally ignoring the return value. _ used to communicate this to lint.
+	_ = calendar.SerializeTo(b)
 	return b.String()
 }
 

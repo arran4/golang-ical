@@ -154,6 +154,7 @@ END:VCALENDAR
 			// Repeating a string that contains long runes (size > 1 byte)
 			// 75 time to be sure that line folding is needed.
 			const runesToOverflowLine = 75
+			assert.Greaterf(t, len("DESCRIPTION:"+tc.input), runesToOverflowLine, "Test data has issue")
 			c.SetDescription(tc.input)
 			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
 			text := strings.Replace(c.Serialize(), "\r\n", "\n", -1)
