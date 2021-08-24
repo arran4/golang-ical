@@ -603,6 +603,9 @@ func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase,
 		}
 		line := ParseProperty(*l)
 		if line == nil {
+			if strings.HasPrefix(string(*l), "X-") {
+				continue
+			}
 			return cb, errors.New("Error parsing line")
 		}
 		switch line.IANAToken {

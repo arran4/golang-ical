@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -435,6 +436,9 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 		}
 		line := ParseProperty(*l)
 		if line == nil {
+			if strings.HasPrefix(string(*l), "X-") {
+				continue
+			}
 			return nil, errors.New("Error parsing line")
 		}
 		switch state {
@@ -534,7 +538,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			}
 			if len(p) == 0 {
 				c = false
-			} else if p[0] == ' ' {
+			} else if p[0] == ' ' || p[0] == '\t' {
 				cs.b.Discard(1) // nolint:errcheck
 			} else {
 				c = false

@@ -163,3 +163,65 @@ END:VCALENDAR
 		})
 	}
 }
+
+func TestParseCalendar(t *testing.T){
+	testCases := []struct {
+		name   string
+		input  string
+		output string
+	}{
+		{
+			name:  "test custom fields in calendar",
+			input: `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM_FIELD:test
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+END:VCALENDAR
+`,
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+END:VCALENDAR
+`,
+		},
+		{
+			name:  "test multiline description",
+			input: `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM_FIELD:test
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+BEGIN:VEVENT
+X-CUSTOM_FIELD: test
+DESCRIPTION:blablablablablablablablablablablablablablablabl
+	testtesttest
+CLASS:PUBLIC
+END:VEVENT
+END:VCALENDAR
+`,
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+BEGIN:VEVENT
+DESCRIPTION:blablablablablablablablablablablablablablablabltesttesttest
+CLASS:PUBLIC
+END:VEVENT
+END:VCALENDAR
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c,err := ParseCalendar(strings.NewReader(tc.input))
+			assert.NoError(t, err)
+
+			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
+			text := strings.Replace(c.Serialize(), "\r\n", "\n", -1)
+			assert.Equal(t, tc.output, text)
+		})
+	}
+}
