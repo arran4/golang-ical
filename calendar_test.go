@@ -119,7 +119,7 @@ func TestLineFolding(t *testing.T) {
 VERSION:2.0
 PRODID:-//arran4//Golang ICS Library
 DESCRIPTION:some really long line with spaces to fold on and the line
- should fold
+  should fold
 END:VCALENDAR
 `,
 		},
@@ -130,7 +130,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//arran4//Golang ICS Library
 DESCRIPTION:somereallylonglinewithnospacestofoldonandthelineshouldfoldtothe
-nextline
+ nextline
 END:VCALENDAR
 `,
 		},
@@ -141,8 +141,8 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//arran4//Golang ICS Library
 DESCRIPTION:some really long line with spaces
- howeverthelastpartofthelineisactuallytoolongtofitonsowehavetofoldpartwayt
-hrough
+  howeverthelastpartofthelineisactuallytoolongtofitonsowehavetofoldpartwayt
+ hrough
 END:VCALENDAR
 `,
 		},
