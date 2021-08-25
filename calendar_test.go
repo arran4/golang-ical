@@ -95,17 +95,6 @@ func TestRfc5545Sec4Examples(t *testing.T) {
 	}
 }
 
-//Is that what this is actually testing?
-func TestCreatesUTF8String(t *testing.T) {
-	c := NewCalendar()
-	// Repeating a string that contains long runes (size > 1 byte)
-	// 75 time to be sure that line folding is needed.
-	const runesToOverflowLine = 75
-	c.SetDescription(strings.Repeat("世界", runesToOverflowLine))
-	text := c.Serialize()
-	assert.True(t, utf8.ValidString(text), "Serialized .ics calendar isn't valid UTF-8 string")
-}
-
 func TestLineFolding(t *testing.T) {
 	testCases := []struct {
 		name   string
@@ -146,20 +135,39 @@ DESCRIPTION:some really long line with spaces
 END:VCALENDAR
 `,
 		},
+		{
+			name:  "75 chars line should not fold",
+			input: " this line is exactly 75 characters long with the property name",
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION: this line is exactly 75 characters long with the property name
+END:VCALENDAR
+`,
+		},
+		{
+			name: "runes should not be split",
+			// the 75 bytes mark is in the middle of a rune
+			input: "éé界世界世界世界世界世界世界世界世界世界世界世界世界",
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:éé界世界世界世界世界世界世界世界世界世界
+ 世界世界世界
+END:VCALENDAR
+`,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			c := NewCalendar()
-			// Repeating a string that contains long runes (size > 1 byte)
-			// 75 time to be sure that line folding is needed.
-			const runesToOverflowLine = 75
-			assert.Greaterf(t, len("DESCRIPTION:"+tc.input), runesToOverflowLine, "Test data has issue")
 			c.SetDescription(tc.input)
 			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
 			text := strings.Replace(c.Serialize(), "\r\n", "\n", -1)
 
 			assert.Equal(t, tc.output, text)
+			assert.True(t, utf8.ValidString(text), "Serialized .ics calendar isn't valid UTF-8 string")
 		})
 	}
 }
