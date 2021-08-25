@@ -111,14 +111,12 @@ func (property *BaseProperty) serialize(w io.Writer) {
 		l := trimUT8StringUpTo(75, r)
 		fmt.Fprint(w, l, "\r\n")
 		r = r[len(l):]
-	}
-	for len(r) > 74 {
-		l := trimUT8StringUpTo(74, r)
-		fmt.Fprint(w, " ", l, "\r\n")
-		r = r[len(l):]
-	}
-	// if the line was split insert an extra space
-	if b.Len() > 75 {
+
+		for len(r) > 74 {
+			l := trimUT8StringUpTo(74, r)
+			fmt.Fprint(w, " ", l, "\r\n")
+			r = r[len(l):]
+		}
 		fmt.Fprint(w, " ")
 	}
 	fmt.Fprint(w, r, "\r\n")
