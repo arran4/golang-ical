@@ -9,9 +9,99 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
-
+	"time"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestTimeParsing(t *testing.T) {
+	calFile, err := os.OpenFile("./testdata/timeparsing.ics", os.O_RDONLY, 0400)
+	if err != nil {
+		t.Errorf("read file: %v", err)
+	}
+	cal, err := ParseCalendar(calFile)
+	if err != nil {
+		t.Errorf("parse calendar: %v", err)
+	}
+
+	cphLoc, err := time.LoadLocation("Europe/Copenhagen")
+	if err != nil {
+		t.Errorf("no cph tz")
+	}
+
+	utcLoc := time.UTC
+
+	var tests = []struct {
+		uid         string
+		start       time.Time
+		end         time.Time
+		allDayStart time.Time
+		allDayEnd   time.Time
+	}{
+		// FORM 1
+		{"be7c9690-d42a-40ef-b82f-1634dc5033b4",
+			time.Date(2021, 12, 7, 11, 0, 0, 0, cphLoc),
+			time.Date(2021, 12, 7, 12, 0, 0, 0, cphLoc),
+			time.Date(2021, 12, 7, 0, 0, 0, 0, cphLoc),
+			time.Date(2021, 12, 8, 0, 0, 0, 0, cphLoc)},
+		// FORM 2
+		{"53634aed-1b7d-4d85-aa38-ede76a2e4fe3",
+			time.Date(2021, 12, 7, 14, 0, 0, 0, utcLoc),
+			time.Date(2021, 12, 7, 15, 0, 0, 0, utcLoc),
+			time.Date(2021, 12, 7, 0, 0, 0, 0, utcLoc),
+			time.Date(2021, 12, 8, 0, 0, 0, 0, utcLoc)},
+		// FORM 3
+		{"269cf715-4e14-4a10-8753-f2feeb9d060e",
+			time.Date(2021, 12, 7, 12, 0, 0, 0, cphLoc),
+			time.Date(2021, 12, 7, 13, 0, 0, 0, cphLoc),
+			time.Date(2021, 12, 7, 0, 0, 0, 0, cphLoc),
+			time.Date(2021, 12, 8, 0, 0, 0, 0, cphLoc)},
+		// Unknown local date, with 'VALUE'
+		{"fb54680e-7f69-46d3-9632-00aed2469f7b",
+			time.Date(2021, 12, 7, 12, 0, 0, 0, cphLoc),
+			time.Date(2021, 12, 7, 13, 0, 0, 0, cphLoc),
+			time.Date(2021, 12, 7, 0, 0, 0, 0, cphLoc),
+			time.Date(2021, 12, 8, 0, 0, 0, 0, cphLoc)},
+		// Unknown UTC date
+		{"62475ad0-a76c-4fab-8e68-f99209afcca6",
+			time.Date(2021, 5, 27, 0, 0, 0, 0, utcLoc),
+			time.Date(2021, 5, 28, 0, 0, 0, 0, utcLoc),
+			time.Date(2021, 5, 27, 0, 0, 0, 0, utcLoc),
+			time.Date(2021, 5, 28, 0, 0, 0, 0, utcLoc)},
+	}
+
+	assertTime := func(evtUid string, exp time.Time, timeFunc func() (given time.Time, err error)) {
+		given, err := timeFunc()
+		if err == nil {
+			if exp != given {
+				t.Errorf("no match, expected=%v != given=%v", exp, given)
+			}
+		} else {
+			t.Errorf("get time on uid '%s', %v", evtUid, err)
+		}
+	}
+	evts := cal.Events()
+
+	for _, tt := range tests {
+		t.Run(tt.uid, func(t *testing.T) {
+			var evt *VEvent
+			for _, e := range evts {
+				if strings.EqualFold(e.Id(), tt.uid) {
+					evt = e
+				}
+			}
+
+			if evt == nil {
+				t.Errorf("event UID not found, %s", tt.uid)
+				return
+			}
+
+			assertTime(tt.uid, tt.start, evt.GetStartAt)
+			assertTime(tt.uid, tt.end, evt.GetEndAt)
+			assertTime(tt.uid, tt.allDayStart, evt.GetAllDayStartAt)
+			assertTime(tt.uid, tt.allDayEnd, evt.GetAllDayEndAt)
+		})
+	}
+}
 
 func TestCalendarStream(t *testing.T) {
 	i := `
