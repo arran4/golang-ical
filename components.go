@@ -91,6 +91,18 @@ func (event *VEvent) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalAllDayTimeFormat), props...)
 }
 
+func (event *VEvent) SetDuration(d time.Duration) {
+	t, err := event.GetStartAt()
+	if err == nil {
+		event.SetEndAt(t.Add(d))
+	} else {
+		t, err = event.GetEndAt()
+		if err == nil {
+			event.SetStartAt(t.Add(-d))
+		}
+	}
+}
+
 func (event *VEvent) getTimeProp(componentProperty ComponentProperty, tFormat string) (time.Time, error) {
 	timeProp := event.GetProperty(componentProperty)
 	if timeProp == nil {
