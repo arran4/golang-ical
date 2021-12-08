@@ -353,7 +353,7 @@ func (calendar *Calendar) SetDescription(s string, props ...PropertyParameter) {
 }
 
 func (calendar *Calendar) SetLastModified(t time.Time, props ...PropertyParameter) {
-	calendar.setProperty(PropertyLastModified, t.UTC().Format(icalTimeFormat), props...)
+	calendar.setProperty(PropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
 func (calendar *Calendar) SetRefreshInterval(s string, props ...PropertyParameter) {

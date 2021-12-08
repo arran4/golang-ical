@@ -23,12 +23,10 @@ func TestTimeParsing(t *testing.T) {
 		t.Errorf("parse calendar: %v", err)
 	}
 
-	cphLoc, err := time.LoadLocation("Europe/Copenhagen")
-	if err != nil {
-		t.Errorf("no cph tz")
+	cphLoc, locErr := time.LoadLocation("Europe/Copenhagen")
+	if locErr != nil {
+		t.Errorf("could not load location")
 	}
-
-	utcLoc := time.UTC
 
 	var tests = []struct {
 		uid         string
@@ -39,41 +37,41 @@ func TestTimeParsing(t *testing.T) {
 	}{
 		// FORM 1
 		{"be7c9690-d42a-40ef-b82f-1634dc5033b4",
-			time.Date(2021, 12, 7, 11, 0, 0, 0, cphLoc),
-			time.Date(2021, 12, 7, 12, 0, 0, 0, cphLoc),
-			time.Date(2021, 12, 7, 0, 0, 0, 0, cphLoc),
-			time.Date(2021, 12, 8, 0, 0, 0, 0, cphLoc)},
+			time.Date(1998, 1, 18, 23, 0, 0, 0, time.Local),
+			time.Date(1998, 1, 19, 23, 0, 0, 0, time.Local),
+			time.Date(1998, 1, 18, 0, 0, 0, 0, time.Local),
+			time.Date(1998, 1, 19, 0, 0, 0, 0, time.Local)},
 		// FORM 2
 		{"53634aed-1b7d-4d85-aa38-ede76a2e4fe3",
-			time.Date(2021, 12, 7, 14, 0, 0, 0, utcLoc),
-			time.Date(2021, 12, 7, 15, 0, 0, 0, utcLoc),
-			time.Date(2021, 12, 7, 0, 0, 0, 0, utcLoc),
-			time.Date(2021, 12, 8, 0, 0, 0, 0, utcLoc)},
+			time.Date(2022, 1, 22, 17, 0, 0, 0, time.UTC),
+			time.Date(2022, 1, 22, 20, 0, 0, 0, time.UTC),
+			time.Date(2022, 1, 22, 0, 0, 0, 0, time.UTC),
+			time.Date(2022, 1, 22, 0, 0, 0, 0, time.UTC)},
 		// FORM 3
 		{"269cf715-4e14-4a10-8753-f2feeb9d060e",
-			time.Date(2021, 12, 7, 12, 0, 0, 0, cphLoc),
-			time.Date(2021, 12, 7, 13, 0, 0, 0, cphLoc),
+			time.Date(2021, 12, 7, 14, 0, 0, 0, cphLoc),
+			time.Date(2021, 12, 7, 15, 0, 0, 0, cphLoc),
 			time.Date(2021, 12, 7, 0, 0, 0, 0, cphLoc),
-			time.Date(2021, 12, 8, 0, 0, 0, 0, cphLoc)},
+			time.Date(2021, 12, 7, 0, 0, 0, 0, cphLoc)},
 		// Unknown local date, with 'VALUE'
 		{"fb54680e-7f69-46d3-9632-00aed2469f7b",
-			time.Date(2021, 12, 7, 12, 0, 0, 0, cphLoc),
-			time.Date(2021, 12, 7, 13, 0, 0, 0, cphLoc),
-			time.Date(2021, 12, 7, 0, 0, 0, 0, cphLoc),
-			time.Date(2021, 12, 8, 0, 0, 0, 0, cphLoc)},
+			time.Date(2021, 6, 27, 0, 0, 0, 0, time.Local),
+			time.Date(2021, 6, 28, 0, 0, 0, 0, time.Local),
+			time.Date(2021, 6, 27, 0, 0, 0, 0, time.Local),
+			time.Date(2021, 6, 28, 0, 0, 0, 0, time.Local)},
 		// Unknown UTC date
 		{"62475ad0-a76c-4fab-8e68-f99209afcca6",
-			time.Date(2021, 5, 27, 0, 0, 0, 0, utcLoc),
-			time.Date(2021, 5, 28, 0, 0, 0, 0, utcLoc),
-			time.Date(2021, 5, 27, 0, 0, 0, 0, utcLoc),
-			time.Date(2021, 5, 28, 0, 0, 0, 0, utcLoc)},
+			time.Date(2021, 5, 27, 0, 0, 0, 0, time.UTC),
+			time.Date(2021, 5, 28, 0, 0, 0, 0, time.UTC),
+			time.Date(2021, 5, 27, 0, 0, 0, 0, time.UTC),
+			time.Date(2021, 5, 28, 0, 0, 0, 0, time.UTC)},
 	}
 
 	assertTime := func(evtUid string, exp time.Time, timeFunc func() (given time.Time, err error)) {
 		given, err := timeFunc()
 		if err == nil {
-			if exp != given {
-				t.Errorf("no match, expected=%v != given=%v", exp, given)
+			if !exp.Equal(given) {
+				t.Errorf("no match on '%s', expected=%v != given=%v", evtUid, exp, given)
 			}
 		} else {
 			t.Errorf("get time on uid '%s', %v", evtUid, err)
