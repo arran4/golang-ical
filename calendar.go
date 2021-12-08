@@ -393,6 +393,7 @@ func (calendar *Calendar) setProperty(property Property, value string, props ...
 	}
 	calendar.CalendarProperties = append(calendar.CalendarProperties, r)
 }
+
 func (calendar *Calendar) AddEvent(id string) *VEvent {
 	e := &VEvent{
 		ComponentBase{
@@ -404,6 +405,11 @@ func (calendar *Calendar) AddEvent(id string) *VEvent {
 	calendar.Components = append(calendar.Components, e)
 	return e
 }
+
+func (calendar *Calendar) AddVEvent(e *VEvent) {
+	calendar.Components = append(calendar.Components, e)
+}
+
 func (calendar *Calendar) Events() (r []*VEvent) {
 	r = []*VEvent{}
 	for i := range calendar.Components {
