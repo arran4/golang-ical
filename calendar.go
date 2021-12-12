@@ -410,6 +410,11 @@ func (calendar *Calendar) AddEvent(id string) *VEvent {
 	calendar.Components = append(calendar.Components, e)
 	return e
 }
+
+func (calendar *Calendar) AddVEvent(e *VEvent) {
+	calendar.Components = append(calendar.Components, e)
+}
+
 func (calendar *Calendar) Events() (r []*VEvent) {
 	r = []*VEvent{}
 	for i := range calendar.Components {
