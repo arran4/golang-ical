@@ -49,12 +49,13 @@ END:VEVENT
 			if !tc.end.IsZero() {
 				e.SetEndAt(tc.end)
 			}
-			e.SetDuration(duration)
+			err := e.SetDuration(duration)
 
 			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
 			text := strings.Replace(e.Serialize(), "\r\n", "\n", -1)
 
 			assert.Equal(t, tc.output, text)
+			assert.Equal(t, nil, err)
 		})
 	}
 }
