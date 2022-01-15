@@ -393,17 +393,28 @@ func (calendar *Calendar) setProperty(property Property, value string, props ...
 	}
 	calendar.CalendarProperties = append(calendar.CalendarProperties, r)
 }
-func (calendar *Calendar) AddEvent(id string) *VEvent {
+
+func NewEvent(uniqueId string) *VEvent {
 	e := &VEvent{
 		ComponentBase{
 			Properties: []IANAProperty{
-				{BaseProperty{IANAToken: ToText(string(ComponentPropertyUniqueId)), Value: id}},
+				{BaseProperty{IANAToken: ToText(string(ComponentPropertyUniqueId)), Value: uniqueId}},
 			},
 		},
 	}
+	return e
+}
+
+func (calendar *Calendar) AddEvent(id string) *VEvent {
+	e := NewEvent(id)
 	calendar.Components = append(calendar.Components, e)
 	return e
 }
+
+func (calendar *Calendar) AddVEvent(e *VEvent) {
+	calendar.Components = append(calendar.Components, e)
+}
+
 func (calendar *Calendar) Events() (r []*VEvent) {
 	r = []*VEvent{}
 	for i := range calendar.Components {
@@ -534,7 +545,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			}
 			if len(p) == 0 {
 				c = false
-			} else if p[0] == ' ' {
+			} else if p[0] == ' ' || p[0] == '\t' {
 				cs.b.Discard(1) // nolint:errcheck
 			} else {
 				c = false
