@@ -545,7 +545,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			}
 			if len(p) == 0 {
 				c = false
-			} else if p[0] == ' ' {
+			} else if p[0] == ' ' || p[0] == '\t' {
 				cs.b.Discard(1) // nolint:errcheck
 			} else {
 				c = false
