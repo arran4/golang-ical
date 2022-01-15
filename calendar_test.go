@@ -196,14 +196,13 @@ END:VCALENDAR
 `,
 		},
 		{
-			name: "test multiline description",
+			name: "test multiline description - multiple custom fields suppress",
 			input: `BEGIN:VCALENDAR
 VERSION:2.0
 X-CUSTOM-FIELD:test
 PRODID:-//arran4//Golang ICS Library
 DESCRIPTION:test
 BEGIN:VEVENT
-X-CUSTOM-FIELD: test
 DESCRIPTION:blablablablablablablablablablablablablablablabl
 	testtesttest
 CLASS:PUBLIC
