@@ -91,6 +91,26 @@ func (event *VEvent) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalAllDayTimeFormat), props...)
 }
 
+// SetDuration updates the duration of an event.
+// This function will set either the end or start time of an event depending what is already given.
+// The duration defines the length of a event relative to start or end time.
+//
+// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
+func (event *VEvent) SetDuration(d time.Duration) error {
+	t, err := event.GetStartAt()
+	if err == nil {
+		event.SetEndAt(t.Add(d))
+		return nil
+	} else {
+		t, err = event.GetEndAt()
+		if err == nil {
+			event.SetStartAt(t.Add(-d))
+			return nil
+		}
+	}
+	return errors.New("start or end not yet defined")
+}
+
 func (event *VEvent) getTimeProp(componentProperty ComponentProperty, tFormat string) (time.Time, error) {
 	timeProp := event.GetProperty(componentProperty)
 	if timeProp == nil {
