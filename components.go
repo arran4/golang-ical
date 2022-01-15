@@ -118,7 +118,7 @@ func (event *VEvent) SetDuration(d time.Duration) error {
 	return errors.New("start or end not yet defined")
 }
 
-func (event *VEvent) getTimeProp(componentProperty ComponentProperty, tFormat string) (time.Time, error) {
+func (event *VEvent) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
 	timeProp := event.GetProperty(componentProperty)
 	if timeProp == nil {
 		return time.Time{}, errors.New("property not found")
