@@ -1,0 +1,25 @@
+BEGIN:VCALENDAR
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Test
+X-WR-TIMEZONE:Europe/Berlin
+X-WR-CALDESC:This calendar only has one entry for testing in golang-ical
+BEGIN:VEVENT
+DTSTART;VALUE=DATE:20220206
+DTEND;VALUE=DATE:20220207
+DTSTAMP:20220204T153634Z
+UID:2sg669br74vkpmv73pv2htu0eb@google.com
+CREATED:20220204T153626Z
+DESCRIPTION:This Description is simple\nbut in intentionally includes\nLine
+ breaks to test the golang-ical package
+LAST-MODIFIED:20220204T153626Z
+LOCATION:Very long and inconvenient location name\, Boring Street 123\, 123
+ 45 Milchkanne\, Germany
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Test entry
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR

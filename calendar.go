@@ -431,8 +431,10 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 	state := "begin"
 	t, _ := ioutil.ReadAll(r)
 	s := bytes.NewReader(bytes.Replace(t, []byte{0x0D, 0x0A, 0x09}, []byte(""), -1))
+	u, _ := ioutil.ReadAll(s)
+	v := bytes.NewReader(bytes.Replace(u, []byte{0x0D, 0x0A, 0x20}, []byte(""), -1))
 	c := &Calendar{}
-	cs := NewCalendarStream(s)
+	cs := NewCalendarStream(v)
 	cont := true
 	for i := 0; cont; i++ {
 		l, err := cs.ReadLine()

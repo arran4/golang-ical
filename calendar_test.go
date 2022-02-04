@@ -171,3 +171,11 @@ END:VCALENDAR
 		})
 	}
 }
+
+func TestLineFoldingInput(t *testing.T) {
+	file1, _ := os.Open("./testdata/outlook.ics")
+	_, err1 := ParseCalendar(file1)
+	file2, _ := os.Open("./testdata/google.ics")
+	_, err2 := ParseCalendar(file2)
+	assert.Nil(t, err1, err2)
+}
