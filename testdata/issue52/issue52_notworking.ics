@@ -1,0 +1,45 @@
+BEGIN:VCALENDAR
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:xxxxx.xxxxxxxxx@xxxxxxxxxxxx.de
+X-WR-TIMEZONE:Europe/Berlin
+BEGIN:VTIMEZONE
+TZID:Europe/Berlin
+X-LIC-LOCATION:Europe/Berlin
+BEGIN:DAYLIGHT
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+TZNAME:CEST
+DTSTART:19700329T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+TZNAME:CET
+DTSTART:19701025T030000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART:20220301T170000Z
+DTEND:20220301T183000Z
+DTSTAMP:20220207T210221Z
+ORGANIZER;CN=xxxx.xxxxxxxxxxxxxxx@xxxxxxxxxxxx.de:mailto:xxxx.xxxxxxxxxxxxxxx@xxxxxxxxxxxx.de
+UID:37dfo8hp5hdsxxxxxxxxxxxxxx@google.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;CN=xxxx.xxxxxxxxxxxxxxx@xxxxxxxxxxxx.de;X-NUM-GUESTS=0:mailto:xxxx.xxxxxxxxxxxxxxx@xxxxxxxxxxxx.de
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;CN=xxxxxxxxxx xxxx xxxx;X-NUM-GUESTS=0:mailto:xxxxxxxx@xxxxxxxxxxxx.de
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=DECLINED;CN=xxxxxx.xxxxxxxxxx@xxxxxxxxxxx.com;X-NUM-GUESTS=0;X-RESPONSE-COMMENT="Abgelehnt\, weil ich au&szlig\;er Haus bin":mailto:xxxxxx.xxxxxxxxxx@xxxxxxxxxxx.com
+X-GOOGLE-CONFERENCE:https://meet.google.com/xxx-xxxx-xxx
+CREATED:20220207T190137Z
+DESCRIPTION:Dieser Termin enthält einen Videoanruf.\nTeilnehmen: https://meet.google.com/xxx-xxxx-xxx\n(DE) +49 40 xxxxxxxxxx PIN: xxxxxxxxx#\nWeitere Telefonnummern anzeigen: https://tel.meet/xxx-xxxx-xxx?pin=xxxxxxxxxxxxx&hs=x
+LAST-MODIFIED:20220207T203520Z
+LOCATION:
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:xxxxxxxxxxxxxxxx xxxxxxxx
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
