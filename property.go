@@ -127,10 +127,9 @@ type IANAProperty struct {
 }
 
 var (
-	propertyIanaTokenReg  *regexp.Regexp
-	propertyParamNameReg  *regexp.Regexp
-	propertyParamValueReg *regexp.Regexp
-	propertyValueTextReg  *regexp.Regexp
+	propertyIanaTokenReg *regexp.Regexp
+	propertyParamNameReg *regexp.Regexp
+	propertyValueTextReg *regexp.Regexp
 )
 
 func init() {
@@ -140,10 +139,6 @@ func init() {
 		log.Panicf("Failed to build regex: %v", err)
 	}
 	propertyParamNameReg = propertyIanaTokenReg
-	propertyParamValueReg, err = regexp.Compile("^(?:\"(?:[^\"\\\\]|\\[\"nrt])*\"|[^,;\\\\:\"]*)")
-	if err != nil {
-		log.Panicf("Failed to build regex: %v", err)
-	}
 	propertyValueTextReg, err = regexp.Compile("^.*")
 	if err != nil {
 		log.Panicf("Failed to build regex: %v", err)
@@ -152,41 +147,46 @@ func init() {
 
 type ContentLine string
 
-func ParseProperty(contentLine ContentLine) *BaseProperty {
+func ParseProperty(contentLine ContentLine) (*BaseProperty, error) {
 	r := &BaseProperty{
 		ICalParameters: map[string][]string{},
 	}
 	tokenPos := propertyIanaTokenReg.FindIndex([]byte(contentLine))
 	if tokenPos == nil {
-		return nil
+		return nil, nil
 	}
 	p := 0
 	r.IANAToken = string(contentLine[p+tokenPos[0] : p+tokenPos[1]])
 	p += tokenPos[1]
 	for {
 		if p >= len(contentLine) {
-			return nil
+			return nil, nil
 		}
 		switch rune(contentLine[p]) {
 		case ':':
-			return parsePropertyValue(r, string(contentLine), p+1)
+			return parsePropertyValue(r, string(contentLine), p+1), nil
 		case ';':
 			var np int
-			r, np = parsePropertyParam(r, string(contentLine), p+1)
+			var err error
+			t := r.IANAToken
+			r, np, err = parsePropertyParam(r, string(contentLine), p+1)
+			if err != nil {
+				return nil, fmt.Errorf("parsing property %s: %w", t, err)
+			}
 			if r == nil {
-				return nil
+				return nil, nil
 			}
 			p = np
 		default:
-			return nil
+			return nil, nil
 		}
 	}
 }
 
-func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProperty, int) {
+func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProperty, int, error) {
 	tokenPos := propertyParamNameReg.FindIndex([]byte(contentLine[p:]))
 	if tokenPos == nil {
-		return nil, p
+		return nil, p, nil
 	}
 	k, v := "", ""
 	k = string(contentLine[p : p+tokenPos[1]])
@@ -195,26 +195,89 @@ func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProper
 	case '=':
 		p += 1
 	default:
-		return nil, p
+		return nil, p, fmt.Errorf("missing property value for %s in %s", k, r.IANAToken)
 	}
 	for {
 		if p >= len(contentLine) {
-			return nil, p
+			return nil, p, nil
 		}
-		tokenPos = propertyParamValueReg.FindIndex([]byte(contentLine[p:]))
-		if tokenPos == nil {
-			return nil, p
+		var err error
+		v, p, err = parsePropertyParamValue(contentLine, p)
+		if err != nil {
+			return nil, 0, fmt.Errorf("parse error: %w %s in %s", err, k, r.IANAToken)
 		}
-		v = string(contentLine[p+tokenPos[0] : p+tokenPos[1]])
-		p += tokenPos[1]
 		r.ICalParameters[k] = append(r.ICalParameters[k], v)
 		switch rune(contentLine[p]) {
 		case ',':
 			p += 1
 		default:
-			return r, p
+			return r, p, nil
 		}
 	}
+}
+
+func parsePropertyParamValue(s string, p int) (string, int, error) {
+	/*
+	   quoted-string = DQUOTE *QSAFE-CHAR DQUOTE
+
+	   QSAFE-CHAR    = WSP / %x21 / %x23-7E / NON-US-ASCII
+	   ; Any character except CONTROL and DQUOTE
+
+	   SAFE-CHAR     = WSP / %x21 / %x23-2B / %x2D-39 / %x3C-7E
+	                 / NON-US-ASCII
+	   ; Any character except CONTROL, DQUOTE, ";", ":", ","
+
+	   text       = *(TSAFE-CHAR / ":" / DQUOTE / ESCAPED-CHAR)
+	   ; Folded according to description above
+
+	   ESCAPED-CHAR = "\\" / "\;" / "\," / "\N" / "\n")
+	      ; \\ encodes \, \N or \n encodes newline
+	      ; \; encodes ;, \, encodes ,
+
+	   TSAFE-CHAR = %x20-21 / %x23-2B / %x2D-39 / %x3C-5B
+	                %x5D-7E / NON-US-ASCII
+	      ; Any character except CTLs not needed by the current
+	      ; character set, DQUOTE, ";", ":", "\", ","
+
+	   CONTROL       = %x00-08 / %x0A-1F / %x7F
+	   ; All the controls except HTAB
+
+	*/
+	r := make([]byte, 0, len(s))
+	quoted := false
+	done := false
+	ip := p
+	for ; p < len(s) && !done; p++ {
+		switch s[p] {
+		case 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08:
+			return "", 0, fmt.Errorf("unexpected char ascii:%d in property param value", s[p])
+		case 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B,
+			0x1C, 0x1D, 0x1E, 0x1F:
+			return "", 0, fmt.Errorf("unexpected char ascii:%d in property param value", s[p])
+		case '\\':
+			r = append(r, []byte(FromText(string(s[p+1:p+2])))...)
+			p++
+			continue
+		case ';', ':', ',':
+			if !quoted {
+				done = true
+				p--
+				continue
+			}
+		case '"':
+			if p == ip {
+				quoted = true
+				continue
+			}
+			if quoted {
+				done = true
+				continue
+			}
+			return "", 0, fmt.Errorf("unexpected double quote in property param value")
+		}
+		r = append(r, s[p])
+	}
+	return string(r), p, nil
 }
 
 func parsePropertyValue(r *BaseProperty, contentLine string, p int) *BaseProperty {

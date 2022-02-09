@@ -431,7 +431,7 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 	c := &Calendar{}
 	cs := NewCalendarStream(r)
 	cont := true
-	for i := 0; cont; i++ {
+	for ln := 0; cont; ln++ {
 		l, err := cs.ReadLine()
 		if err != nil {
 			switch err {
@@ -444,9 +444,12 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 		if l == nil || len(*l) == 0 {
 			continue
 		}
-		line := ParseProperty(*l)
+		line, err := ParseProperty(*l)
+		if err != nil {
+			return nil, fmt.Errorf("parsing line %d: %w", ln, err)
+		}
 		if line == nil {
-			return nil, errors.New("Error parsing line")
+			return nil, fmt.Errorf("parsing line %d", ln)
 		}
 		switch state {
 		case "begin":

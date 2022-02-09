@@ -608,7 +608,7 @@ func ParseGeneralComponent(cs *CalendarStream, startLine *BaseProperty) *General
 func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase, error) {
 	cb := ComponentBase{}
 	cont := true
-	for i := 0; cont; i++ {
+	for ln := 0; cont; ln++ {
 		l, err := cs.ReadLine()
 		if err != nil {
 			switch err {
@@ -621,9 +621,12 @@ func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase,
 		if l == nil || len(*l) == 0 {
 			continue
 		}
-		line := ParseProperty(*l)
+		line, err := ParseProperty(*l)
+		if err != nil {
+			return cb, fmt.Errorf("parsing component property %d: %w", ln, err)
+		}
 		if line == nil {
-			return cb, errors.New("Error parsing line")
+			return cb, errors.New("parsing line")
 		}
 		switch line.IANAToken {
 		case "END":
@@ -631,7 +634,7 @@ func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase,
 			case startLine.Value:
 				return cb, nil
 			default:
-				return cb, errors.New("Unbalanched end!")
+				return cb, errors.New("unbalanced end")
 			}
 		case "BEGIN":
 			co, err := GeneralParseComponent(cs, line)
@@ -645,5 +648,5 @@ func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase,
 			cb.Properties = append(cb.Properties, IANAProperty{*line})
 		}
 	}
-	return cb, errors.New("Ran out of lines")
+	return cb, errors.New("ran out of lines")
 }
