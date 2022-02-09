@@ -74,7 +74,6 @@ func TestPropertyParse(t *testing.T) {
 			} {
 				expected.Check(t, output)
 			}
-			return
 		}},
 		{Name: "Attendee parse with weird escapes in quotes short", Input: "ATTENDEE;X-RESPONSE-COMMENT=\"Abgelehnt\\, weil ich au&szlig\\;er Haus bin\":mailto:xxxxxx.xxxxxxxxxx@xxxxxxxxxxx.com\n", Expected: func(t *testing.T, output *BaseProperty, err error) {
 			assert.NotNil(t, output)
@@ -86,7 +85,6 @@ func TestPropertyParse(t *testing.T) {
 			} {
 				expected.Check(t, output)
 			}
-			return
 		}},
 	}
 	for _, test := range tests {

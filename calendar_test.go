@@ -189,7 +189,6 @@ func TestIssue52(t *testing.T) {
 				t.Fatalf("Error parsing file: %s", err)
 			}
 
-			return
 		})
 		return nil
 	})
