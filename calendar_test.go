@@ -177,5 +177,6 @@ func TestLineFoldingInput(t *testing.T) {
 	_, err1 := ParseCalendar(file1)
 	file2, _ := os.Open("./testdata/pr50/google.ics")
 	_, err2 := ParseCalendar(file2)
-	assert.Nil(t, err1, err2)
+	assert.Nil(t, err1)
+	assert.Nil(t, err2)
 }
