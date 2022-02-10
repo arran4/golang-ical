@@ -6,21 +6,182 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type PropertyValueCheck struct {
+	Key    string
+	Values []string
+}
+
+func (c *PropertyValueCheck) Check(t *testing.T, output *BaseProperty) {
+	v, ok := output.ICalParameters[c.Key]
+	if !ok {
+		t.Errorf("Key %s value is missing", c.Key)
+		return
+	}
+	assert.Equal(t, c.Values, v)
+}
+
+func NewPropertyValueCheck(key string, properties ...string) *PropertyValueCheck {
+	return &PropertyValueCheck{
+		Key:    key,
+		Values: properties,
+	}
+}
+
 func TestPropertyParse(t *testing.T) {
 	tests := []struct {
+		Name     string
 		Input    string
-		Expected func(output *BaseProperty) bool
+		Expected func(t *testing.T, output *BaseProperty, err error)
 	}{
-		{Input: "ATTENDEE;RSVP=TRUE;ROLE=REQ-PARTICIPANT;CUTYPE=GROUP:mailto:employee-A@example.com", Expected: func(output *BaseProperty) bool {
-			return output.IANAToken == "ATTENDEE" && output.Value == "mailto:employee-A@example.com"
+		{Name: "Normal attendee parse", Input: "ATTENDEE;RSVP=TRUE;ROLE=REQ-PARTICIPANT;CUTYPE=GROUP:mailto:employee-A@example.com", Expected: func(t *testing.T, output *BaseProperty, err error) {
+			assert.NoError(t, err)
+			assert.NotNil(t, output)
+			assert.Equal(t, "ATTENDEE", output.IANAToken)
+			assert.Equal(t, "mailto:employee-A@example.com", output.Value)
+			for _, expected := range []*PropertyValueCheck{
+				NewPropertyValueCheck("RSVP", "TRUE"),
+			} {
+				expected.Check(t, output)
+			}
 		}},
-		{Input: "ATTENDEE;RSVP=\"TRUE\";ROLE=REQ-PARTICIPANT;CUTYPE=GROUP:mailto:employee-A@example.com", Expected: func(output *BaseProperty) bool {
-			return output.IANAToken == "ATTENDEE" && output.Value == "mailto:employee-A@example.com"
+		{Name: "Attendee parse with quotes", Input: "ATTENDEE;RSVP=\"TRUE\";ROLE=REQ-PARTICIPANT;CUTYPE=GROUP:mailto:employee-A@example.com", Expected: func(t *testing.T, output *BaseProperty, err error) {
+			assert.NoError(t, err)
+			assert.NotNil(t, output)
+			assert.Equal(t, "ATTENDEE", output.IANAToken)
+			assert.Equal(t, "mailto:employee-A@example.com", output.Value)
+			for _, expected := range []*PropertyValueCheck{
+				NewPropertyValueCheck("RSVP", "TRUE"),
+			} {
+				expected.Check(t, output)
+			}
 		}},
-		{Input: "ATTENDEE;RSVP=T\"RUE\";ROLE=REQ-PARTICIPANT;CUTYPE=GROUP:mailto:employee-A@example.com", Expected: func(output *BaseProperty) bool { return output == nil }},
+		{Name: "Attendee parse with bad quotes", Input: "ATTENDEE;RSVP=T\"RUE\";ROLE=REQ-PARTICIPANT;CUTYPE=GROUP:mailto:employee-A@example.com", Expected: func(t *testing.T, output *BaseProperty, err error) {
+			assert.Nil(t, output)
+			assert.Error(t, err)
+		}},
+		{Name: "Attendee parse with weird escapes in quotes", Input: "ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=DECLINED;CN=xxxxxx.xxxxxxxxxx@xxxxxxxxxxx.com;X-NUM-GUESTS=0;X-RESPONSE-COMMENT=\"Abgelehnt\\, weil ich au&szlig\\;er Haus bin\":mailto:xxxxxx.xxxxxxxxxx@xxxxxxxxxxx.com", Expected: func(t *testing.T, output *BaseProperty, err error) {
+			assert.NotNil(t, output)
+			assert.NoError(t, err)
+			assert.Equal(t, "ATTENDEE", output.IANAToken)
+			assert.Equal(t, "mailto:xxxxxx.xxxxxxxxxx@xxxxxxxxxxx.com", output.Value)
+			for _, expected := range []*PropertyValueCheck{
+				NewPropertyValueCheck("CUTYPE", "INDIVIDUAL"),
+				NewPropertyValueCheck("ROLE", "REQ-PARTICIPANT"),
+				NewPropertyValueCheck("PARTSTAT", "DECLINED"),
+				NewPropertyValueCheck("CN", "xxxxxx.xxxxxxxxxx@xxxxxxxxxxx.com"),
+				NewPropertyValueCheck("X-NUM-GUESTS", "0"),
+				NewPropertyValueCheck("X-RESPONSE-COMMENT", "Abgelehnt, weil ich au&szlig;er Haus bin"),
+			} {
+				expected.Check(t, output)
+			}
+		}},
+		{Name: "Attendee parse with weird escapes in quotes short", Input: "ATTENDEE;X-RESPONSE-COMMENT=\"Abgelehnt\\, weil ich au&szlig\\;er Haus bin\":mailto:xxxxxx.xxxxxxxxxx@xxxxxxxxxxx.com\n", Expected: func(t *testing.T, output *BaseProperty, err error) {
+			assert.NotNil(t, output)
+			assert.NoError(t, err)
+			assert.Equal(t, "ATTENDEE", output.IANAToken)
+			assert.Equal(t, "mailto:xxxxxx.xxxxxxxxxx@xxxxxxxxxxx.com", output.Value)
+			for _, expected := range []*PropertyValueCheck{
+				NewPropertyValueCheck("X-RESPONSE-COMMENT", "Abgelehnt, weil ich au&szlig;er Haus bin"),
+			} {
+				expected.Check(t, output)
+			}
+		}},
 	}
 	for _, test := range tests {
-		output := ParseProperty(ContentLine(test.Input))
-		assert.True(t, test.Expected(output))
+		t.Run(test.Name, func(t *testing.T) {
+			v, err := ParseProperty(ContentLine(test.Input))
+			test.Expected(t, v, err)
+		})
+	}
+}
+
+func Test_parsePropertyParamValue(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		position    int
+		match       string
+		newposition int
+		wantErr     bool
+	}{
+		{
+			name:        "Basic sentence",
+			input:       "basic sentence",
+			position:    0,
+			match:       "basic sentence",
+			newposition: len("basic sentence"),
+			wantErr:     false,
+		},
+		{
+			name:        "Basic quoted sentence",
+			input:       "\"basic sentence\"",
+			position:    0,
+			match:       "basic sentence",
+			newposition: len("basic sentence\"\""),
+			wantErr:     false,
+		},
+		{
+			name:        "Basic sentence with terminal ,",
+			input:       "basic sentence,",
+			position:    0,
+			match:       "basic sentence",
+			newposition: len("basic sentence"),
+			wantErr:     false,
+		},
+		{
+			name:        "Basic sentence with terminal ;",
+			input:       "basic sentence;",
+			position:    0,
+			match:       "basic sentence",
+			newposition: len("basic sentence"),
+			wantErr:     false,
+		},
+		{
+			name:        "Basic sentence with terminal :",
+			input:       "basic sentence:",
+			position:    0,
+			match:       "basic sentence",
+			newposition: len("basic sentence"),
+			wantErr:     false,
+		},
+		{
+			name:        "Basic quoted sentence with terminals internal ;:,",
+			input:       "\"basic sentence;:,\"",
+			position:    0,
+			match:       "basic sentence;:,",
+			newposition: len("basic sentence;:,\"\""),
+			wantErr:     false,
+		},
+		{
+			name:        "Basic quoted sentence with escaped terminals internal ;:,",
+			input:       "\"basic sentence\\;\\:\\,\"",
+			position:    0,
+			match:       "basic sentence;:,",
+			newposition: len("basic sentence\\;\\:\\,\"\""),
+			wantErr:     false,
+		},
+		{
+			name:        "Basic quoted sentence with escaped quote",
+			input:       "\"basic \\\"sentence\"",
+			position:    0,
+			match:       "basic \"sentence",
+			newposition: len("basic sentence\\\"\"\""),
+			wantErr:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, err := parsePropertyParamValue(tt.input, tt.position)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parsePropertyParamValue() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.match {
+				t.Errorf("parsePropertyParamValue() got = %v, want %v", got, tt.match)
+			}
+			if got1 != tt.newposition {
+				t.Errorf("parsePropertyParamValue() got1 = %v, want %v", got1, tt.newposition)
+			}
+		})
 	}
 }

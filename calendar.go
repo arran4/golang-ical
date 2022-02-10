@@ -431,7 +431,7 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 	c := &Calendar{}
 	cs := NewCalendarStream(r)
 	cont := true
-	for i := 0; cont; i++ {
+	for ln := 0; cont; ln++ {
 		l, err := cs.ReadLine()
 		if err != nil {
 			switch err {
@@ -444,9 +444,12 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 		if l == nil || len(*l) == 0 {
 			continue
 		}
-		line := ParseProperty(*l)
+		line, err := ParseProperty(*l)
+		if err != nil {
+			return nil, fmt.Errorf("parsing line %d: %w", ln, err)
+		}
 		if line == nil {
-			return nil, errors.New("Error parsing line")
+			return nil, fmt.Errorf("parsing line %d", ln)
 		}
 		switch state {
 		case "begin":
@@ -456,10 +459,10 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 				case "VCALENDAR":
 					state = "properties"
 				default:
-					return nil, errors.New("Malformed calendar")
+					return nil, errors.New("malformed calendar; expected a vcalendar")
 				}
 			default:
-				return nil, errors.New("Malformed calendar")
+				return nil, errors.New("malformed calendar; expected begin")
 			}
 		case "properties":
 			switch line.IANAToken {
@@ -468,7 +471,7 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 				case "VCALENDAR":
 					state = "end"
 				default:
-					return nil, errors.New("Malformed calendar")
+					return nil, errors.New("malformed calendar; expected end")
 				}
 			case "BEGIN":
 				state = "components"
@@ -486,7 +489,7 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 				case "VCALENDAR":
 					state = "end"
 				default:
-					return nil, errors.New("Malformed calendar")
+					return nil, errors.New("malformed calendar; expected end")
 				}
 			case "BEGIN":
 				co, err := GeneralParseComponent(cs, line)
@@ -497,12 +500,12 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 					c.Components = append(c.Components, co)
 				}
 			default:
-				return nil, errors.New("Malformed calendar")
+				return nil, errors.New("malformed calendar; expected begin or end")
 			}
 		case "end":
-			return nil, errors.New("Malformed calendar")
+			return nil, errors.New("malformed calendar; unexpected end")
 		default:
-			return nil, errors.New("Bad state")
+			return nil, errors.New("malformed calendar; bad state")
 		}
 	}
 	return c, nil
