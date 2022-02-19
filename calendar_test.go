@@ -238,3 +238,29 @@ END:VCALENDAR
 		})
 	}
 }
+
+func TestIssue52(t *testing.T) {
+	err := filepath.Walk("./testdata/issue52/", func(path string, info os.FileInfo, _ error) error {
+		if info.IsDir() {
+			return nil
+		}
+		_, fn := filepath.Split(path)
+		t.Run(fn, func(t *testing.T) {
+			f, err := os.Open(path)
+			if err != nil {
+				t.Fatalf("Error reading file: %s", err)
+			}
+			defer f.Close()
+
+			if _, err := ParseCalendar(f); err != nil {
+				t.Fatalf("Error parsing file: %s", err)
+			}
+
+		})
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("cannot read test directory: %v", err)
+	}
+}
