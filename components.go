@@ -626,7 +626,7 @@ func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase,
 			return cb, fmt.Errorf("parsing component property %d: %w", ln, err)
 		}
 		if line == nil {
-			return cb, errors.New("parsing line")
+			return cb, errors.New("parsing component line")
 		}
 		switch line.IANAToken {
 		case "END":

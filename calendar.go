@@ -449,7 +449,7 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 			return nil, fmt.Errorf("parsing line %d: %w", ln, err)
 		}
 		if line == nil {
-			return nil, fmt.Errorf("parsing line %d", ln)
+			return nil, fmt.Errorf("parsing calendar line %d", ln)
 		}
 		switch state {
 		case "begin":

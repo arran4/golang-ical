@@ -172,6 +172,73 @@ END:VCALENDAR
 	}
 }
 
+func TestParseCalendar(t *testing.T) {
+	testCases := []struct {
+		name   string
+		input  string
+		output string
+	}{
+		{
+			name: "test custom fields in calendar",
+			input: `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+END:VCALENDAR
+`,
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+END:VCALENDAR
+`,
+		},
+		{
+			name: "test multiline description - multiple custom fields suppress",
+			input: `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+BEGIN:VEVENT
+DESCRIPTION:blablablablablablablablablablablablablablablabl
+	testtesttest
+CLASS:PUBLIC
+END:VEVENT
+END:VCALENDAR
+`,
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+BEGIN:VEVENT
+DESCRIPTION:blablablablablablablablablablablablablablablabltesttesttest
+CLASS:PUBLIC
+END:VEVENT
+END:VCALENDAR
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := ParseCalendar(strings.NewReader(tc.input))
+			if !assert.NoError(t, err) {
+				return
+			}
+
+			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
+			text := strings.Replace(c.Serialize(), "\r\n", "\n", -1)
+			if !assert.Equal(t, tc.output, text) {
+				return
+			}
+		})
+	}
+}
+
 func TestIssue52(t *testing.T) {
 	err := filepath.Walk("./testdata/issue52/", func(path string, info os.FileInfo, _ error) error {
 		if info.IsDir() {
