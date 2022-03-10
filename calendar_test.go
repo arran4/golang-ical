@@ -1,6 +1,7 @@
 package ics
 
 import (
+	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	"os"
@@ -8,9 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"unicode/utf8"
 	"time"
-	"github.com/stretchr/testify/assert"
+	"unicode/utf8"
 )
 
 func TestTimeParsing(t *testing.T) {
@@ -29,42 +29,53 @@ func TestTimeParsing(t *testing.T) {
 	}
 
 	var tests = []struct {
+		name        string
 		uid         string
 		start       time.Time
 		end         time.Time
 		allDayStart time.Time
 		allDayEnd   time.Time
 	}{
-		// FORM 1
-		{"be7c9690-d42a-40ef-b82f-1634dc5033b4",
+		{
+			"FORM 1",
+			"be7c9690-d42a-40ef-b82f-1634dc5033b4",
 			time.Date(1998, 1, 18, 23, 0, 0, 0, time.Local),
 			time.Date(1998, 1, 19, 23, 0, 0, 0, time.Local),
 			time.Date(1998, 1, 18, 0, 0, 0, 0, time.Local),
-			time.Date(1998, 1, 19, 0, 0, 0, 0, time.Local)},
-		// FORM 2
-		{"53634aed-1b7d-4d85-aa38-ede76a2e4fe3",
+			time.Date(1998, 1, 19, 0, 0, 0, 0, time.Local),
+		},
+		{
+			"FORM 2",
+			"53634aed-1b7d-4d85-aa38-ede76a2e4fe3",
 			time.Date(2022, 1, 22, 17, 0, 0, 0, time.UTC),
 			time.Date(2022, 1, 22, 20, 0, 0, 0, time.UTC),
 			time.Date(2022, 1, 22, 0, 0, 0, 0, time.UTC),
-			time.Date(2022, 1, 22, 0, 0, 0, 0, time.UTC)},
-		// FORM 3
-		{"269cf715-4e14-4a10-8753-f2feeb9d060e",
+			time.Date(2022, 1, 22, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			"FORM 3",
+			"269cf715-4e14-4a10-8753-f2feeb9d060e",
 			time.Date(2021, 12, 7, 14, 0, 0, 0, cphLoc),
 			time.Date(2021, 12, 7, 15, 0, 0, 0, cphLoc),
 			time.Date(2021, 12, 7, 0, 0, 0, 0, cphLoc),
-			time.Date(2021, 12, 7, 0, 0, 0, 0, cphLoc)},
-		// Unknown local date, with 'VALUE'
-		{"fb54680e-7f69-46d3-9632-00aed2469f7b",
+			time.Date(2021, 12, 7, 0, 0, 0, 0, cphLoc),
+		},
+		{
+			"Unknown local date, with 'VALUE'",
+			"fb54680e-7f69-46d3-9632-00aed2469f7b",
 			time.Date(2021, 6, 27, 0, 0, 0, 0, time.Local),
 			time.Date(2021, 6, 28, 0, 0, 0, 0, time.Local),
 			time.Date(2021, 6, 27, 0, 0, 0, 0, time.Local),
-			time.Date(2021, 6, 28, 0, 0, 0, 0, time.Local)},
-		// Unknown UTC date
-		{"62475ad0-a76c-4fab-8e68-f99209afcca6",
+			time.Date(2021, 6, 28, 0, 0, 0, 0, time.Local),
+		},
+		{
+			"Unknown UTC date",
+			"62475ad0-a76c-4fab-8e68-f99209afcca6",
 			time.Date(2021, 5, 27, 0, 0, 0, 0, time.UTC),
 			time.Date(2021, 5, 28, 0, 0, 0, 0, time.UTC),
 			time.Date(2021, 5, 27, 0, 0, 0, 0, time.UTC),
-			time.Date(2021, 5, 28, 0, 0, 0, 0, time.UTC)},
+			time.Date(2021, 5, 28, 0, 0, 0, 0, time.UTC),
+		},
 	}
 
 	assertTime := func(evtUid string, exp time.Time, timeFunc func() (given time.Time, err error)) {
@@ -77,19 +88,16 @@ func TestTimeParsing(t *testing.T) {
 			t.Errorf("get time on uid '%s', %v", evtUid, err)
 		}
 	}
-	evts := cal.Events()
+	eventMap := map[string]*VEvent{}
+	for _, e := range cal.Events() {
+		eventMap[e.Id()] = e
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.uid, func(t *testing.T) {
-			var evt *VEvent
-			for _, e := range evts {
-				if strings.EqualFold(e.Id(), tt.uid) {
-					evt = e
-				}
-			}
-
-			if evt == nil {
-				t.Errorf("event UID not found, %s", tt.uid)
+			evt, ok := eventMap[tt.uid]
+			if !ok {
+				t.Errorf("Test %#v, event UID not found, %s", tt.name, tt.uid)
 				return
 			}
 
