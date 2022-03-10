@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -55,20 +56,26 @@ func (c *VEvent) Serialize() string {
 }
 
 const (
-	icalTimeFormat       = "20060102T150405Z"
-	icalAllDayTimeFormat = "20060102"
+	icalTimestampFormatUtc   = "20060102T150405Z"
+	icalTimestampFormatLocal = "20060102T150405"
+	icalDateFormatUtc        = "20060102Z"
+	icalDateFormatLocal      = "20060102"
+)
+
+var (
+	timeStampVariations = regexp.MustCompile("^([0-9]{8})?([TZ])?([0-9]{6})?(Z)?$")
 )
 
 func (event *VEvent) SetCreatedTime(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyCreated, t.UTC().Format(icalTimeFormat), props...)
+	event.SetProperty(ComponentPropertyCreated, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
 func (event *VEvent) SetDtStampTime(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyDtstamp, t.UTC().Format(icalTimeFormat), props...)
+	event.SetProperty(ComponentPropertyDtstamp, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
 func (event *VEvent) SetModifiedAt(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimeFormat), props...)
+	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
 func (event *VEvent) SetSequence(seq int, props ...PropertyParameter) {
@@ -76,19 +83,19 @@ func (event *VEvent) SetSequence(seq int, props ...PropertyParameter) {
 }
 
 func (event *VEvent) SetStartAt(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalTimeFormat), props...)
+	event.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
 func (event *VEvent) SetAllDayStartAt(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalAllDayTimeFormat), props...)
+	event.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalDateFormatUtc), props...)
 }
 
 func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimeFormat), props...)
+	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
 func (event *VEvent) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalAllDayTimeFormat), props...)
+	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalDateFormatUtc), props...)
 }
 
 // SetDuration updates the duration of an event.
@@ -111,29 +118,87 @@ func (event *VEvent) SetDuration(d time.Duration) error {
 	return errors.New("start or end not yet defined")
 }
 
-func (event *VEvent) getTimeProp(componentProperty ComponentProperty, tFormat string) (time.Time, error) {
+func (event *VEvent) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
 	timeProp := event.GetProperty(componentProperty)
 	if timeProp == nil {
 		return time.Time{}, errors.New("property not found")
 	}
+
 	timeVal := timeProp.BaseProperty.Value
-	return time.Parse(tFormat, timeVal)
+	matched := timeStampVariations.FindStringSubmatch(timeVal)
+	if matched == nil {
+		return time.Time{}, fmt.Errorf("time value not matched, got '%s'", timeVal)
+	}
+	tOrZGrp := matched[2]
+	zGrp := matched[4]
+	grp1len := len(matched[1])
+	grp3len := len(matched[3])
+
+	tzId, tzIdOk := timeProp.ICalParameters["TZID"]
+	var propLoc *time.Location
+	if tzIdOk {
+		if len(tzId) != 1 {
+			return time.Time{}, errors.New("expected only one TZID")
+		}
+		var tzErr error
+		propLoc, tzErr = time.LoadLocation(tzId[0])
+		if tzErr != nil {
+			return time.Time{}, tzErr
+		}
+	}
+	dateStr := matched[1]
+
+	if expectAllDay {
+		if grp1len > 0 {
+			if tOrZGrp == "Z" || zGrp == "Z" {
+				return time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
+			} else {
+				if propLoc == nil {
+					return time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
+				} else {
+					return time.ParseInLocation(icalDateFormatLocal, dateStr, propLoc)
+				}
+			}
+		}
+
+		return time.Time{}, fmt.Errorf("time value matched but unsupported all-day timestamp, got '%s'", timeVal)
+	}
+
+	if grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "Z" {
+		return time.ParseInLocation(icalTimestampFormatUtc, timeVal, time.UTC)
+	} else if grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "" {
+		if propLoc == nil {
+			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, time.Local)
+		} else {
+			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, propLoc)
+		}
+	} else if grp1len > 0 && grp3len == 0 && tOrZGrp == "Z" && zGrp == "" {
+		return time.ParseInLocation(icalDateFormatUtc, dateStr + "Z", time.UTC)
+	} else if grp1len > 0 && grp3len == 0 && tOrZGrp == "" && zGrp == "" {
+		if propLoc == nil {
+			return time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
+		} else {
+			return time.ParseInLocation(icalDateFormatLocal, dateStr, propLoc)
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("time value matched but not supported, got '%s'", timeVal)
 }
 
 func (event *VEvent) GetStartAt() (time.Time, error) {
-	return event.getTimeProp(ComponentPropertyDtStart, icalTimeFormat)
+	return event.getTimeProp(ComponentPropertyDtStart, false)
 }
 
 func (event *VEvent) GetEndAt() (time.Time, error) {
-	return event.getTimeProp(ComponentPropertyDtEnd, icalTimeFormat)
+	return event.getTimeProp(ComponentPropertyDtEnd, false)
 }
 
 func (event *VEvent) GetAllDayStartAt() (time.Time, error) {
-	return event.getTimeProp(ComponentPropertyDtStart, icalAllDayTimeFormat)
+	return event.getTimeProp(ComponentPropertyDtStart, true)
 }
 
 func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
-	return event.getTimeProp(ComponentPropertyDtEnd, icalAllDayTimeFormat)
+	return event.getTimeProp(ComponentPropertyDtEnd, true)
 }
 
 type TimeTransparency string
