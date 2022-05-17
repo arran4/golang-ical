@@ -41,6 +41,45 @@ func (base ComponentBase) serializeThis(writer io.Writer, componentType string) 
 	fmt.Fprint(writer, "END:"+componentType, "\r\n")
 }
 
+func (cb *ComponentBase) GetProperty(componentProperty ComponentProperty) *IANAProperty {
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken == string(componentProperty) {
+			return &cb.Properties[i]
+		}
+	}
+	return nil
+}
+
+func (cb *ComponentBase) SetProperty(property ComponentProperty, value string, props ...PropertyParameter) {
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken == string(property) {
+			cb.Properties[i].Value = value
+			cb.Properties[i].ICalParameters = map[string][]string{}
+			for _, p := range props {
+				k, v := p.KeyValue()
+				cb.Properties[i].ICalParameters[k] = v
+			}
+			return
+		}
+	}
+	cb.AddProperty(property, value, props...)
+}
+
+func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, props ...PropertyParameter) {
+	r := IANAProperty{
+		BaseProperty{
+			IANAToken:      string(property),
+			Value:          value,
+			ICalParameters: map[string][]string{},
+		},
+	}
+	for _, p := range props {
+		k, v := p.KeyValue()
+		r.ICalParameters[k] = v
+	}
+	cb.Properties = append(cb.Properties, r)
+}
+
 type VEvent struct {
 	ComponentBase
 }
@@ -173,7 +212,7 @@ func (event *VEvent) getTimeProp(componentProperty ComponentProperty, expectAllD
 			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, propLoc)
 		}
 	} else if grp1len > 0 && grp3len == 0 && tOrZGrp == "Z" && zGrp == "" {
-		return time.ParseInLocation(icalDateFormatUtc, dateStr + "Z", time.UTC)
+		return time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
 	} else if grp1len > 0 && grp3len == 0 && tOrZGrp == "" && zGrp == "" {
 		if propLoc == nil {
 			return time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
@@ -210,36 +249,6 @@ const (
 
 func (event *VEvent) SetTimeTransparency(v TimeTransparency, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyTransp, string(v), props...)
-}
-
-func (event *VEvent) SetProperty(property ComponentProperty, value string, props ...PropertyParameter) {
-	for i := range event.Properties {
-		if event.Properties[i].IANAToken == string(property) {
-			event.Properties[i].Value = value
-			event.Properties[i].ICalParameters = map[string][]string{}
-			for _, p := range props {
-				k, v := p.KeyValue()
-				event.Properties[i].ICalParameters[k] = v
-			}
-			return
-		}
-	}
-	event.AddProperty(property, value, props...)
-}
-
-func (event *VEvent) AddProperty(property ComponentProperty, value string, props ...PropertyParameter) {
-	r := IANAProperty{
-		BaseProperty{
-			IANAToken:      string(property),
-			Value:          value,
-			ICalParameters: map[string][]string{},
-		},
-	}
-	for _, p := range props {
-		k, v := p.KeyValue()
-		r.ICalParameters[k] = v
-	}
-	event.Properties = append(event.Properties, r)
 }
 
 func (event *VEvent) SetSummary(s string, props ...PropertyParameter) {
@@ -364,15 +373,6 @@ func (event *VEvent) Id() string {
 	return ""
 }
 
-func (event *VEvent) GetProperty(componentProperty ComponentProperty) *IANAProperty {
-	for i := range event.Properties {
-		if event.Properties[i].IANAToken == string(componentProperty) {
-			return &event.Properties[i]
-		}
-	}
-	return nil
-}
-
 func (event *VEvent) AddAlarm() *VAlarm {
 	a := &VAlarm{
 		ComponentBase: ComponentBase{},
@@ -460,36 +460,6 @@ func (c *VAlarm) Serialize() string {
 
 func (c *VAlarm) serialize(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "VALARM")
-}
-
-func (alarm *VAlarm) SetProperty(property ComponentProperty, value string, props ...PropertyParameter) {
-	for i := range alarm.Properties {
-		if alarm.Properties[i].IANAToken == string(property) {
-			alarm.Properties[i].Value = value
-			alarm.Properties[i].ICalParameters = map[string][]string{}
-			for _, p := range props {
-				k, v := p.KeyValue()
-				alarm.Properties[i].ICalParameters[k] = v
-			}
-			return
-		}
-	}
-	alarm.AddProperty(property, value, props...)
-}
-
-func (alarm *VAlarm) AddProperty(property ComponentProperty, value string, props ...PropertyParameter) {
-	r := IANAProperty{
-		BaseProperty{
-			IANAToken:      string(property),
-			Value:          value,
-			ICalParameters: map[string][]string{},
-		},
-	}
-	for _, p := range props {
-		k, v := p.KeyValue()
-		r.ICalParameters[k] = v
-	}
-	alarm.Properties = append(alarm.Properties, r)
 }
 
 func (alarm *VAlarm) SetAction(a Action, props ...PropertyParameter) {
