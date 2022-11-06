@@ -12,11 +12,23 @@ import (
 	"time"
 )
 
+// Component To determine what this is please use a type switch or typecast to each of:
+// - *VEvent
+// - *VTodo
+// - *VBusy
+// - *VJournal
 type Component interface {
 	UnknownPropertiesIANAProperties() []IANAProperty
 	SubComponents() []Component
-	serialize(b io.Writer)
+	SerializeTo(b io.Writer)
 }
+
+var (
+	_ Component = (*VEvent)(nil)
+	_ Component = (*VTodo)(nil)
+	_ Component = (*VBusy)(nil)
+	_ Component = (*VJournal)(nil)
+)
 
 type ComponentBase struct {
 	Properties []IANAProperty
@@ -36,7 +48,7 @@ func (base ComponentBase) serializeThis(writer io.Writer, componentType string) 
 		p.serialize(writer)
 	}
 	for _, c := range base.Components {
-		c.serialize(writer)
+		c.SerializeTo(writer)
 	}
 	fmt.Fprint(writer, "END:"+componentType, "\r\n")
 }
@@ -84,7 +96,7 @@ type VEvent struct {
 	ComponentBase
 }
 
-func (c *VEvent) serialize(w io.Writer) {
+func (c *VEvent) SerializeTo(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "VEVENT")
 }
 
@@ -396,7 +408,7 @@ type VTodo struct {
 	ComponentBase
 }
 
-func (c *VTodo) serialize(w io.Writer) {
+func (c *VTodo) SerializeTo(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "VTODO")
 }
 
@@ -410,7 +422,7 @@ type VJournal struct {
 	ComponentBase
 }
 
-func (c *VJournal) serialize(w io.Writer) {
+func (c *VJournal) SerializeTo(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "VJOURNAL")
 }
 
@@ -430,7 +442,7 @@ func (c *VBusy) Serialize() string {
 	return b.String()
 }
 
-func (c *VBusy) serialize(w io.Writer) {
+func (c *VBusy) SerializeTo(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "VBUSY")
 }
 
@@ -444,7 +456,7 @@ func (c *VTimezone) Serialize() string {
 	return b.String()
 }
 
-func (c *VTimezone) serialize(w io.Writer) {
+func (c *VTimezone) SerializeTo(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "VTIMEZONE")
 }
 
@@ -458,7 +470,7 @@ func (c *VAlarm) Serialize() string {
 	return b.String()
 }
 
-func (c *VAlarm) serialize(w io.Writer) {
+func (c *VAlarm) SerializeTo(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "VALARM")
 }
 
@@ -480,7 +492,7 @@ func (c *Standard) Serialize() string {
 	return b.String()
 }
 
-func (c *Standard) serialize(w io.Writer) {
+func (c *Standard) SerializeTo(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "STANDARD")
 }
 
@@ -494,7 +506,7 @@ func (c *Daylight) Serialize() string {
 	return b.String()
 }
 
-func (c *Daylight) serialize(w io.Writer) {
+func (c *Daylight) SerializeTo(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "DAYLIGHT")
 }
 
@@ -509,7 +521,7 @@ func (c *GeneralComponent) Serialize() string {
 	return b.String()
 }
 
-func (c *GeneralComponent) serialize(w io.Writer) {
+func (c *GeneralComponent) SerializeTo(w io.Writer) {
 	c.ComponentBase.serializeThis(w, c.Token)
 }
 
