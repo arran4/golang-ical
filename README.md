@@ -30,3 +30,7 @@ Creating:
 ```
 
 Helper methods created as needed feel free to send a P.R. with more.
+
+# Notice
+
+Looking for a co-maintainer.
