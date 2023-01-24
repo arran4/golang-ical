@@ -99,7 +99,6 @@ const (
 	icalTimestampFormatLocal = "20060102T150405"
 	icalDateFormatUtc        = "20060102Z"
 	icalDateFormatLocal      = "20060102"
-	icalDateFormat      		 = "20060102"
 )
 
 var (
@@ -128,7 +127,7 @@ func (event *VEvent) SetStartAt(t time.Time, props ...PropertyParameter) {
 
 func (event *VEvent) SetAllDayStartAt(t time.Time, props ...PropertyParameter) {
 	props = append(props, WithValue(string(ValueDataTypeDate)))
-	event.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalDateFormat), props...)
+	event.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalDateFormatLocal), props...)
 }
 
 func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
@@ -137,7 +136,7 @@ func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
 
 func (event *VEvent) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
 	props = append(props, WithValue(string(ValueDataTypeDate)))
-	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalDateFormat), props...)
+	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalDateFormatLocal), props...)
 }
 
 // SetDuration updates the duration of an event.
