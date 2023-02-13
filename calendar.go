@@ -372,7 +372,6 @@ func (calendar *Calendar) SetUrl(s string, props ...PropertyParameter) {
 
 func (calendar *Calendar) SetTzid(s string, props ...PropertyParameter) {
 	calendar.setProperty(PropertyTzid, string(s), props...)
-	calendar.setProperty(PropertyTimezoneId, string(s), props...)
 }
 
 func (calendar *Calendar) SetTimezoneId(s string, props ...PropertyParameter) {
