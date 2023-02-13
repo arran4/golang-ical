@@ -113,6 +113,7 @@ const (
 	PropertyXWRTimezone     Property = "X-WR-TIMEZONE"
 	PropertySequence        Property = "SEQUENCE"
 	PropertyXWRCalID        Property = "X-WR-RELCALID"
+	PropertyTimezoneId      Property = "TIMEZONE-ID"
 )
 
 type Parameter string
@@ -326,6 +327,7 @@ func (calendar *Calendar) SetProductId(s string, props ...PropertyParameter) {
 
 func (calendar *Calendar) SetName(s string, props ...PropertyParameter) {
 	calendar.setProperty(PropertyName, string(s), props...)
+	calendar.setProperty(PropertyXWRCalName, string(s), props...)
 }
 
 func (calendar *Calendar) SetColor(s string, props ...PropertyParameter) {
@@ -364,8 +366,16 @@ func (calendar *Calendar) SetCalscale(s string, props ...PropertyParameter) {
 	calendar.setProperty(PropertyCalscale, string(s), props...)
 }
 
+func (calendar *Calendar) SetUrl(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyUrl, string(s), props...)
+}
+
 func (calendar *Calendar) SetTzid(s string, props ...PropertyParameter) {
 	calendar.setProperty(PropertyTzid, string(s), props...)
+}
+
+func (calendar *Calendar) SetTimezoneId(s string, props ...PropertyParameter) {
+	calendar.setProperty(PropertyTimezoneId, string(s), props...)
 }
 
 func (calendar *Calendar) setProperty(property Property, value string, props ...PropertyParameter) {
