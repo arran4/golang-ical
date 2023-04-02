@@ -330,18 +330,22 @@ func (cb *ComponentBase) Id() string {
 	return ""
 }
 
-func (event *VEvent) AddAlarm() *VAlarm {
+func (cb *ComponentBase) addAlarm() *VAlarm {
 	a := &VAlarm{
 		ComponentBase: ComponentBase{},
 	}
-	event.Components = append(event.Components, a)
+	cb.Components = append(cb.Components, a)
 	return a
 }
 
-func (event *VEvent) Alarms() (r []*VAlarm) {
+func (cb *ComponentBase) addVAlarm(a *VAlarm) {
+	event.Components = append(cb.Components, a)
+}
+
+func (cb *ComponentBase) alarms() (r []*VAlarm) {
 	r = []*VAlarm{}
-	for i := range event.Components {
-		switch alarm := event.Components[i].(type) {
+	for i := range cb.Components {
+		switch alarm := cb.Components[i].(type) {
 		case *VAlarm:
 			r = append(r, alarm)
 		}
@@ -434,6 +438,18 @@ func (event *VEvent) SetDuration(d time.Duration) error {
 		}
 	}
 	return errors.New("start or end not yet defined")
+}
+
+func (event *VEvent) AddAlarm() *VAlarm {
+	return event.addAlarm()
+}
+
+func (event *VEvent) AddVAlarm(a *VAlarm) {
+	event.addVAlarm(a)
+}
+
+func (event *VEvent) Alarms() (r []*VAlarm) {
+	return event.Alarms()
 }
 
 func (event *VEvent) GetEndAt() (time.Time, error) {
@@ -555,6 +571,18 @@ func (todo *VTodo) SetDuration(d time.Duration) error {
 	return errors.New("start or end not yet defined")
 }
 
+func (todo *VTodo) AddAlarm() *VAlarm {
+	return todo.addAlarm()
+}
+
+func (todo *VTodo) AddVAlarm(a *VAlarm) {
+	todo.addVAlarm(a)
+}
+
+func (todo *VTodo) Alarms() (r []*VAlarm) {
+	return todo.Alarms()
+}
+
 func (todo *VTodo) GetDueAt() (time.Time, error) {
 	return todo.getTimeProp(ComponentPropertyDue, false)
 }
@@ -620,6 +648,34 @@ func (c *VBusy) serialize(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "VBUSY")
 }
 
+func NewBusy(uniqueId string) *VBusy {
+	e := &VBusy{
+		NewComponent(uniqueId),
+	}
+	return e
+}
+
+func (calendar *Calendar) AddBusy(id string) *VBusy {
+	e := NewBusy(id)
+	calendar.Components = append(calendar.Components, e)
+	return e
+}
+
+func (calendar *Calendar) AddVBusy(e *VBusy) {
+	calendar.Components = append(calendar.Components, e)
+}
+
+func (calendar *Calendar) Busys() (r []*VBusy) {
+	r = []*VBusy{}
+	for i := range calendar.Components {
+		switch busy := calendar.Components[i].(type) {
+		case *VBusy:
+			r = append(r, busy)
+		}
+	}
+	return
+}
+
 type VTimezone struct {
 	ComponentBase
 }
@@ -634,6 +690,38 @@ func (c *VTimezone) serialize(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "VTIMEZONE")
 }
 
+func NewTimezone(tzId string) *VTimezone {
+	e := &VTimezone{
+		ComponentBase{
+			Properties: []IANAProperty{
+				{BaseProperty{IANAToken: ToText(string(ComponentPropertyTzid)), Value: tzId}},
+			},
+		}
+	}
+	return e
+}
+
+func (calendar *Calendar) AddTimezone(id string) *VTimezone {
+	e := NewTimezone(id)
+	calendar.Components = append(calendar.Components, e)
+	return e
+}
+
+func (calendar *Calendar) AddVTimezone(e *VTimezone) {
+	calendar.Components = append(calendar.Components, e)
+}
+
+func (calendar *Calendar) Timezones() (r []*VTimezone) {
+	r = []*VTimezone{}
+	for i := range calendar.Components {
+		switch timezone := calendar.Components[i].(type) {
+		case *VTimezone:
+			r = append(r, timezone)
+		}
+	}
+	return
+}
+
 type VAlarm struct {
 	ComponentBase
 }
@@ -646,6 +734,26 @@ func (c *VAlarm) Serialize() string {
 
 func (c *VAlarm) serialize(w io.Writer) {
 	c.ComponentBase.serializeThis(w, "VALARM")
+}
+
+func NewAlarm(tzId string) *VAlarm {
+	e := &VAlarm{}
+	return e
+}
+
+func (calendar *Calendar) AddVAlarm(e *VAlarm) {
+	calendar.Components = append(calendar.Components, e)
+}
+
+func (calendar *Calendar) Alarms() (r []*VAlarm) {
+	r = []*VAlarm{}
+	for i := range calendar.Components {
+		switch alarm := calendar.Components[i].(type) {
+		case *VAlarm:
+			r = append(r, alarm)
+		}
+	}
+	return
 }
 
 func (alarm *VAlarm) SetAction(a Action, props ...PropertyParameter) {
