@@ -30,6 +30,7 @@ func (cb *ComponentBase) UnknownPropertiesIANAProperties() []IANAProperty {
 func (cb *ComponentBase) SubComponents() []Component {
 	return cb.Components
 }
+
 func (base ComponentBase) serializeThis(writer io.Writer, componentType string) {
 	fmt.Fprint(writer, "BEGIN:"+componentType, "\r\n")
 	for _, p := range base.Properties {
@@ -101,9 +102,7 @@ const (
 	icalDateFormatLocal      = "20060102"
 )
 
-var (
-	timeStampVariations = regexp.MustCompile("^([0-9]{8})?([TZ])?([0-9]{6})?(Z)?$")
-)
+var timeStampVariations = regexp.MustCompile("^([0-9]{8})?([TZ])?([0-9]{6})?(Z)?$")
 
 func (event *VEvent) SetCreatedTime(t time.Time, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyCreated, t.UTC().Format(icalTimestampFormatUtc), props...)
@@ -126,8 +125,11 @@ func (event *VEvent) SetStartAt(t time.Time, props ...PropertyParameter) {
 }
 
 func (event *VEvent) SetAllDayStartAt(t time.Time, props ...PropertyParameter) {
-	props = append(props, WithValue(string(ValueDataTypeDate)))
-	event.SetProperty(ComponentPropertyDtStart, t.Format(icalDateFormatLocal), props...)
+	event.SetProperty(
+		ComponentPropertyDtStart,
+		t.Format(icalDateFormatLocal),
+		append(props, WithValue(string(ValueDataTypeDate)))...,
+	)
 }
 
 func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
@@ -135,8 +137,11 @@ func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
 }
 
 func (event *VEvent) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
-	props = append(props, WithValue(string(ValueDataTypeDate)))
-	event.SetProperty(ComponentPropertyDtEnd, t.Format(icalDateFormatLocal), props...)
+	event.SetProperty(
+		ComponentPropertyDtEnd,
+		t.Format(icalDateFormatLocal),
+		append(props, WithValue(string(ValueDataTypeDate)))...,
+	)
 }
 
 // SetDuration updates the duration of an event.
@@ -145,14 +150,29 @@ func (event *VEvent) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
 //
 // Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
 func (event *VEvent) SetDuration(d time.Duration) error {
-	t, err := event.GetStartAt()
-	if err == nil {
-		event.SetEndAt(t.Add(d))
-		return nil
-	} else {
-		t, err = event.GetEndAt()
+	startProp := event.GetProperty(ComponentPropertyDtStart)
+	if startProp != nil {
+		t, err := event.GetStartAt()
 		if err == nil {
-			event.SetStartAt(t.Add(-d))
+			v, _ := startProp.parameterValue(ParameterValue)
+			if v == string(ValueDataTypeDate) {
+				event.SetAllDayEndAt(t.Add(d))
+			} else {
+				event.SetEndAt(t.Add(d))
+			}
+			return nil
+		}
+	}
+	endProp := event.GetProperty(ComponentPropertyDtEnd)
+	if endProp != nil {
+		t, err := event.GetEndAt()
+		if err == nil {
+			v, _ := endProp.parameterValue(ParameterValue)
+			if v == string(ValueDataTypeDate) {
+				event.SetAllDayStartAt(t.Add(-d))
+			} else {
+				event.SetStartAt(t.Add(-d))
+			}
 			return nil
 		}
 	}
