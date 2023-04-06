@@ -339,7 +339,7 @@ func (cb *ComponentBase) addAlarm() *VAlarm {
 }
 
 func (cb *ComponentBase) addVAlarm(a *VAlarm) {
-	event.Components = append(cb.Components, a)
+	cb.Components = append(cb.Components, a)
 }
 
 func (cb *ComponentBase) alarms() (r []*VAlarm) {
@@ -449,7 +449,7 @@ func (event *VEvent) AddVAlarm(a *VAlarm) {
 }
 
 func (event *VEvent) Alarms() (r []*VAlarm) {
-	return event.Alarms()
+	return event.alarms()
 }
 
 func (event *VEvent) GetEndAt() (time.Time, error) {
@@ -539,7 +539,7 @@ func (todo *VTodo) SetLocation(s string, props ...PropertyParameter) {
 	todo.setLocation(s, props...);
 }
 
-func (todo *VTodo) setGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
+func (todo *VTodo) SetGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
 	todo.setGeo(lat, lng, props...);
 }
 
@@ -580,7 +580,7 @@ func (todo *VTodo) AddVAlarm(a *VAlarm) {
 }
 
 func (todo *VTodo) Alarms() (r []*VAlarm) {
-	return todo.Alarms()
+	return todo.alarms()
 }
 
 func (todo *VTodo) GetDueAt() (time.Time, error) {
@@ -696,7 +696,7 @@ func NewTimezone(tzId string) *VTimezone {
 			Properties: []IANAProperty{
 				{BaseProperty{IANAToken: ToText(string(ComponentPropertyTzid)), Value: tzId}},
 			},
-		}
+		},
 	}
 	return e
 }

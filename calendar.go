@@ -58,6 +58,7 @@ const (
 	ComponentPropertyCompleted       = ComponentProperty(PropertyCompleted)
 	ComponentPropertyDue             = ComponentProperty(PropertyDue)
 	ComponentPropertyPercentComplete = ComponentProperty(PropertyPercentComplete)
+	ComponentPropertyTzid            = ComponentProperty(PropertyTzid)
 )
 
 type Property string
