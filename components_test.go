@@ -59,3 +59,38 @@ END:VEVENT
 		})
 	}
 }
+
+func TestSetAllDay(t *testing.T) {
+	date, _ := time.Parse(time.RFC822, time.RFC822)
+
+	testCases := []struct {
+		name   string
+		start  time.Time
+		end    time.Time
+		output string
+	}{
+		{
+			name:  "test set duration - start",
+			start: date,
+			output: `BEGIN:VEVENT
+UID:test-duration
+DTSTART;VALUE=DATE:20060102
+DTEND;VALUE=DATE:20060103
+END:VEVENT
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := NewEvent("test-duration")
+			e.SetAllDayStartAt(date)
+			e.SetAllDayEndAt(date.AddDate(0, 0, 1))
+
+			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
+			text := strings.Replace(e.Serialize(), "\r\n", "\n", -1)
+
+			assert.Equal(t, tc.output, text)
+		})
+	}
+}
