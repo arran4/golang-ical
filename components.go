@@ -278,6 +278,14 @@ func (cb *ComponentBase) AddAttachmentBinary(binary []byte, contentType string) 
 	)
 }
 
+func (cb *ComponentBase) AddComment(s string, props ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyComment, s, props...)
+}
+
+func (cb *ComponentBase) AddCategory(s string, props ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyCategories, s, props...)
+}
+
 type Attendee struct {
 	IANAProperty
 }
