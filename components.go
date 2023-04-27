@@ -121,7 +121,8 @@ func (cb *ComponentBase) SetStartAt(t time.Time, props ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) SetAllDayStartAt(t time.Time, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalDateFormatUtc), props...)
+	props = append(props, WithValue(string(ValueDataTypeDate)))
+	cb.SetProperty(ComponentPropertyDtStart, t.Format(icalDateFormatLocal), props...)
 }
 
 func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
@@ -409,7 +410,8 @@ func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
 }
 
 func (event *VEvent) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalDateFormatUtc), props...)
+	props = append(props, WithValue(string(ValueDataTypeDate)))
+	event.SetProperty(ComponentPropertyDtEnd, t.Format(icalDateFormatLocal), props...)
 }
 
 func (event *VEvent) SetLocation(s string, props ...PropertyParameter) {
