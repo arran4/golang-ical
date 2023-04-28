@@ -529,7 +529,8 @@ func (todo *VTodo) SetCompletedAt(t time.Time, props ...PropertyParameter) {
 }
 
 func (todo *VTodo) SetAllDayCompletedAt(t time.Time, props ...PropertyParameter) {
-	todo.SetProperty(ComponentPropertyCompleted, t.UTC().Format(icalDateFormatUtc), props...)
+	props = append(props, WithValue(string(ValueDataTypeDate)))
+	todo.SetProperty(ComponentPropertyCompleted, t.Format(icalDateFormatLocal), props...)
 }
 
 func (todo *VTodo) SetDueAt(t time.Time, props ...PropertyParameter) {
@@ -537,7 +538,8 @@ func (todo *VTodo) SetDueAt(t time.Time, props ...PropertyParameter) {
 }
 
 func (todo *VTodo) SetAllDayDueAt(t time.Time, props ...PropertyParameter) {
-	todo.SetProperty(ComponentPropertyDue, t.UTC().Format(icalDateFormatUtc), props...)
+	props = append(props, WithValue(string(ValueDataTypeDate)))
+	todo.SetProperty(ComponentPropertyDue, t.Format(icalDateFormatLocal), props...)
 }
 
 func (todo *VTodo) SetPercentComplete(p int, props ...PropertyParameter) {
