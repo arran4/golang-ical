@@ -1,14 +1,14 @@
 package ics
 
 const (
-	MalformedCalendarExpectedVCalendarError = "malformed calendar; expected a vcalendar"
-	MalformedCalendarExpectedBeginError     = "malformed calendar; expected begin"
-	MalformedCalendarExpectedEndError       = "malformed calendar; expected a end"
-	MalformedCalendarExpectedBeginOrEnd     = "malformed calendar; expected begin or end"
+	MalformedCalendarExpectedVCalendarError  = "malformed calendar; expected a vcalendar"
+	MalformedCalendarExpectedBeginError      = "malformed calendar; expected begin"
+	MalformedCalendarExpectedEndError        = "malformed calendar; expected a end"
+	MalformedCalendarExpectedBeginOrEndError = "malformed calendar; expected begin or end"
 
-	MalformedCalendarUnexpectedEndError        = "malformed calendar; unexpected end"
-	MalformedCalendarBadStateError             = "malformed calendar; bad state"
-	MalformedCalendarVCalendarNotWhereExpected = "malformed calendar; vcalendar not where expected"
+	MalformedCalendarUnexpectedEndError             = "malformed calendar; unexpected end"
+	MalformedCalendarBadStateError                  = "malformed calendar; bad state"
+	MalformedCalendarVCalendarNotWhereExpectedError = "malformed calendar; vcalendar not where expected"
 
 	StartOrEndNotYetDefinedError = "start or end not yet defined"
 	PropertyNotFoundError        = "property not found"
@@ -16,7 +16,7 @@ const (
 
 	TimeValueNotMatchedError                           = "time value not matched"
 	TimeValueMatchedButUnsupportedAllDayTimeStampError = "time value matched but unsupported all-day timestamp"
-	TimeValueMatchedButNotSupported                    = "time value matched but not supported"
+	TimeValueMatchedButNotSupportedError               = "time value matched but not supported"
 
 	ParsingComponentPropertyError = "parsing component property"
 	ParsingComponentLineError     = "parsing component line"
@@ -27,8 +27,8 @@ const (
 
 	MissingPropertyValueError = "missing property value"
 
-	UnexpectedASCIIChar                       = "unexpected char ascii"
-	UnexpectedDoubleQuoteInPropertyParamValue = "unexpected double quote in property param value"
+	UnexpectedASCIICharError                       = "unexpected char ascii"
+	UnexpectedDoubleQuoteInPropertyParamValueError = "unexpected double quote in property param value"
 
 	UnbalancedEndError = "unbalanced end"
 	OutOfLinesError    = "ran out of lines"

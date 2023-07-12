@@ -223,7 +223,7 @@ func (event *VEvent) getTimeProp(componentProperty ComponentProperty, expectAllD
 		}
 	}
 
-	return time.Time{}, fmt.Errorf("%s, got '%s'", TimeValueMatchedButNotSupported, timeVal)
+	return time.Time{}, fmt.Errorf("%s, got '%s'", TimeValueMatchedButNotSupportedError, timeVal)
 }
 
 func (event *VEvent) GetStartAt() (time.Time, error) {
@@ -519,7 +519,7 @@ func GeneralParseComponent(cs *CalendarStream, startLine *BaseProperty) (Compone
 	var co Component
 	switch startLine.Value {
 	case "VCALENDAR":
-		return nil, errors.New(MalformedCalendarVCalendarNotWhereExpected)
+		return nil, errors.New(MalformedCalendarVCalendarNotWhereExpectedError)
 	case "VEVENT":
 		co = ParseVEvent(cs, startLine)
 	case "VTODO":

@@ -510,7 +510,7 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 					c.Components = append(c.Components, co)
 				}
 			default:
-				return nil, errors.New(MalformedCalendarExpectedBeginOrEnd)
+				return nil, errors.New(MalformedCalendarExpectedBeginOrEndError)
 			}
 		case "end":
 			return nil, errors.New(MalformedCalendarUnexpectedEndError)
