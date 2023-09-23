@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 )
 
@@ -434,6 +435,23 @@ func (calendar *Calendar) Events() (r []*VEvent) {
 		}
 	}
 	return
+}
+
+func ParseCalendarFromUrl(url string) (*Calendar, error) {
+	http_client := &http.Client{}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http_client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return ParseCalendar(resp.Body)
 }
 
 func ParseCalendar(r io.Reader) (*Calendar, error) {
