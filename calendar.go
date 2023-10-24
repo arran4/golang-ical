@@ -437,15 +437,46 @@ func (calendar *Calendar) Events() (r []*VEvent) {
 	return
 }
 
-func ParseCalendarFromUrl(url string) (*Calendar, error) {
-	http_client := &http.Client{}
+type OnlineParsingOpts struct {
+	client *http.Client
+	req    *http.Request
+}
 
+type OnlineParsingOptsFunc func(*OnlineParsingOpts)
+
+func defaultOnlineParsingOpts(url string) *OnlineParsingOpts {
 	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
+	if err != nil { //shouldn't return an error because NewRequest throws an error when context equals nil or http method doesn't exist. GET exists and the context is Background
+		panic(err) // so it should never panic
 	}
+	return &OnlineParsingOpts{
+		client: &http.Client{},
+		req:    req,
+	}
+}
 
-	resp, err := http_client.Do(req)
+func withCustomClient(client *http.Client) OnlineParsingOptsFunc {
+	return func(opo *OnlineParsingOpts) {
+		opo.client = client
+	}
+}
+
+func withCustomRequest(request *http.Request) OnlineParsingOptsFunc {
+	return func(opo *OnlineParsingOpts) {
+		opo.req = request
+	}
+}
+
+func ParseCalendarFromUrl(url string, opts ...OnlineParsingOptsFunc) (*Calendar, error) {
+	calendar_opts := defaultOnlineParsingOpts(url)
+	for _, fn := range opts {
+		fn(calendar_opts)
+	}
+	return parseCalendarFromUrl(calendar_opts.client, calendar_opts.req)
+}
+
+func parseCalendarFromUrl(client *http.Client, request *http.Request) (*Calendar, error) {
+	resp, err := client.Do(request)
 	if err != nil {
 		return nil, err
 	}
