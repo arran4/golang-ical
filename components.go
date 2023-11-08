@@ -242,6 +242,10 @@ func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
 	return event.getTimeProp(ComponentPropertyDtEnd, true)
 }
 
+func (event *VEvent) GetDtStampTime() (time.Time, error) {
+	return event.getTimeProp(ComponentPropertyDtstamp, false)
+}
+
 type TimeTransparency string
 
 const (
