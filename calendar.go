@@ -408,12 +408,7 @@ func NewEvent(uniqueId string) *VEvent {
 	e := &VEvent{
 		ComponentBase{
 			Properties: []IANAProperty{
-				{
-					BaseProperty{
-						IANAToken: ToText(string(ComponentPropertyUniqueId)),
-						Value:     uniqueId,
-					},
-				},
+				{BaseProperty{IANAToken: ToText(string(ComponentPropertyUniqueId)), Value: uniqueId}},
 			},
 		},
 	}
