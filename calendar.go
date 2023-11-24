@@ -408,7 +408,12 @@ func NewEvent(uniqueId string) *VEvent {
 	e := &VEvent{
 		ComponentBase{
 			Properties: []IANAProperty{
-				{BaseProperty{IANAToken: ToText(string(ComponentPropertyUniqueId)), Value: uniqueId}},
+				{
+					BaseProperty{
+						IANAToken: ToText(string(ComponentPropertyUniqueId)),
+						Value:     uniqueId,
+					},
+				},
 			},
 		},
 	}
@@ -439,7 +444,6 @@ func (calendar *Calendar) RemoveEvent(id string) {
 			}
 		}
 	}
-	return
 }
 
 func (calendar *Calendar) Events() (r []*VEvent) {
