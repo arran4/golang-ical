@@ -94,3 +94,17 @@ END:VEVENT
 		})
 	}
 }
+
+func TestGetLastModifiedAt(t *testing.T) {
+	e := NewEvent("test-last-modified")
+	lastModified := time.Unix(123456789, 0)
+	e.SetLastModifiedAt(lastModified)
+	got, err := e.GetLastModifiedAt()
+	if err != nil {
+		t.Fatalf("e.GetLastModifiedAt: %v", err)
+	}
+
+	if !got.Equal(lastModified) {
+		t.Errorf("got last modified = %q, want %q", got, lastModified)
+	}
+}

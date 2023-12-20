@@ -139,6 +139,10 @@ func (event *VEvent) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyDtEnd, t.Format(icalDateFormatLocal), props...)
 }
 
+func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
+}
+
 // SetDuration updates the duration of an event.
 // This function will set either the end or start time of an event depending what is already given.
 // The duration defines the length of a event relative to start or end time.
@@ -232,6 +236,10 @@ func (event *VEvent) GetStartAt() (time.Time, error) {
 
 func (event *VEvent) GetEndAt() (time.Time, error) {
 	return event.getTimeProp(ComponentPropertyDtEnd, false)
+}
+
+func (event *VEvent) GetLastModifiedAt() (time.Time, error) {
+	return event.getTimeProp(ComponentPropertyLastModified, false)
 }
 
 func (event *VEvent) GetAllDayStartAt() (time.Time, error) {
