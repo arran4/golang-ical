@@ -32,14 +32,14 @@ func (cb *ComponentBase) SubComponents() []Component {
 }
 
 func (base ComponentBase) serializeThis(writer io.Writer, componentType string) {
-	fmt.Fprint(writer, "BEGIN:"+componentType, "\r\n")
+	_, _ = fmt.Fprint(writer, "BEGIN:"+componentType, "\r\n")
 	for _, p := range base.Properties {
 		p.serialize(writer)
 	}
 	for _, c := range base.Components {
 		c.serialize(writer)
 	}
-	fmt.Fprint(writer, "END:"+componentType, "\r\n")
+	_, _ = fmt.Fprint(writer, "END:"+componentType, "\r\n")
 }
 
 func NewComponent(uniqueId string) ComponentBase {
