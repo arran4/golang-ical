@@ -31,12 +31,12 @@ func (cb *ComponentBase) SubComponents() []Component {
 	return cb.Components
 }
 
-func (base ComponentBase) serializeThis(writer io.Writer, componentType string) {
+func (cb ComponentBase) serializeThis(writer io.Writer, componentType string) {
 	_, _ = fmt.Fprint(writer, "BEGIN:"+componentType, "\r\n")
-	for _, p := range base.Properties {
+	for _, p := range cb.Properties {
 		p.serialize(writer)
 	}
-	for _, c := range base.Components {
+	for _, c := range cb.Components {
 		c.serialize(writer)
 	}
 	_, _ = fmt.Fprint(writer, "END:"+componentType, "\r\n")
