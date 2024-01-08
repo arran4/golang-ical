@@ -305,14 +305,14 @@ func (calendar *Calendar) Serialize() string {
 }
 
 func (calendar *Calendar) SerializeTo(w io.Writer) error {
-	fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
+	_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
 	for _, p := range calendar.CalendarProperties {
 		p.serialize(w)
 	}
 	for _, c := range calendar.Components {
 		c.serialize(w)
 	}
-	fmt.Fprint(w, "END:VCALENDAR", "\r\n")
+	_, _ = fmt.Fprint(w, "END:VCALENDAR", "\r\n")
 	return nil
 }
 
@@ -534,7 +534,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			if len(p) == 0 {
 				c = false
 			} else if p[0] == ' ' || p[0] == '\t' {
-				cs.b.Discard(1) // nolint:errcheck
+				_, _ = cs.b.Discard(1) // nolint:errcheck
 			} else {
 				c = false
 			}
