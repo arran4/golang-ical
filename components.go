@@ -491,13 +491,13 @@ type VTodo struct {
 	ComponentBase
 }
 
-func (c *VTodo) serialize(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VTODO")
+func (todo *VTodo) serialize(w io.Writer) {
+	todo.ComponentBase.serializeThis(w, "VTODO")
 }
 
-func (c *VTodo) Serialize() string {
+func (todo *VTodo) Serialize() string {
 	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VTODO")
+	todo.ComponentBase.serializeThis(b, "VTODO")
 	return b.String()
 }
 
