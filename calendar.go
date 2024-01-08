@@ -26,34 +26,40 @@ const (
 type ComponentProperty Property
 
 const (
-	ComponentPropertyUniqueId     = ComponentProperty(PropertyUid) // TEXT
-	ComponentPropertyDtstamp      = ComponentProperty(PropertyDtstamp)
-	ComponentPropertyOrganizer    = ComponentProperty(PropertyOrganizer)
-	ComponentPropertyAttendee     = ComponentProperty(PropertyAttendee)
-	ComponentPropertyAttach       = ComponentProperty(PropertyAttach)
-	ComponentPropertyDescription  = ComponentProperty(PropertyDescription) // TEXT
-	ComponentPropertyCategories   = ComponentProperty(PropertyCategories)  // TEXT
-	ComponentPropertyClass        = ComponentProperty(PropertyClass)       // TEXT
-	ComponentPropertyColor        = ComponentProperty(PropertyColor)       // TEXT
-	ComponentPropertyCreated      = ComponentProperty(PropertyCreated)
-	ComponentPropertySummary      = ComponentProperty(PropertySummary) // TEXT
-	ComponentPropertyDtStart      = ComponentProperty(PropertyDtstart)
-	ComponentPropertyDtEnd        = ComponentProperty(PropertyDtend)
-	ComponentPropertyLocation     = ComponentProperty(PropertyLocation) // TEXT
-	ComponentPropertyStatus       = ComponentProperty(PropertyStatus)   // TEXT
-	ComponentPropertyFreebusy     = ComponentProperty(PropertyFreebusy)
-	ComponentPropertyLastModified = ComponentProperty(PropertyLastModified)
-	ComponentPropertyUrl          = ComponentProperty(PropertyUrl)
-	ComponentPropertyGeo          = ComponentProperty(PropertyGeo)
-	ComponentPropertyTransp       = ComponentProperty(PropertyTransp)
-	ComponentPropertySequence     = ComponentProperty(PropertySequence)
-	ComponentPropertyExdate       = ComponentProperty(PropertyExdate)
-	ComponentPropertyExrule       = ComponentProperty(PropertyExrule)
-	ComponentPropertyRdate        = ComponentProperty(PropertyRdate)
-	ComponentPropertyRrule        = ComponentProperty(PropertyRrule)
-	ComponentPropertyAction       = ComponentProperty(PropertyAction)
-	ComponentPropertyTrigger      = ComponentProperty(PropertyTrigger)
-	ComponentPropertyPriority     = ComponentProperty(PropertyPriority)
+	ComponentPropertyUniqueId        = ComponentProperty(PropertyUid) // TEXT
+	ComponentPropertyDtstamp         = ComponentProperty(PropertyDtstamp)
+	ComponentPropertyOrganizer       = ComponentProperty(PropertyOrganizer)
+	ComponentPropertyAttendee        = ComponentProperty(PropertyAttendee)
+	ComponentPropertyAttach          = ComponentProperty(PropertyAttach)
+	ComponentPropertyDescription     = ComponentProperty(PropertyDescription) // TEXT
+	ComponentPropertyCategories      = ComponentProperty(PropertyCategories)  // TEXT
+	ComponentPropertyClass           = ComponentProperty(PropertyClass)       // TEXT
+	ComponentPropertyColor           = ComponentProperty(PropertyColor)       // TEXT
+	ComponentPropertyCreated         = ComponentProperty(PropertyCreated)
+	ComponentPropertySummary         = ComponentProperty(PropertySummary) // TEXT
+	ComponentPropertyDtStart         = ComponentProperty(PropertyDtstart)
+	ComponentPropertyDtEnd           = ComponentProperty(PropertyDtend)
+	ComponentPropertyLocation        = ComponentProperty(PropertyLocation) // TEXT
+	ComponentPropertyStatus          = ComponentProperty(PropertyStatus)   // TEXT
+	ComponentPropertyFreebusy        = ComponentProperty(PropertyFreebusy)
+	ComponentPropertyLastModified    = ComponentProperty(PropertyLastModified)
+	ComponentPropertyUrl             = ComponentProperty(PropertyUrl)
+	ComponentPropertyGeo             = ComponentProperty(PropertyGeo)
+	ComponentPropertyTransp          = ComponentProperty(PropertyTransp)
+	ComponentPropertySequence        = ComponentProperty(PropertySequence)
+	ComponentPropertyExdate          = ComponentProperty(PropertyExdate)
+	ComponentPropertyExrule          = ComponentProperty(PropertyExrule)
+	ComponentPropertyRdate           = ComponentProperty(PropertyRdate)
+	ComponentPropertyRrule           = ComponentProperty(PropertyRrule)
+	ComponentPropertyAction          = ComponentProperty(PropertyAction)
+	ComponentPropertyTrigger         = ComponentProperty(PropertyTrigger)
+	ComponentPropertyPriority        = ComponentProperty(PropertyPriority)
+	ComponentPropertyResources       = ComponentProperty(PropertyResources)
+	ComponentPropertyCompleted       = ComponentProperty(PropertyCompleted)
+	ComponentPropertyDue             = ComponentProperty(PropertyDue)
+	ComponentPropertyPercentComplete = ComponentProperty(PropertyPercentComplete)
+	ComponentPropertyTzid            = ComponentProperty(PropertyTzid)
+	ComponentPropertyComment         = ComponentProperty(PropertyComment)
 )
 
 type Property string
@@ -299,14 +305,14 @@ func (calendar *Calendar) Serialize() string {
 }
 
 func (calendar *Calendar) SerializeTo(w io.Writer) error {
-	fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
+	_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
 	for _, p := range calendar.CalendarProperties {
 		p.serialize(w)
 	}
 	for _, c := range calendar.Components {
 		c.serialize(w)
 	}
-	fmt.Fprint(w, "END:VCALENDAR", "\r\n")
+	_, _ = fmt.Fprint(w, "END:VCALENDAR", "\r\n")
 	return nil
 }
 
@@ -403,59 +409,6 @@ func (calendar *Calendar) setProperty(property Property, value string, props ...
 		r.ICalParameters[k] = v
 	}
 	calendar.CalendarProperties = append(calendar.CalendarProperties, r)
-}
-
-func NewEvent(uniqueId string) *VEvent {
-	e := &VEvent{
-		ComponentBase{
-			Properties: []IANAProperty{
-				{
-					BaseProperty{
-						IANAToken: ToText(string(ComponentPropertyUniqueId)),
-						Value:     uniqueId,
-					},
-				},
-			},
-		},
-	}
-	return e
-}
-
-func (calendar *Calendar) AddEvent(id string) *VEvent {
-	e := NewEvent(id)
-	calendar.Components = append(calendar.Components, e)
-	return e
-}
-
-func (calendar *Calendar) AddVEvent(e *VEvent) {
-	calendar.Components = append(calendar.Components, e)
-}
-
-func (calendar *Calendar) RemoveEvent(id string) {
-	for i := range calendar.Components {
-		switch event := calendar.Components[i].(type) {
-		case *VEvent:
-			if event.Id() == id {
-				if len(calendar.Components) > i+1 {
-					calendar.Components = append(calendar.Components[:i], calendar.Components[i+1:]...)
-				} else {
-					calendar.Components = calendar.Components[:i]
-				}
-				return
-			}
-		}
-	}
-}
-
-func (calendar *Calendar) Events() (r []*VEvent) {
-	r = []*VEvent{}
-	for i := range calendar.Components {
-		switch event := calendar.Components[i].(type) {
-		case *VEvent:
-			r = append(r, event)
-		}
-	}
-	return
 }
 
 func ParseCalendar(r io.Reader) (*Calendar, error) {
@@ -581,7 +534,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			if len(p) == 0 {
 				c = false
 			} else if p[0] == ' ' || p[0] == '\t' {
-				cs.b.Discard(1) // nolint:errcheck
+				_, _ = cs.b.Discard(1) // nolint:errcheck
 			} else {
 				c = false
 			}
