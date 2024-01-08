@@ -424,10 +424,6 @@ func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) 
 	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
-func (event *VEvent) SetLocation(s string, props ...PropertyParameter) {
-	event.SetLocation(s, props...)
-}
-
 func (event *VEvent) SetGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
 	event.setGeo(lat, lng, props...)
 }
@@ -553,10 +549,6 @@ func (todo *VTodo) SetAllDayDueAt(t time.Time, props ...PropertyParameter) {
 
 func (todo *VTodo) SetPercentComplete(p int, props ...PropertyParameter) {
 	todo.SetProperty(ComponentPropertyPercentComplete, strconv.Itoa(p), props...)
-}
-
-func (todo *VTodo) SetLocation(s string, props ...PropertyParameter) {
-	todo.SetLocation(s, props...)
 }
 
 func (todo *VTodo) SetGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
