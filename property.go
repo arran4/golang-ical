@@ -2,6 +2,7 @@ package ics
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -264,6 +265,9 @@ func parsePropertyParamValue(s string, p int) (string, int, error) {
 			0x1C, 0x1D, 0x1E, 0x1F:
 			return "", 0, fmt.Errorf("unexpected char ascii:%d in property param value", s[p])
 		case '\\':
+			if p+2 >= len(s) {
+				return "", 0, errors.New("unexpected end of param value")
+			}
 			r = append(r, []byte(FromText(string(s[p+1:p+2])))...)
 			p++
 			continue
