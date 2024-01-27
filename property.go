@@ -213,6 +213,9 @@ func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProper
 			return nil, 0, fmt.Errorf("parse error: %w %s in %s", err, k, r.IANAToken)
 		}
 		r.ICalParameters[k] = append(r.ICalParameters[k], v)
+		if p >= len(contentLine) {
+			return nil, p, fmt.Errorf("unexpected end of property %s", r.IANAToken)
+		}
 		switch rune(contentLine[p]) {
 		case ',':
 			p += 1
