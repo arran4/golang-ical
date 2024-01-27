@@ -1,7 +1,7 @@
 package ics
 
 import (
-	"github.com/stretchr/testify/assert"
+	"bytes"
 	"io"
 	"io/ioutil"
 	"os"
@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTimeParsing(t *testing.T) {
@@ -359,4 +362,14 @@ func TestIssue52(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot read test directory: %v", err)
 	}
+}
+
+func FuzzParseCalendar(f *testing.F) {
+	ics, err := os.ReadFile("testdata/timeparsing.ics")
+	require.NoError(f, err)
+	f.Add(ics)
+	f.Fuzz(func(t *testing.T, ics []byte) {
+		_, err := ParseCalendar(bytes.NewReader(ics))
+		t.Log(err)
+	})
 }

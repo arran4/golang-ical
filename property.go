@@ -194,6 +194,9 @@ func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProper
 	k, v := "", ""
 	k = string(contentLine[p : p+tokenPos[1]])
 	p += tokenPos[1]
+	if p >= len(contentLine) {
+		return nil, p, fmt.Errorf("missing property param operator for %s in %s", k, r.IANAToken)
+	}
 	switch rune(contentLine[p]) {
 	case '=':
 		p += 1
