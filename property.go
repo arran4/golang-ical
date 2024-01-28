@@ -2,6 +2,7 @@ package ics
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -194,6 +195,9 @@ func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProper
 	k, v := "", ""
 	k = string(contentLine[p : p+tokenPos[1]])
 	p += tokenPos[1]
+	if p >= len(contentLine) {
+		return nil, p, fmt.Errorf("missing property param operator for %s in %s", k, r.IANAToken)
+	}
 	switch rune(contentLine[p]) {
 	case '=':
 		p += 1
@@ -210,6 +214,9 @@ func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProper
 			return nil, 0, fmt.Errorf("parse error: %w %s in %s", err, k, r.IANAToken)
 		}
 		r.ICalParameters[k] = append(r.ICalParameters[k], v)
+		if p >= len(contentLine) {
+			return nil, p, fmt.Errorf("unexpected end of property %s", r.IANAToken)
+		}
 		switch rune(contentLine[p]) {
 		case ',':
 			p += 1
@@ -258,6 +265,9 @@ func parsePropertyParamValue(s string, p int) (string, int, error) {
 			0x1C, 0x1D, 0x1E, 0x1F:
 			return "", 0, fmt.Errorf("unexpected char ascii:%d in property param value", s[p])
 		case '\\':
+			if p+2 >= len(s) {
+				return "", 0, errors.New("unexpected end of param value")
+			}
 			r = append(r, []byte(FromText(string(s[p+1:p+2])))...)
 			p++
 			continue
