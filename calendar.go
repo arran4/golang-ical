@@ -317,7 +317,7 @@ func (calendar *Calendar) SerializeTo(w io.Writer) error {
 }
 
 func (calendar *Calendar) SetMethod(method Method, props ...PropertyParameter) {
-	calendar.setProperty(PropertyMethod, ToText(string(method)), props...)
+	calendar.setProperty(PropertyMethod, string(method), props...)
 }
 
 func (calendar *Calendar) SetXPublishedTTL(s string, props ...PropertyParameter) {
@@ -325,11 +325,11 @@ func (calendar *Calendar) SetXPublishedTTL(s string, props ...PropertyParameter)
 }
 
 func (calendar *Calendar) SetVersion(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyVersion, ToText(s), props...)
+	calendar.setProperty(PropertyVersion, s, props...)
 }
 
 func (calendar *Calendar) SetProductId(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyProductId, ToText(s), props...)
+	calendar.setProperty(PropertyProductId, s, props...)
 }
 
 func (calendar *Calendar) SetName(s string, props ...PropertyParameter) {
@@ -358,7 +358,7 @@ func (calendar *Calendar) SetXWRCalID(s string, props ...PropertyParameter) {
 }
 
 func (calendar *Calendar) SetDescription(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyDescription, ToText(s), props...)
+	calendar.setProperty(PropertyDescription, s, props...)
 }
 
 func (calendar *Calendar) SetLastModified(t time.Time, props ...PropertyParameter) {

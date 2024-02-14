@@ -99,9 +99,9 @@ func (property *BaseProperty) serialize(w io.Writer) {
 				fmt.Fprint(b, ",")
 			}
 			if strings.ContainsAny(v, ";:\\\",") {
+				v = strings.Replace(v, "\\", "\\\\", -1)
 				v = strings.Replace(v, ";", "\\;", -1)
 				v = strings.Replace(v, ":", "\\:", -1)
-				v = strings.Replace(v, "\\", "\\\\", -1)
 				v = strings.Replace(v, "\"", "\\\"", -1)
 				v = strings.Replace(v, ",", "\\,", -1)
 			}
@@ -109,7 +109,7 @@ func (property *BaseProperty) serialize(w io.Writer) {
 		}
 	}
 	fmt.Fprint(b, ":")
-	fmt.Fprint(b, property.Value)
+	fmt.Fprint(b, ToText(property.Value))
 	r := b.String()
 	if len(r) > 75 {
 		l := trimUT8StringUpTo(75, r)
