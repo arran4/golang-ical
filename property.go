@@ -109,7 +109,7 @@ func (property *BaseProperty) serialize(w io.Writer) {
 		}
 	}
 	fmt.Fprint(b, ":")
-	fmt.Fprint(b, ToText(property.Value))
+	fmt.Fprint(b, property.Value)
 	r := b.String()
 	if len(r) > 75 {
 		l := trimUT8StringUpTo(75, r)
