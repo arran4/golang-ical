@@ -214,19 +214,19 @@ func (cb *ComponentBase) GetDtStampTime() (time.Time, error) {
 }
 
 func (cb *ComponentBase) SetSummary(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertySummary, s, props...)
+	cb.SetProperty(ComponentPropertySummary, ToText(s), props...)
 }
 
 func (cb *ComponentBase) SetStatus(s ObjectStatus, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyStatus, string(s), props...)
+	cb.SetProperty(ComponentPropertyStatus, ToText(string(s)), props...)
 }
 
 func (cb *ComponentBase) SetDescription(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDescription, s, props...)
+	cb.SetProperty(ComponentPropertyDescription, ToText(s), props...)
 }
 
 func (cb *ComponentBase) SetLocation(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyLocation, s, props...)
+	cb.SetProperty(ComponentPropertyLocation, ToText(s), props...)
 }
 
 func (cb *ComponentBase) setGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
