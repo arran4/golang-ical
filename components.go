@@ -238,7 +238,7 @@ func (cb *ComponentBase) SetURL(s string, props ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) SetOrganizer(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyOrganizer, s, props...)
+	cb.SetProperty(ComponentPropertyOrganizer, "mailto:"+s, props...)
 }
 
 func (cb *ComponentBase) SetColor(s string, props ...PropertyParameter) {
