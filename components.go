@@ -238,6 +238,10 @@ func (cb *ComponentBase) SetURL(s string, props ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) SetOrganizer(s string, props ...PropertyParameter) {
+	if !strings.HasPrefix(s, "mailto:") {
+		s = "mailto:" + s
+	}
+
 	cb.SetProperty(ComponentPropertyOrganizer, s, props...)
 }
 
@@ -258,7 +262,11 @@ func (cb *ComponentBase) setResources(r string, props ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) AddAttendee(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyAttendee, "mailto:"+s, props...)
+	if !strings.HasPrefix(s, "mailto:") {
+		s = "mailto:" + s
+	}
+
+	cb.AddProperty(ComponentPropertyAttendee, s, props...)
 }
 
 func (cb *ComponentBase) AddExdate(s string, props ...PropertyParameter) {
