@@ -108,3 +108,27 @@ func TestGetLastModifiedAt(t *testing.T) {
 		t.Errorf("got last modified = %q, want %q", got, lastModified)
 	}
 }
+
+func TestSetMailtoPrefix(t *testing.T) {
+	e := NewEvent("test-set-organizer")
+
+	e.SetOrganizer("org1@provider.com")
+	if !strings.Contains(e.Serialize(), "ORGANIZER:mailto:org1@provider.com") {
+		t.Errorf("expected single mailto: prefix for email org1")
+	}
+
+	e.SetOrganizer("mailto:org2@provider.com")
+	if !strings.Contains(e.Serialize(), "ORGANIZER:mailto:org2@provider.com") {
+		t.Errorf("expected single mailto: prefix for email org2")
+	}
+
+	e.AddAttendee("att1@provider.com")
+	if !strings.Contains(e.Serialize(), "ATTENDEE:mailto:att1@provider.com") {
+		t.Errorf("expected single mailto: prefix for email att1")
+	}
+
+	e.AddAttendee("mailto:att2@provider.com")
+	if !strings.Contains(e.Serialize(), "ATTENDEE:mailto:att2@provider.com") {
+		t.Errorf("expected single mailto: prefix for email att2")
+	}
+}
