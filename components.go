@@ -413,6 +413,22 @@ func (calendar *Calendar) AddVEvent(e *VEvent) {
 	calendar.Components = append(calendar.Components, e)
 }
 
+func (calendar *Calendar) RemoveEvent(id string) {
+	for i := range calendar.Components {
+		switch event := calendar.Components[i].(type) {
+		case *VEvent:
+			if event.Id() == id {
+				if len(calendar.Components) > i+1 {
+					calendar.Components = append(calendar.Components[:i], calendar.Components[i+1:]...)
+				} else {
+					calendar.Components = calendar.Components[:i]
+				}
+				return
+			}
+		}
+	}
+}
+
 func (calendar *Calendar) Events() (r []*VEvent) {
 	r = []*VEvent{}
 	for i := range calendar.Components {
