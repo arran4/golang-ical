@@ -7,7 +7,7 @@ UID:uid5@example.com
 ORGANIZER:mailto:jsmith@example.com
 STATUS:DRAFT
 CLASS:PUBLIC
-CATEGORIES:Project Report,XYZ,Weekly Meeting
+CATEGORIES:Project Report\,XYZ\,Weekly Meeting
 DESCRIPTION:Project xyz Review Meeting Minutes\nAgenda\n1. Review of
   project version 1.0 requirements.\n2. Definitionof project processes.\n3.
   Review of project schedule.\nParticipants: John Smith\, Jane Doe\, Jim

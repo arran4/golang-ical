@@ -88,6 +88,121 @@ func trimUT8StringUpTo(maxLength int, s string) string {
 	return s[:length]
 }
 
+func (p *BaseProperty) GetValueType() ValueDataType {
+	for k, v := range p.ICalParameters {
+		if Parameter(k) == ParameterValue && len(v) == 1 {
+			return ValueDataType(v[0])
+		}
+	}
+
+	// defaults from spec if unspecified
+	switch Property(p.IANAToken) {
+	case PropertyCalscale:
+		fallthrough
+	case PropertyMethod:
+		fallthrough
+	case PropertyProductId:
+		fallthrough
+	case PropertyVersion:
+		fallthrough
+	case PropertyCategories:
+		fallthrough
+	case PropertyClass:
+		fallthrough
+	case PropertyComment:
+		fallthrough
+	case PropertyDescription:
+		fallthrough
+	case PropertyLocation:
+		fallthrough
+	case PropertyResources:
+		fallthrough
+	case PropertyStatus:
+		fallthrough
+	case PropertySummary:
+		fallthrough
+	case PropertyTransp:
+		fallthrough
+	case PropertyTzid:
+		fallthrough
+	case PropertyTzname:
+		fallthrough
+	case PropertyContact:
+		fallthrough
+	case PropertyRelatedTo:
+		fallthrough
+	case PropertyUid:
+		fallthrough
+	case PropertyAction:
+		fallthrough
+	default:
+		fallthrough
+	case PropertyRequestStatus:
+		return ValueDataTypeText
+
+	case PropertyAttach:
+		fallthrough
+	case PropertyTzurl:
+		fallthrough
+	case PropertyUrl:
+		return ValueDataTypeUri
+
+	case PropertyGeo:
+		return ValueDataTypeFloat
+
+	case PropertyPercentComplete:
+		fallthrough
+	case PropertyPriority:
+		fallthrough
+	case PropertyRepeat:
+		fallthrough
+	case PropertySequence:
+		return ValueDataTypeInteger
+
+	case PropertyCompleted:
+		fallthrough
+	case PropertyDtend:
+		fallthrough
+	case PropertyDue:
+		fallthrough
+	case PropertyDtstart:
+		fallthrough
+	case PropertyRecurrenceId:
+		fallthrough
+	case PropertyExdate:
+		fallthrough
+	case PropertyRdate:
+		fallthrough
+	case PropertyCreated:
+		fallthrough
+	case PropertyDtstamp:
+		fallthrough
+	case PropertyLastModified:
+		return ValueDataTypeDateTime
+
+	case PropertyDuration:
+		fallthrough
+	case PropertyTrigger:
+		return ValueDataTypeDuration
+
+	case PropertyFreebusy:
+		return ValueDataTypePeriod
+
+	case PropertyTzoffsetfrom:
+		fallthrough
+	case PropertyTzoffsetto:
+		return ValueDataTypeUtcOffset
+
+	case PropertyAttendee:
+		fallthrough
+	case PropertyOrganizer:
+		return ValueDataTypeCalAddress
+
+	case PropertyRrule:
+		return ValueDataTypeRecur
+	}
+}
+
 func (property *BaseProperty) serialize(w io.Writer) {
 	b := bytes.NewBufferString("")
 	fmt.Fprint(b, property.IANAToken)
@@ -117,7 +232,11 @@ func (property *BaseProperty) serialize(w io.Writer) {
 		}
 	}
 	fmt.Fprint(b, ":")
-	fmt.Fprint(b, property.Value)
+	propertyValue := property.Value
+	if property.GetValueType() == ValueDataTypeText {
+		propertyValue = ToText(propertyValue)
+	}
+	fmt.Fprint(b, propertyValue)
 	r := b.String()
 	if len(r) > 75 {
 		l := trimUT8StringUpTo(75, r)
@@ -306,7 +425,10 @@ func parsePropertyValue(r *BaseProperty, contentLine string, p int) *BasePropert
 	if tokenPos == nil {
 		return nil
 	}
-	r.Value = string(contentLine[p : p+tokenPos[1]])
+	r.Value = contentLine[p : p+tokenPos[1]]
+	if r.GetValueType() == ValueDataTypeText {
+		r.Value = FromText(r.Value)
+	}
 	return r
 }
 
