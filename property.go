@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -90,7 +91,14 @@ func trimUT8StringUpTo(maxLength int, s string) string {
 func (property *BaseProperty) serialize(w io.Writer) {
 	b := bytes.NewBufferString("")
 	fmt.Fprint(b, property.IANAToken)
-	for k, vs := range property.ICalParameters {
+
+	var keys []string
+	for k, _ := range property.ICalParameters {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		vs := property.ICalParameters[k]
 		fmt.Fprint(b, ";")
 		fmt.Fprint(b, k)
 		fmt.Fprint(b, "=")
