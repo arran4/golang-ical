@@ -675,12 +675,12 @@ type VBusy struct {
 
 func (c *VBusy) Serialize() string {
 	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VBUSY")
+	c.ComponentBase.serializeThis(b, "VFREEBUSY")
 	return b.String()
 }
 
 func (c *VBusy) serialize(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VBUSY")
+	c.ComponentBase.serializeThis(w, "VFREEBUSY")
 }
 
 func NewBusy(uniqueId string) *VBusy {
