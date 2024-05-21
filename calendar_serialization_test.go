@@ -38,13 +38,20 @@ func TestCalendar_ReSerialization(t *testing.T) {
 
 			//when
 			deserializedCal, err := ParseCalendar(bytes.NewReader(originalSeriailizedCal))
+			require.NoError(t, err)
 			serializedCal := deserializedCal.Serialize()
 
 			//then
 			expectedCal, _ := os.ReadFile(filepath.Join(expectedDir, filename))
 			if diff := cmp.Diff(string(expectedCal), serializedCal); diff != "" {
-				os.MkdirAll(actualDir, 0755)
-				os.WriteFile(filepath.Join(actualDir, filename), []byte(serializedCal), 0644)
+				err = os.MkdirAll(actualDir, 0755)
+				if err != nil {
+					t.Logf("failed to create actual dir: %v", err)
+				}
+				err = os.WriteFile(filepath.Join(actualDir, filename), []byte(serializedCal), 0644)
+				if err != nil {
+					t.Logf("failed to write actual file: %v", err)
+				}
 				t.Error(diff)
 			}
 		})
@@ -54,6 +61,7 @@ func TestCalendar_ReSerialization(t *testing.T) {
 			loadIcsContent, err := os.ReadFile(filepath.Join(testDir, filename))
 			require.NoError(t, err)
 			originalDeserializedCal, err := ParseCalendar(bytes.NewReader(loadIcsContent))
+			require.NoError(t, err)
 
 			//when
 			serializedCal := originalDeserializedCal.Serialize()

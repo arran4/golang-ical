@@ -208,7 +208,7 @@ func (property *BaseProperty) serialize(w io.Writer) {
 	fmt.Fprint(b, property.IANAToken)
 
 	var keys []string
-	for k, _ := range property.ICalParameters {
+	for k := range property.ICalParameters {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
