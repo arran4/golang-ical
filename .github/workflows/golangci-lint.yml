@@ -9,21 +9,15 @@ on:
   pull_request:
 jobs:
   golangci:
-    name: lint
+    name: Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # allow read access to the content for analysis.
+      checks: write # allow write access to checks to allow the action to annotate code in the PR.
     steps:
-      - uses: actions/checkout@v2
-      - name: Cache-Go
-        uses: actions/cache@v1
-        with:
-          path: |
-            ~/go/pkg/mod              # Module download cache
-            ~/.cache/go-build         # Build cache (Linux)
-            ~/Library/Caches/go-build # Build cache (Mac)
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v2
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest

@@ -2,27 +2,20 @@ on: [push, pull_request]
 name: Test
 jobs:
   test:
+    name: Test
+    permissions:
+      contents: read
     strategy:
       matrix:
-        go-version: [1.14.x, 1.15.x, 1.16.x, 1.17.x]
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        go-version: ['1.14.15', '1.15.15', '1.16.15', '1.17.13', '1.22.3']
+        os: [ubuntu-latest, macos-13, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v2
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup Golang
+      uses: actions/setup-go@v5
       with:
-        go-version: ${{ matrix.go-version }}
-    - name: Cache-Go
-      uses: actions/cache@v1
-      with:
-        path: |
-          ~/go/pkg/mod              # Module download cache
-          ~/.cache/go-build         # Build cache (Linux)
-          ~/Library/Caches/go-build # Build cache (Mac)
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-    - name: Checkout code
-      uses: actions/checkout@v2
-    - name: Test
+        go-version: "${{ matrix.go-version }}"
+    - name: Go Test
       run: go test ./...
