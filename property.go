@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -87,10 +88,64 @@ func trimUT8StringUpTo(maxLength int, s string) string {
 	return s[:length]
 }
 
+func (p *BaseProperty) GetValueType() ValueDataType {
+	for k, v := range p.ICalParameters {
+		if Parameter(k) == ParameterValue && len(v) == 1 {
+			return ValueDataType(v[0])
+		}
+	}
+
+	// defaults from spec if unspecified
+	switch Property(p.IANAToken) {
+	default:
+		fallthrough
+	case PropertyCalscale, PropertyMethod, PropertyProductId, PropertyVersion, PropertyCategories, PropertyClass,
+		PropertyComment, PropertyDescription, PropertyLocation, PropertyResources, PropertyStatus, PropertySummary,
+		PropertyTransp, PropertyTzid, PropertyTzname, PropertyContact, PropertyRelatedTo, PropertyUid, PropertyAction,
+		PropertyRequestStatus:
+		return ValueDataTypeText
+
+	case PropertyAttach, PropertyTzurl, PropertyUrl:
+		return ValueDataTypeUri
+
+	case PropertyGeo:
+		return ValueDataTypeFloat
+
+	case PropertyPercentComplete, PropertyPriority, PropertyRepeat, PropertySequence:
+		return ValueDataTypeInteger
+
+	case PropertyCompleted, PropertyDtend, PropertyDue, PropertyDtstart, PropertyRecurrenceId, PropertyExdate,
+		PropertyRdate, PropertyCreated, PropertyDtstamp, PropertyLastModified:
+		return ValueDataTypeDateTime
+
+	case PropertyDuration, PropertyTrigger:
+		return ValueDataTypeDuration
+
+	case PropertyFreebusy:
+		return ValueDataTypePeriod
+
+	case PropertyTzoffsetfrom, PropertyTzoffsetto:
+		return ValueDataTypeUtcOffset
+
+	case PropertyAttendee, PropertyOrganizer:
+		return ValueDataTypeCalAddress
+
+	case PropertyRrule:
+		return ValueDataTypeRecur
+	}
+}
+
 func (property *BaseProperty) serialize(w io.Writer) {
 	b := bytes.NewBufferString("")
 	fmt.Fprint(b, property.IANAToken)
-	for k, vs := range property.ICalParameters {
+
+	var keys []string
+	for k := range property.ICalParameters {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		vs := property.ICalParameters[k]
 		fmt.Fprint(b, ";")
 		fmt.Fprint(b, k)
 		fmt.Fprint(b, "=")
@@ -109,7 +164,11 @@ func (property *BaseProperty) serialize(w io.Writer) {
 		}
 	}
 	fmt.Fprint(b, ":")
-	fmt.Fprint(b, property.Value)
+	propertyValue := property.Value
+	if property.GetValueType() == ValueDataTypeText {
+		propertyValue = ToText(propertyValue)
+	}
+	fmt.Fprint(b, propertyValue)
 	r := b.String()
 	if len(r) > 75 {
 		l := trimUT8StringUpTo(75, r)
@@ -298,7 +357,10 @@ func parsePropertyValue(r *BaseProperty, contentLine string, p int) *BasePropert
 	if tokenPos == nil {
 		return nil
 	}
-	r.Value = string(contentLine[p : p+tokenPos[1]])
+	r.Value = contentLine[p : p+tokenPos[1]]
+	if r.GetValueType() == ValueDataTypeText {
+		r.Value = FromText(r.Value)
+	}
 	return r
 }
 

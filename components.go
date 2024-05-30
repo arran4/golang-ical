@@ -45,7 +45,7 @@ func (cb ComponentBase) serializeThis(writer io.Writer, componentType string) {
 func NewComponent(uniqueId string) ComponentBase {
 	return ComponentBase{
 		Properties: []IANAProperty{
-			{BaseProperty{IANAToken: ToText(string(ComponentPropertyUniqueId)), Value: uniqueId}},
+			{BaseProperty{IANAToken: string(ComponentPropertyUniqueId), Value: uniqueId}},
 		},
 	}
 }
@@ -214,19 +214,19 @@ func (cb *ComponentBase) GetDtStampTime() (time.Time, error) {
 }
 
 func (cb *ComponentBase) SetSummary(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertySummary, ToText(s), props...)
+	cb.SetProperty(ComponentPropertySummary, s, props...)
 }
 
 func (cb *ComponentBase) SetStatus(s ObjectStatus, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyStatus, ToText(string(s)), props...)
+	cb.SetProperty(ComponentPropertyStatus, string(s), props...)
 }
 
 func (cb *ComponentBase) SetDescription(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDescription, ToText(s), props...)
+	cb.SetProperty(ComponentPropertyDescription, s, props...)
 }
 
 func (cb *ComponentBase) SetLocation(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyLocation, ToText(s), props...)
+	cb.SetProperty(ComponentPropertyLocation, s, props...)
 }
 
 func (cb *ComponentBase) setGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
@@ -675,12 +675,12 @@ type VBusy struct {
 
 func (c *VBusy) Serialize() string {
 	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VBUSY")
+	c.ComponentBase.serializeThis(b, "VFREEBUSY")
 	return b.String()
 }
 
 func (c *VBusy) serialize(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VBUSY")
+	c.ComponentBase.serializeThis(w, "VFREEBUSY")
 }
 
 func NewBusy(uniqueId string) *VBusy {
@@ -729,7 +729,7 @@ func NewTimezone(tzId string) *VTimezone {
 	e := &VTimezone{
 		ComponentBase{
 			Properties: []IANAProperty{
-				{BaseProperty{IANAToken: ToText(string(ComponentPropertyTzid)), Value: tzId}},
+				{BaseProperty{IANAToken: string(ComponentPropertyTzid), Value: tzId}},
 			},
 		},
 	}
