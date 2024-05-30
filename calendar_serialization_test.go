@@ -42,7 +42,8 @@ func TestCalendar_ReSerialization(t *testing.T) {
 			serializedCal := deserializedCal.Serialize()
 
 			//then
-			expectedCal, _ := os.ReadFile(filepath.Join(expectedDir, filename))
+			expectedCal, err := os.ReadFile(filepath.Join(expectedDir, filename))
+			require.NoError(t, err)
 			if diff := cmp.Diff(string(expectedCal), serializedCal); diff != "" {
 				err = os.MkdirAll(actualDir, 0755)
 				if err != nil {
