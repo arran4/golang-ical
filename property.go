@@ -97,105 +97,37 @@ func (p *BaseProperty) GetValueType() ValueDataType {
 
 	// defaults from spec if unspecified
 	switch Property(p.IANAToken) {
-	case PropertyCalscale:
-		fallthrough
-	case PropertyMethod:
-		fallthrough
-	case PropertyProductId:
-		fallthrough
-	case PropertyVersion:
-		fallthrough
-	case PropertyCategories:
-		fallthrough
-	case PropertyClass:
-		fallthrough
-	case PropertyComment:
-		fallthrough
-	case PropertyDescription:
-		fallthrough
-	case PropertyLocation:
-		fallthrough
-	case PropertyResources:
-		fallthrough
-	case PropertyStatus:
-		fallthrough
-	case PropertySummary:
-		fallthrough
-	case PropertyTransp:
-		fallthrough
-	case PropertyTzid:
-		fallthrough
-	case PropertyTzname:
-		fallthrough
-	case PropertyContact:
-		fallthrough
-	case PropertyRelatedTo:
-		fallthrough
-	case PropertyUid:
-		fallthrough
-	case PropertyAction:
-		fallthrough
 	default:
 		fallthrough
-	case PropertyRequestStatus:
+	case PropertyCalscale, PropertyMethod, PropertyProductId, PropertyVersion, PropertyCategories, PropertyClass,
+		PropertyComment, PropertyDescription, PropertyLocation, PropertyResources, PropertyStatus, PropertySummary,
+		PropertyTransp, PropertyTzid, PropertyTzname, PropertyContact, PropertyRelatedTo, PropertyUid, PropertyAction,
+		PropertyRequestStatus:
 		return ValueDataTypeText
 
-	case PropertyAttach:
-		fallthrough
-	case PropertyTzurl:
-		fallthrough
-	case PropertyUrl:
+	case PropertyAttach, PropertyTzurl, PropertyUrl:
 		return ValueDataTypeUri
 
 	case PropertyGeo:
 		return ValueDataTypeFloat
 
-	case PropertyPercentComplete:
-		fallthrough
-	case PropertyPriority:
-		fallthrough
-	case PropertyRepeat:
-		fallthrough
-	case PropertySequence:
+	case PropertyPercentComplete, PropertyPriority, PropertyRepeat, PropertySequence:
 		return ValueDataTypeInteger
 
-	case PropertyCompleted:
-		fallthrough
-	case PropertyDtend:
-		fallthrough
-	case PropertyDue:
-		fallthrough
-	case PropertyDtstart:
-		fallthrough
-	case PropertyRecurrenceId:
-		fallthrough
-	case PropertyExdate:
-		fallthrough
-	case PropertyRdate:
-		fallthrough
-	case PropertyCreated:
-		fallthrough
-	case PropertyDtstamp:
-		fallthrough
-	case PropertyLastModified:
+	case PropertyCompleted, PropertyDtend, PropertyDue, PropertyDtstart, PropertyRecurrenceId, PropertyExdate,
+		PropertyRdate, PropertyCreated, PropertyDtstamp, PropertyLastModified:
 		return ValueDataTypeDateTime
 
-	case PropertyDuration:
-		fallthrough
-	case PropertyTrigger:
+	case PropertyDuration, PropertyTrigger:
 		return ValueDataTypeDuration
 
 	case PropertyFreebusy:
 		return ValueDataTypePeriod
 
-	case PropertyTzoffsetfrom:
-		fallthrough
-	case PropertyTzoffsetto:
+	case PropertyTzoffsetfrom, PropertyTzoffsetto:
 		return ValueDataTypeUtcOffset
 
-	case PropertyAttendee:
-		fallthrough
-	case PropertyOrganizer:
+	case PropertyAttendee, PropertyOrganizer:
 		return ValueDataTypeCalAddress
 
 	case PropertyRrule:
