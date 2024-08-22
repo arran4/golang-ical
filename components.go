@@ -89,6 +89,18 @@ func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, p
 	cb.Properties = append(cb.Properties, r)
 }
 
+// RemoveProperty removes from the component all properties that has
+// the name passed in removeProp.
+func (cb *ComponentBase) RemoveProperty(removeProp ComponentProperty) {
+	var keptProperties []IANAProperty
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken != string(removeProp) {
+			keptProperties = append(keptProperties, cb.Properties[i])
+		}
+	}
+	cb.Properties = keptProperties
+}
+
 const (
 	icalTimestampFormatUtc   = "20060102T150405Z"
 	icalTimestampFormatLocal = "20060102T150405"
