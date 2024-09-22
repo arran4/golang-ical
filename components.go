@@ -133,7 +133,7 @@ func (cb *ComponentBase) SetAllDayEndAt(t time.Time, props ...PropertyParameter)
 func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
 	timeProp := cb.GetProperty(componentProperty)
 	if timeProp == nil {
-		return time.Time{}, errors.New("property not found")
+		return time.Time{}, ErrorPropertyNotFound
 	}
 
 	timeVal := timeProp.BaseProperty.Value
