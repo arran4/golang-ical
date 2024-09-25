@@ -217,19 +217,19 @@ func (event *VEvent) getTimeProp(componentProperty ComponentProperty, expectAllD
 	return time.Time{}, fmt.Errorf("%s, got '%s'", TimeValueMatchedButNotSupportedError, timeVal)
 }
 
-func (cb *ComponentBase) GetStartAt() (time.Time, error) {
+func (cb *VEvent) GetStartAt() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyDtStart, false)
 }
 
-func (cb *ComponentBase) GetAllDayStartAt() (time.Time, error) {
+func (cb *VEvent) GetAllDayStartAt() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyDtStart, true)
 }
 
-func (cb *ComponentBase) GetLastModifiedAt() (time.Time, error) {
+func (cb *VEvent) GetLastModifiedAt() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyLastModified, false)
 }
 
-func (cb *ComponentBase) GetDtStampTime() (time.Time, error) {
+func (cb *VEvent) GetDtStampTime() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyDtstamp, false)
 }
 
@@ -480,26 +480,6 @@ func (event *VEvent) SetResources(r string, props ...PropertyParameter) {
 	event.setResources(r, props...)
 }
 
-// SetDuration updates the duration of an event.
-// This function will set either the end or start time of an event depending what is already given.
-// The duration defines the length of a event relative to start or end time.
-//
-// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
-func (event *VEvent) SetDuration(d time.Duration) error {
-	t, err := event.GetStartAt()
-	if err == nil {
-		event.SetEndAt(t.Add(d))
-		return nil
-	} else {
-		t, err = event.GetEndAt()
-		if err == nil {
-			event.SetStartAt(t.Add(-d))
-			return nil
-		}
-	}
-	return errors.New("start or end not yet defined")
-}
-
 func (event *VEvent) AddAlarm() *VAlarm {
 	return event.addAlarm()
 }
@@ -607,26 +587,6 @@ func (todo *VTodo) SetResources(r string, props ...PropertyParameter) {
 	todo.setResources(r, props...)
 }
 
-// SetDuration updates the duration of an event.
-// This function will set either the end or start time of an event depending what is already given.
-// The duration defines the length of a event relative to start or end time.
-//
-// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
-func (todo *VTodo) SetDuration(d time.Duration) error {
-	t, err := todo.GetStartAt()
-	if err == nil {
-		todo.SetDueAt(t.Add(d))
-		return nil
-	} else {
-		t, err = todo.GetDueAt()
-		if err == nil {
-			todo.SetStartAt(t.Add(-d))
-			return nil
-		}
-	}
-	return errors.New("start or end not yet defined")
-}
-
 func (todo *VTodo) AddAlarm() *VAlarm {
 	return todo.addAlarm()
 }
@@ -639,11 +599,11 @@ func (todo *VTodo) Alarms() (r []*VAlarm) {
 	return todo.alarms()
 }
 
-func (todo *VTodo) GetDueAt() (time.Time, error) {
+func (todo *VEvent) GetDueAt() (time.Time, error) {
 	return todo.getTimeProp(ComponentPropertyDue, false)
 }
 
-func (todo *VTodo) GetAllDayDueAt() (time.Time, error) {
+func (todo *VEvent) GetAllDayDueAt() (time.Time, error) {
 	return todo.getTimeProp(ComponentPropertyDue, true)
 }
 
