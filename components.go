@@ -130,16 +130,36 @@ func (cb *ComponentBase) SetAllDayEndAt(t time.Time, props ...PropertyParameter)
 	cb.SetProperty(ComponentPropertyDtEnd, t.Format(icalDateFormatLocal), props...)
 }
 
-func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
-	timeProp := cb.GetProperty(componentProperty)
+// SetDuration updates the duration of an event.
+// This function will set either the end or start time of an event depending what is already given.
+// The duration defines the length of a event relative to start or end time.
+//
+// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
+func (event *VEvent) SetDuration(d time.Duration) error {
+	t, err := event.GetStartAt()
+	if err == nil {
+		event.SetEndAt(t.Add(d))
+		return nil
+	} else {
+		t, err = event.GetEndAt()
+		if err == nil {
+			event.SetStartAt(t.Add(-d))
+			return nil
+		}
+	}
+	return errors.New(StartOrEndNotYetDefinedError)
+}
+
+func (event *VEvent) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
+	timeProp := event.GetProperty(componentProperty)
 	if timeProp == nil {
-		return time.Time{}, errors.New("property not found")
+		return time.Time{}, errors.New(PropertyNotFoundError)
 	}
 
 	timeVal := timeProp.BaseProperty.Value
 	matched := timeStampVariations.FindStringSubmatch(timeVal)
 	if matched == nil {
-		return time.Time{}, fmt.Errorf("time value not matched, got '%s'", timeVal)
+		return time.Time{}, fmt.Errorf("%s, got '%s'", TimeValueNotMatchedError, timeVal)
 	}
 	tOrZGrp := matched[2]
 	zGrp := matched[4]
@@ -150,7 +170,7 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 	var propLoc *time.Location
 	if tzIdOk {
 		if len(tzId) != 1 {
-			return time.Time{}, errors.New("expected only one TZID")
+			return time.Time{}, errors.New(ExpectedOneTZIDError)
 		}
 		var tzErr error
 		propLoc, tzErr = time.LoadLocation(tzId[0])
@@ -173,7 +193,7 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 			}
 		}
 
-		return time.Time{}, fmt.Errorf("time value matched but unsupported all-day timestamp, got '%s'", timeVal)
+		return time.Time{}, fmt.Errorf("%s, got '%s'", TimeValueMatchedButUnsupportedAllDayTimeStampError, timeVal)
 	}
 
 	if grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "Z" {
@@ -194,7 +214,7 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 		}
 	}
 
-	return time.Time{}, fmt.Errorf("time value matched but not supported, got '%s'", timeVal)
+	return time.Time{}, fmt.Errorf("%s, got '%s'", TimeValueMatchedButNotSupported, timeVal)
 }
 
 func (cb *ComponentBase) GetStartAt() (time.Time, error) {
@@ -846,7 +866,7 @@ func GeneralParseComponent(cs *CalendarStream, startLine *BaseProperty) (Compone
 	var co Component
 	switch startLine.Value {
 	case "VCALENDAR":
-		return nil, errors.New("malformed calendar; vcalendar not where expected")
+		return nil, errors.New(MalformedCalendarVCalendarNotWhereExpected)
 	case "VEVENT":
 		co = ParseVEvent(cs, startLine)
 	case "VTODO":
@@ -987,10 +1007,10 @@ func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase,
 		}
 		line, err := ParseProperty(*l)
 		if err != nil {
-			return cb, fmt.Errorf("parsing component property %d: %w", ln, err)
+			return cb, fmt.Errorf("%s %d: %w", ParsingComponentPropertyError, ln, err)
 		}
 		if line == nil {
-			return cb, errors.New("parsing component line")
+			return cb, errors.New(ParsingComponentLineError)
 		}
 		switch line.IANAToken {
 		case "END":
@@ -998,7 +1018,7 @@ func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase,
 			case startLine.Value:
 				return cb, nil
 			default:
-				return cb, errors.New("unbalanced end")
+				return cb, errors.New(UnbalancedEndError)
 			}
 		case "BEGIN":
 			co, err := GeneralParseComponent(cs, line)
@@ -1012,5 +1032,5 @@ func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase,
 			cb.Properties = append(cb.Properties, IANAProperty{*line})
 		}
 	}
-	return cb, errors.New("ran out of lines")
+	return cb, errors.New(OutOfLinesError)
 }
