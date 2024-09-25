@@ -2,7 +2,6 @@ package ics
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -168,7 +167,7 @@ func TestRfc5545Sec4Examples(t *testing.T) {
 			return nil
 		}
 
-		inputBytes, err := ioutil.ReadFile(path)
+		inputBytes, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
