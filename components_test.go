@@ -132,3 +132,45 @@ func TestSetMailtoPrefix(t *testing.T) {
 		t.Errorf("expected single mailto: prefix for email att2")
 	}
 }
+
+func TestGetStartAt(t *testing.T) {
+	ref := time.Now().UTC().Truncate(time.Second)
+	for name, test := range map[string]struct {
+		rawDTStart  string
+		assertError func(assert.TestingT, error, ...interface{}) bool
+		expected    time.Time
+	}{
+		"valid_time": {
+			rawDTStart:  ref.Format(icalTimestampFormatUtc),
+			assertError: assert.NoError,
+			expected:    ref,
+		},
+		"no_time": {
+			assertError: errorIs(ErrorPropertyNotFound),
+			expected:    time.Time{},
+		},
+		"invalid_time": {
+			rawDTStart:  "invalid",
+			assertError: assert.Error,
+			expected:    time.Time{},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			test := test
+			t.Parallel()
+			cb := ComponentBase{}
+			if test.rawDTStart != "" {
+				cb.SetProperty(ComponentPropertyDtStart, test.rawDTStart)
+			}
+			actual, err := cb.GetStartAt()
+			test.assertError(t, err)
+			assert.Equal(t, test.expected, actual)
+		})
+	}
+}
+
+func errorIs(target error) func(assert.TestingT, error, ...interface{}) bool {
+	return func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
+		return assert.ErrorIs(t, err, target, msgAndArgs...)
+	}
+}
