@@ -1,13 +1,13 @@
 on: [push, pull_request]
 name: Test
 jobs:
-  test:
+  version:
     name: Test
     permissions:
       contents: read
     strategy:
       matrix:
-        go-version: ['1.14.15', '1.15.15', '1.16.15', '1.17.13', '1.22.3']
+        go-version: ['oldstable', 'stable']
         os: [ubuntu-latest, macos-13, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
@@ -18,4 +18,22 @@ jobs:
       with:
         go-version: "${{ matrix.go-version }}"
     - name: Go Test
-      run: go test ./...
+      run: go test -race ./...
+  module:
+    name: Test
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        go-version-file: ['go.mod']
+        os: [ubuntu-latest, macos-13, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup Golang
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: "${{ matrix.go-version-file }}"
+    - name: Go Test
+      run: go test -race ./...
