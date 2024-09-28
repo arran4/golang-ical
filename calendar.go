@@ -311,7 +311,7 @@ func (calendar *Calendar) SerializeTo(w io.Writer) error {
 		p.serialize(w)
 	}
 	for _, c := range calendar.Components {
-		c.serialize(w)
+		c.SerializeTo(w)
 	}
 	_, _ = fmt.Fprint(w, "END:VCALENDAR", "\r\n")
 	return nil
