@@ -4,10 +4,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Install Go
-      uses: actions/setup-go@v2
-      with:
-          go-version: 1.19
-    - name: check for go vulnerabilities
-      uses: kmulvey/govulncheck-action@main
+    - uses: actions/checkout@v4
+    - name: Setup Golang
+      uses: actions/setup-go@v5
+    - id: govulncheck
+      uses: golang/govulncheck-action@v1
