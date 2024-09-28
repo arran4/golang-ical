@@ -27,33 +27,41 @@ const (
 type ComponentProperty Property
 
 const (
-	ComponentPropertyUniqueId     = ComponentProperty(PropertyUid) // TEXT
-	ComponentPropertyDtstamp      = ComponentProperty(PropertyDtstamp)
-	ComponentPropertyOrganizer    = ComponentProperty(PropertyOrganizer)
-	ComponentPropertyAttendee     = ComponentProperty(PropertyAttendee)
-	ComponentPropertyAttach       = ComponentProperty(PropertyAttach)
-	ComponentPropertyDescription  = ComponentProperty(PropertyDescription) // TEXT
-	ComponentPropertyCategories   = ComponentProperty(PropertyCategories)  // TEXT
-	ComponentPropertyClass        = ComponentProperty(PropertyClass)       // TEXT
-	ComponentPropertyColor        = ComponentProperty(PropertyColor)       // TEXT
-	ComponentPropertyCreated      = ComponentProperty(PropertyCreated)
-	ComponentPropertySummary      = ComponentProperty(PropertySummary) // TEXT
-	ComponentPropertyDtStart      = ComponentProperty(PropertyDtstart)
-	ComponentPropertyDtEnd        = ComponentProperty(PropertyDtend)
-	ComponentPropertyLocation     = ComponentProperty(PropertyLocation) // TEXT
-	ComponentPropertyStatus       = ComponentProperty(PropertyStatus)   // TEXT
-	ComponentPropertyFreebusy     = ComponentProperty(PropertyFreebusy)
-	ComponentPropertyLastModified = ComponentProperty(PropertyLastModified)
-	ComponentPropertyUrl          = ComponentProperty(PropertyUrl)
-	ComponentPropertyGeo          = ComponentProperty(PropertyGeo)
-	ComponentPropertyTransp       = ComponentProperty(PropertyTransp)
-	ComponentPropertySequence     = ComponentProperty(PropertySequence)
-	ComponentPropertyExdate       = ComponentProperty(PropertyExdate)
-	ComponentPropertyExrule       = ComponentProperty(PropertyExrule)
-	ComponentPropertyRdate        = ComponentProperty(PropertyRdate)
-	ComponentPropertyRrule        = ComponentProperty(PropertyRrule)
-	ComponentPropertyAction       = ComponentProperty(PropertyAction)
-	ComponentPropertyTrigger      = ComponentProperty(PropertyTrigger)
+	ComponentPropertyUniqueId        = ComponentProperty(PropertyUid) // TEXT
+	ComponentPropertyDtstamp         = ComponentProperty(PropertyDtstamp)
+	ComponentPropertyOrganizer       = ComponentProperty(PropertyOrganizer)
+	ComponentPropertyAttendee        = ComponentProperty(PropertyAttendee)
+	ComponentPropertyAttach          = ComponentProperty(PropertyAttach)
+	ComponentPropertyDescription     = ComponentProperty(PropertyDescription) // TEXT
+	ComponentPropertyCategories      = ComponentProperty(PropertyCategories)  // TEXT
+	ComponentPropertyClass           = ComponentProperty(PropertyClass)       // TEXT
+	ComponentPropertyColor           = ComponentProperty(PropertyColor)       // TEXT
+	ComponentPropertyCreated         = ComponentProperty(PropertyCreated)
+	ComponentPropertySummary         = ComponentProperty(PropertySummary) // TEXT
+	ComponentPropertyDtStart         = ComponentProperty(PropertyDtstart)
+	ComponentPropertyDtEnd           = ComponentProperty(PropertyDtend)
+	ComponentPropertyLocation        = ComponentProperty(PropertyLocation) // TEXT
+	ComponentPropertyStatus          = ComponentProperty(PropertyStatus)   // TEXT
+	ComponentPropertyFreebusy        = ComponentProperty(PropertyFreebusy)
+	ComponentPropertyLastModified    = ComponentProperty(PropertyLastModified)
+	ComponentPropertyUrl             = ComponentProperty(PropertyUrl)
+	ComponentPropertyGeo             = ComponentProperty(PropertyGeo)
+	ComponentPropertyTransp          = ComponentProperty(PropertyTransp)
+	ComponentPropertySequence        = ComponentProperty(PropertySequence)
+	ComponentPropertyExdate          = ComponentProperty(PropertyExdate)
+	ComponentPropertyExrule          = ComponentProperty(PropertyExrule)
+	ComponentPropertyRdate           = ComponentProperty(PropertyRdate)
+	ComponentPropertyRrule           = ComponentProperty(PropertyRrule)
+	ComponentPropertyAction          = ComponentProperty(PropertyAction)
+	ComponentPropertyTrigger         = ComponentProperty(PropertyTrigger)
+	ComponentPropertyPriority        = ComponentProperty(PropertyPriority)
+	ComponentPropertyResources       = ComponentProperty(PropertyResources)
+	ComponentPropertyCompleted       = ComponentProperty(PropertyCompleted)
+	ComponentPropertyDue             = ComponentProperty(PropertyDue)
+	ComponentPropertyPercentComplete = ComponentProperty(PropertyPercentComplete)
+	ComponentPropertyTzid            = ComponentProperty(PropertyTzid)
+	ComponentPropertyComment         = ComponentProperty(PropertyComment)
+	ComponentPropertyRelatedTo       = ComponentProperty(PropertyRelatedTo)
 )
 
 type Property string
@@ -214,7 +222,7 @@ const (
 )
 
 func (ps ObjectStatus) KeyValue(s ...interface{}) (string, []string) {
-	return string(PropertyStatus), []string{ToText(string(ps))}
+	return string(PropertyStatus), []string{string(ps)}
 }
 
 type RelationshipType string
@@ -299,60 +307,60 @@ func (calendar *Calendar) Serialize() string {
 }
 
 func (calendar *Calendar) SerializeTo(w io.Writer) error {
-	fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
+	_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
 	for _, p := range calendar.CalendarProperties {
 		p.serialize(w)
 	}
 	for _, c := range calendar.Components {
-		c.serialize(w)
+		c.SerializeTo(w)
 	}
-	fmt.Fprint(w, "END:VCALENDAR", "\r\n")
+	_, _ = fmt.Fprint(w, "END:VCALENDAR", "\r\n")
 	return nil
 }
 
 func (calendar *Calendar) SetMethod(method Method, props ...PropertyParameter) {
-	calendar.setProperty(PropertyMethod, ToText(string(method)), props...)
+	calendar.setProperty(PropertyMethod, string(method), props...)
 }
 
 func (calendar *Calendar) SetXPublishedTTL(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXPublishedTTL, string(s), props...)
+	calendar.setProperty(PropertyXPublishedTTL, s, props...)
 }
 
 func (calendar *Calendar) SetVersion(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyVersion, ToText(s), props...)
+	calendar.setProperty(PropertyVersion, s, props...)
 }
 
 func (calendar *Calendar) SetProductId(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyProductId, ToText(s), props...)
+	calendar.setProperty(PropertyProductId, s, props...)
 }
 
 func (calendar *Calendar) SetName(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyName, string(s), props...)
-	calendar.setProperty(PropertyXWRCalName, string(s), props...)
+	calendar.setProperty(PropertyName, s, props...)
+	calendar.setProperty(PropertyXWRCalName, s, props...)
 }
 
 func (calendar *Calendar) SetColor(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyColor, string(s), props...)
+	calendar.setProperty(PropertyColor, s, props...)
 }
 
 func (calendar *Calendar) SetXWRCalName(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalName, string(s), props...)
+	calendar.setProperty(PropertyXWRCalName, s, props...)
 }
 
 func (calendar *Calendar) SetXWRCalDesc(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalDesc, string(s), props...)
+	calendar.setProperty(PropertyXWRCalDesc, s, props...)
 }
 
 func (calendar *Calendar) SetXWRTimezone(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRTimezone, string(s), props...)
+	calendar.setProperty(PropertyXWRTimezone, s, props...)
 }
 
 func (calendar *Calendar) SetXWRCalID(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalID, string(s), props...)
+	calendar.setProperty(PropertyXWRCalID, s, props...)
 }
 
 func (calendar *Calendar) SetDescription(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyDescription, ToText(s), props...)
+	calendar.setProperty(PropertyDescription, s, props...)
 }
 
 func (calendar *Calendar) SetLastModified(t time.Time, props ...PropertyParameter) {
@@ -360,23 +368,23 @@ func (calendar *Calendar) SetLastModified(t time.Time, props ...PropertyParamete
 }
 
 func (calendar *Calendar) SetRefreshInterval(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyRefreshInterval, string(s), props...)
+	calendar.setProperty(PropertyRefreshInterval, s, props...)
 }
 
 func (calendar *Calendar) SetCalscale(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyCalscale, string(s), props...)
+	calendar.setProperty(PropertyCalscale, s, props...)
 }
 
 func (calendar *Calendar) SetUrl(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyUrl, string(s), props...)
+	calendar.setProperty(PropertyUrl, s, props...)
 }
 
 func (calendar *Calendar) SetTzid(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyTzid, string(s), props...)
+	calendar.setProperty(PropertyTzid, s, props...)
 }
 
 func (calendar *Calendar) SetTimezoneId(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyTimezoneId, string(s), props...)
+	calendar.setProperty(PropertyTimezoneId, s, props...)
 }
 
 func (calendar *Calendar) setProperty(property Property, value string, props ...PropertyParameter) {
@@ -608,7 +616,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			if len(p) == 0 {
 				c = false
 			} else if p[0] == ' ' || p[0] == '\t' {
-				cs.b.Discard(1) // nolint:errcheck
+				_, _ = cs.b.Discard(1) // nolint:errcheck
 			} else {
 				c = false
 			}
