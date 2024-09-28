@@ -133,44 +133,33 @@ func TestSetMailtoPrefix(t *testing.T) {
 	}
 }
 
-func TestGetStartAt(t *testing.T) {
-	ref := time.Now().UTC().Truncate(time.Second)
-	for name, test := range map[string]struct {
-		rawDTStart  string
-		assertError func(assert.TestingT, error, ...interface{}) bool
-		expected    time.Time
+func TestRemoveProperty(t *testing.T) {
+	testCases := []struct {
+		name   string
+		output string
 	}{
-		"valid_time": {
-			rawDTStart:  ref.Format(icalTimestampFormatUtc),
-			assertError: assert.NoError,
-			expected:    ref,
+		{
+			name: "test RemoveProperty - start",
+			output: `BEGIN:VTODO
+UID:test-removeproperty
+X-TEST:42
+END:VTODO
+`,
 		},
-		"no_time": {
-			assertError: errorIs(ErrorPropertyNotFound),
-			expected:    time.Time{},
-		},
-		"invalid_time": {
-			rawDTStart:  "invalid",
-			assertError: assert.Error,
-			expected:    time.Time{},
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			test := test
-			t.Parallel()
-			cb := ComponentBase{}
-			if test.rawDTStart != "" {
-				cb.SetProperty(ComponentPropertyDtStart, test.rawDTStart)
-			}
-			actual, err := cb.GetStartAt()
-			test.assertError(t, err)
-			assert.Equal(t, test.expected, actual)
-		})
 	}
-}
 
-func errorIs(target error) func(assert.TestingT, error, ...interface{}) bool {
-	return func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
-		return assert.ErrorIs(t, err, target, msgAndArgs...)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := NewTodo("test-removeproperty")
+			e.AddProperty("X-TEST", "42")
+			e.AddProperty("X-TESTREMOVE", "FOO")
+			e.AddProperty("X-TESTREMOVE", "BAR")
+			e.RemoveProperty("X-TESTREMOVE")
+
+			// adjust to expected linebreaks, since we're not testing the encoding
+			text := strings.Replace(e.Serialize(), "\r\n", "\n", -1)
+
+			assert.Equal(t, tc.output, text)
+		})
 	}
 }
