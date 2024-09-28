@@ -196,24 +196,9 @@ func (cb *ComponentBase) SetDuration(d time.Duration) error {
 	}
 	return errors.New("start or end not yet defined")
 }
-// SetDuration updates the duration of an event.
-// This function will set either the end or start time of an event depending what is already given.
-// The duration defines the length of a event relative to start or end time.
-//
-// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
-func (event *VEvent) SetDuration(d time.Duration) error {
-	t, err := event.GetStartAt()
-	if err == nil {
-		event.SetEndAt(t.Add(d))
-		return nil
-	} else {
-		t, err = event.GetEndAt()
-		if err == nil {
-			event.SetStartAt(t.Add(-d))
-			return nil
-		}
-	}
-	return errors.New("start or end not yet defined")
+
+func (cb *ComponentBase) GetEndAt() (time.Time, error) {
+	return cb.getTimeProp(ComponentPropertyDtEnd, false)
 }
 
 func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
@@ -546,26 +531,6 @@ func (event *VEvent) SetResources(r string, props ...PropertyParameter) {
 	event.setResources(r, props...)
 }
 
-// SetDuration updates the duration of an event.
-// This function will set either the end or start time of an event depending what is already given.
-// The duration defines the length of a event relative to start or end time.
-//
-// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
-func (event *VEvent) SetDuration(d time.Duration) error {
-	t, err := event.GetStartAt()
-	if err == nil {
-		event.SetEndAt(t.Add(d))
-		return nil
-	} else {
-		t, err = event.GetEndAt()
-		if err == nil {
-			event.SetStartAt(t.Add(-d))
-			return nil
-		}
-	}
-	return errors.New("start or end not yet defined")
-}
-
 func (event *VEvent) AddAlarm() *VAlarm {
 	return event.addAlarm()
 }
@@ -576,10 +541,6 @@ func (event *VEvent) AddVAlarm(a *VAlarm) {
 
 func (event *VEvent) Alarms() (r []*VAlarm) {
 	return event.alarms()
-}
-
-func (event *VEvent) GetEndAt() (time.Time, error) {
-	return event.getTimeProp(ComponentPropertyDtEnd, false)
 }
 
 func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
