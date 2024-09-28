@@ -111,18 +111,6 @@ func (cb *ComponentBase) RemoveProperty(removeProp ComponentProperty) {
 		}
 	}
 	cb.Properties = keptProperties
-type VEvent struct {
-	ComponentBase
-}
-
-func (c *VEvent) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VEVENT")
-}
-
-func (c *VEvent) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VEVENT")
-	return b.String()
 }
 
 const (
@@ -422,13 +410,13 @@ type VEvent struct {
 	ComponentBase
 }
 
-func (c *VEvent) serialize(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VEVENT")
+func (event *VEvent) SerializeTo(w io.Writer) {
+	event.ComponentBase.serializeThis(w, "VEVENT")
 }
 
-func (c *VEvent) Serialize() string {
+func (event *VEvent) Serialize() string {
 	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VEVENT")
+	event.ComponentBase.serializeThis(b, "VEVENT")
 	return b.String()
 }
 
