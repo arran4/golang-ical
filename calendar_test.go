@@ -1,9 +1,7 @@
 package ics
 
 import (
-	"github.com/stretchr/testify/assert"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,6 +9,8 @@ import (
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTimeParsing(t *testing.T) {
@@ -167,7 +167,7 @@ func TestRfc5545Sec4Examples(t *testing.T) {
 			return nil
 		}
 
-		inputBytes, err := ioutil.ReadFile(path)
+		inputBytes, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -312,6 +312,56 @@ PRODID:-//arran4//Golang ICS Library
 DESCRIPTION:test
 BEGIN:VEVENT
 DESCRIPTION:blablablablablablablablablablablablablablablabltesttesttest
+CLASS:PUBLIC
+END:VEVENT
+END:VCALENDAR
+`,
+		},
+		{
+			name: "test semicolon in attendee property parameter",
+			input: `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+BEGIN:VEVENT
+ATTENDEE;CN=Test\;User:mailto:user@example.com
+CLASS:PUBLIC
+END:VEVENT
+END:VCALENDAR
+`,
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+BEGIN:VEVENT
+ATTENDEE;CN=Test\;User:mailto:user@example.com
+CLASS:PUBLIC
+END:VEVENT
+END:VCALENDAR
+`,
+		},
+		{
+			name: "test RRULE escaping",
+			input: `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+BEGIN:VEVENT
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=SU
+CLASS:PUBLIC
+END:VEVENT
+END:VCALENDAR
+`,
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//arran4//Golang ICS Library
+DESCRIPTION:test
+BEGIN:VEVENT
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=SU
 CLASS:PUBLIC
 END:VEVENT
 END:VCALENDAR

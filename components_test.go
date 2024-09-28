@@ -59,3 +59,107 @@ END:VEVENT
 		})
 	}
 }
+
+func TestSetAllDay(t *testing.T) {
+	date, _ := time.Parse(time.RFC822, time.RFC822)
+
+	testCases := []struct {
+		name   string
+		start  time.Time
+		end    time.Time
+		output string
+	}{
+		{
+			name:  "test set duration - start",
+			start: date,
+			output: `BEGIN:VEVENT
+UID:test-duration
+DTSTART;VALUE=DATE:20060102
+DTEND;VALUE=DATE:20060103
+END:VEVENT
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := NewEvent("test-duration")
+			e.SetAllDayStartAt(date)
+			e.SetAllDayEndAt(date.AddDate(0, 0, 1))
+
+			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
+			text := strings.Replace(e.Serialize(), "\r\n", "\n", -1)
+
+			assert.Equal(t, tc.output, text)
+		})
+	}
+}
+
+func TestGetLastModifiedAt(t *testing.T) {
+	e := NewEvent("test-last-modified")
+	lastModified := time.Unix(123456789, 0)
+	e.SetLastModifiedAt(lastModified)
+	got, err := e.GetLastModifiedAt()
+	if err != nil {
+		t.Fatalf("e.GetLastModifiedAt: %v", err)
+	}
+
+	if !got.Equal(lastModified) {
+		t.Errorf("got last modified = %q, want %q", got, lastModified)
+	}
+}
+
+func TestSetMailtoPrefix(t *testing.T) {
+	e := NewEvent("test-set-organizer")
+
+	e.SetOrganizer("org1@provider.com")
+	if !strings.Contains(e.Serialize(), "ORGANIZER:mailto:org1@provider.com") {
+		t.Errorf("expected single mailto: prefix for email org1")
+	}
+
+	e.SetOrganizer("mailto:org2@provider.com")
+	if !strings.Contains(e.Serialize(), "ORGANIZER:mailto:org2@provider.com") {
+		t.Errorf("expected single mailto: prefix for email org2")
+	}
+
+	e.AddAttendee("att1@provider.com")
+	if !strings.Contains(e.Serialize(), "ATTENDEE:mailto:att1@provider.com") {
+		t.Errorf("expected single mailto: prefix for email att1")
+	}
+
+	e.AddAttendee("mailto:att2@provider.com")
+	if !strings.Contains(e.Serialize(), "ATTENDEE:mailto:att2@provider.com") {
+		t.Errorf("expected single mailto: prefix for email att2")
+	}
+}
+
+func TestRemoveProperty(t *testing.T) {
+	testCases := []struct {
+		name   string
+		output string
+	}{
+		{
+			name: "test RemoveProperty - start",
+			output: `BEGIN:VTODO
+UID:test-removeproperty
+X-TEST:42
+END:VTODO
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := NewTodo("test-removeproperty")
+			e.AddProperty("X-TEST", "42")
+			e.AddProperty("X-TESTREMOVE", "FOO")
+			e.AddProperty("X-TESTREMOVE", "BAR")
+			e.RemoveProperty("X-TESTREMOVE")
+
+			// adjust to expected linebreaks, since we're not testing the encoding
+			text := strings.Replace(e.Serialize(), "\r\n", "\n", -1)
+
+			assert.Equal(t, tc.output, text)
+		})
+	}
+}
