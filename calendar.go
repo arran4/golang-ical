@@ -3,10 +3,12 @@ package ics
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"time"
 )
 
@@ -461,52 +463,69 @@ func (calendar *Calendar) RemoveEvent(id string) {
 	}
 }
 
-type OnlineParsingOpts struct {
-	client *http.Client
-	req    *http.Request
+func WithCustomClient(client *http.Client) *http.Client {
+	return client
 }
 
-type OnlineParsingOptsFunc func(*OnlineParsingOpts)
-
-func defaultOnlineParsingOpts(url string) *OnlineParsingOpts {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil { //shouldn't return an error because NewRequest throws an error when context equals nil or http method doesn't exist. GET exists and the context is Background
-		panic(err) // so it should never panic
-	}
-	return &OnlineParsingOpts{
-		client: &http.Client{},
-		req:    req,
-	}
+func WithCustomRequest(request *http.Request) *http.Request {
+	return request
 }
 
-func withCustomClient(client *http.Client) OnlineParsingOptsFunc {
-	return func(opo *OnlineParsingOpts) {
-		opo.client = client
+func ParseCalendarFromUrl(url string, opts ...any) (*Calendar, error) {
+	var ctx context.Context
+	var req *http.Request
+	var client HttpClientLike = http.DefaultClient
+	for opti, opt := range opts {
+		switch opt := opt.(type) {
+		case *http.Client:
+			client = opt
+		case HttpClientLike:
+			client = opt
+		case func() *http.Client:
+			client = opt()
+		case *http.Request:
+			req = opt
+		case func() *http.Request:
+			req = opt()
+		case context.Context:
+			ctx = opt
+		case func() context.Context:
+			ctx = opt()
+		default:
+			return nil, fmt.Errorf("unknown optional argument %d on ParseCalendarFromUrl: %s", opti, reflect.TypeOf(opt))
+		}
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if req == nil {
+		var err error
+		req, err = http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("creating http request: %w", err)
+		}
+	}
+	return parseCalendarFromHttpRequest(client, req)
 }
 
-func withCustomRequest(request *http.Request) OnlineParsingOptsFunc {
-	return func(opo *OnlineParsingOpts) {
-		opo.req = request
-	}
+type HttpClientLike interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
-func ParseCalendarFromUrl(url string, opts ...OnlineParsingOptsFunc) (*Calendar, error) {
-	calendar_opts := defaultOnlineParsingOpts(url)
-	for _, fn := range opts {
-		fn(calendar_opts)
-	}
-	return parseCalendarFromUrl(calendar_opts.client, calendar_opts.req)
-}
-
-func parseCalendarFromUrl(client *http.Client, request *http.Request) (*Calendar, error) {
+func parseCalendarFromHttpRequest(client HttpClientLike, request *http.Request) (*Calendar, error) {
 	resp, err := client.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("http request: %w", err)
 	}
-	defer resp.Body.Close()
-
-	return ParseCalendar(resp.Body)
+	defer func(closer io.ReadCloser) {
+		if derr := closer.Close(); derr != nil && err == nil {
+			err = fmt.Errorf("http request close: %w", derr)
+		}
+	}(resp.Body)
+	var cal *Calendar
+	cal, err = ParseCalendar(resp.Body)
+	// This allows the defer func to change the error
+	return cal, err
 }
 
 func ParseCalendar(r io.Reader) (*Calendar, error) {
