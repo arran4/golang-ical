@@ -88,6 +88,17 @@ func trimUT8StringUpTo(maxLength int, s string) string {
 	return s[:length]
 }
 
+func (property *BaseProperty) parameterValue(param Parameter) (string, error) {
+	v, ok := property.ICalParameters[string(param)]
+	if !ok || len(v) == 0 {
+		return "", fmt.Errorf("parameter %q not found in property", param)
+	}
+	if len(v) != 1 {
+		return "", fmt.Errorf("expected only one value for parameter %q in property, found %d", param, len(v))
+	}
+	return v[0], nil
+}
+
 func (p *BaseProperty) GetValueType() ValueDataType {
 	for k, v := range p.ICalParameters {
 		if Parameter(k) == ParameterValue && len(v) == 1 {

@@ -120,9 +120,7 @@ const (
 	icalDateFormatLocal      = "20060102"
 )
 
-var (
-	timeStampVariations = regexp.MustCompile("^([0-9]{8})?([TZ])?([0-9]{6})?(Z)?$")
-)
+var timeStampVariations = regexp.MustCompile("^([0-9]{8})?([TZ])?([0-9]{6})?(Z)?$")
 
 func (cb *ComponentBase) SetCreatedTime(t time.Time, props ...PropertyParameter) {
 	cb.SetProperty(ComponentPropertyCreated, t.UTC().Format(icalTimestampFormatUtc), props...)
@@ -145,13 +143,62 @@ func (cb *ComponentBase) SetStartAt(t time.Time, props ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) SetAllDayStartAt(t time.Time, props ...PropertyParameter) {
-	props = append(props, WithValue(string(ValueDataTypeDate)))
-	cb.SetProperty(ComponentPropertyDtStart, t.Format(icalDateFormatLocal), props...)
+	cb.SetProperty(
+		ComponentPropertyDtStart,
+		t.Format(icalDateFormatLocal),
+		append(props, WithValue(string(ValueDataTypeDate)))...,
+	)
+}
+
+func (cb *ComponentBase) SetEndAt(t time.Time, props ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
 func (cb *ComponentBase) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
-	props = append(props, WithValue(string(ValueDataTypeDate)))
-	cb.SetProperty(ComponentPropertyDtEnd, t.Format(icalDateFormatLocal), props...)
+	cb.SetProperty(
+		ComponentPropertyDtEnd,
+		t.Format(icalDateFormatLocal),
+		append(props, WithValue(string(ValueDataTypeDate)))...,
+	)
+}
+
+// SetDuration updates the duration of an event.
+// This function will set either the end or start time of an event depending what is already given.
+// The duration defines the length of a event relative to start or end time.
+//
+// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
+func (cb *ComponentBase) SetDuration(d time.Duration) error {
+	startProp := cb.GetProperty(ComponentPropertyDtStart)
+	if startProp != nil {
+		t, err := cb.GetStartAt()
+		if err == nil {
+			v, _ := startProp.parameterValue(ParameterValue)
+			if v == string(ValueDataTypeDate) {
+				cb.SetAllDayEndAt(t.Add(d))
+			} else {
+				cb.SetEndAt(t.Add(d))
+			}
+			return nil
+		}
+	}
+	endProp := cb.GetProperty(ComponentPropertyDtEnd)
+	if endProp != nil {
+		t, err := cb.GetEndAt()
+		if err == nil {
+			v, _ := endProp.parameterValue(ParameterValue)
+			if v == string(ValueDataTypeDate) {
+				cb.SetAllDayStartAt(t.Add(-d))
+			} else {
+				cb.SetStartAt(t.Add(-d))
+			}
+			return nil
+		}
+	}
+	return errors.New("start or end not yet defined")
+}
+
+func (cb *ComponentBase) GetEndAt() (time.Time, error) {
+	return cb.getTimeProp(ComponentPropertyDtEnd, false)
 }
 
 func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
@@ -484,26 +531,6 @@ func (event *VEvent) SetResources(r string, props ...PropertyParameter) {
 	event.setResources(r, props...)
 }
 
-// SetDuration updates the duration of an event.
-// This function will set either the end or start time of an event depending what is already given.
-// The duration defines the length of a event relative to start or end time.
-//
-// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
-func (event *VEvent) SetDuration(d time.Duration) error {
-	t, err := event.GetStartAt()
-	if err == nil {
-		event.SetEndAt(t.Add(d))
-		return nil
-	} else {
-		t, err = event.GetEndAt()
-		if err == nil {
-			event.SetStartAt(t.Add(-d))
-			return nil
-		}
-	}
-	return errors.New("start or end not yet defined")
-}
-
 func (event *VEvent) AddAlarm() *VAlarm {
 	return event.addAlarm()
 }
@@ -514,10 +541,6 @@ func (event *VEvent) AddVAlarm(a *VAlarm) {
 
 func (event *VEvent) Alarms() (r []*VAlarm) {
 	return event.alarms()
-}
-
-func (event *VEvent) GetEndAt() (time.Time, error) {
-	return event.getTimeProp(ComponentPropertyDtEnd, false)
 }
 
 func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
