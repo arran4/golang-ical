@@ -408,8 +408,8 @@ func (attendee *Attendee) getProperty(parameter Parameter) []string {
 	return nil
 }
 
-func (cb *ComponentBase) Attendees() (r []*Attendee) {
-	r = []*Attendee{}
+func (cb *ComponentBase) Attendees() []*Attendee {
+	var r []*Attendee
 	for i := range cb.Properties {
 		switch cb.Properties[i].IANAToken {
 		case string(ComponentPropertyAttendee):
@@ -419,7 +419,7 @@ func (cb *ComponentBase) Attendees() (r []*Attendee) {
 			r = append(r, a)
 		}
 	}
-	return
+	return r
 }
 
 func (cb *ComponentBase) Id() string {
@@ -442,15 +442,15 @@ func (cb *ComponentBase) addVAlarm(a *VAlarm) {
 	cb.Components = append(cb.Components, a)
 }
 
-func (cb *ComponentBase) alarms() (r []*VAlarm) {
-	r = []*VAlarm{}
+func (cb *ComponentBase) alarms() []*VAlarm {
+	var r []*VAlarm
 	for i := range cb.Components {
 		switch alarm := cb.Components[i].(type) {
 		case *VAlarm:
 			r = append(r, alarm)
 		}
 	}
-	return
+	return r
 }
 
 type VEvent struct {
@@ -500,15 +500,15 @@ func (calendar *Calendar) RemoveEvent(id string) {
 	}
 }
 
-func (calendar *Calendar) Events() (r []*VEvent) {
-	r = []*VEvent{}
+func (calendar *Calendar) Events() []*VEvent {
+	var r []*VEvent
 	for i := range calendar.Components {
 		switch event := calendar.Components[i].(type) {
 		case *VEvent:
 			r = append(r, event)
 		}
 	}
-	return
+	return r
 }
 
 func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
@@ -539,7 +539,7 @@ func (event *VEvent) AddVAlarm(a *VAlarm) {
 	event.addVAlarm(a)
 }
 
-func (event *VEvent) Alarms() (r []*VAlarm) {
+func (event *VEvent) Alarms() []*VAlarm {
 	return event.alarms()
 }
 
@@ -589,15 +589,15 @@ func (calendar *Calendar) AddVTodo(e *VTodo) {
 	calendar.Components = append(calendar.Components, e)
 }
 
-func (calendar *Calendar) Todos() (r []*VTodo) {
-	r = []*VTodo{}
+func (calendar *Calendar) Todos() []*VTodo {
+	var r []*VTodo
 	for i := range calendar.Components {
 		switch todo := calendar.Components[i].(type) {
 		case *VTodo:
 			r = append(r, todo)
 		}
 	}
-	return
+	return r
 }
 
 func (todo *VTodo) SetCompletedAt(t time.Time, props ...PropertyParameter) {
@@ -662,7 +662,7 @@ func (todo *VTodo) AddVAlarm(a *VAlarm) {
 	todo.addVAlarm(a)
 }
 
-func (todo *VTodo) Alarms() (r []*VAlarm) {
+func (todo *VTodo) Alarms() []*VAlarm {
 	return todo.alarms()
 }
 
@@ -705,15 +705,15 @@ func (calendar *Calendar) AddVJournal(e *VJournal) {
 	calendar.Components = append(calendar.Components, e)
 }
 
-func (calendar *Calendar) Journals() (r []*VJournal) {
-	r = []*VJournal{}
+func (calendar *Calendar) Journals() []*VJournal {
+	var r []*VJournal
 	for i := range calendar.Components {
 		switch journal := calendar.Components[i].(type) {
 		case *VJournal:
 			r = append(r, journal)
 		}
 	}
-	return
+	return r
 }
 
 type VBusy struct {
@@ -747,15 +747,15 @@ func (calendar *Calendar) AddVBusy(e *VBusy) {
 	calendar.Components = append(calendar.Components, e)
 }
 
-func (calendar *Calendar) Busys() (r []*VBusy) {
-	r = []*VBusy{}
+func (calendar *Calendar) Busys() []*VBusy {
+	var r []*VBusy
 	for i := range calendar.Components {
 		switch busy := calendar.Components[i].(type) {
 		case *VBusy:
 			r = append(r, busy)
 		}
 	}
-	return
+	return r
 }
 
 type VTimezone struct {
@@ -793,15 +793,15 @@ func (calendar *Calendar) AddVTimezone(e *VTimezone) {
 	calendar.Components = append(calendar.Components, e)
 }
 
-func (calendar *Calendar) Timezones() (r []*VTimezone) {
-	r = []*VTimezone{}
+func (calendar *Calendar) Timezones() []*VTimezone {
+	var r []*VTimezone
 	for i := range calendar.Components {
 		switch timezone := calendar.Components[i].(type) {
 		case *VTimezone:
 			r = append(r, timezone)
 		}
 	}
-	return
+	return r
 }
 
 type VAlarm struct {
@@ -827,15 +827,15 @@ func (calendar *Calendar) AddVAlarm(e *VAlarm) {
 	calendar.Components = append(calendar.Components, e)
 }
 
-func (calendar *Calendar) Alarms() (r []*VAlarm) {
-	r = []*VAlarm{}
+func (calendar *Calendar) Alarms() []*VAlarm {
+	var r []*VAlarm
 	for i := range calendar.Components {
 		switch alarm := calendar.Components[i].(type) {
 		case *VAlarm:
 			r = append(r, alarm)
 		}
 	}
-	return
+	return r
 }
 
 func (alarm *VAlarm) SetAction(a Action, props ...PropertyParameter) {
