@@ -28,6 +28,11 @@ Example: steps to reproduce the behavior:
 
 ### Minimal Example ical extract:
 
+```ical
+BEGIN:VCALENDAR
+....
+```
+
 ### Anything else:
 <!--
 Links? References? Anything that will give us more context about the issue that you are encountering!
