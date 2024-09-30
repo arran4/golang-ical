@@ -298,102 +298,102 @@ func NewCalendarFor(service string) *Calendar {
 	return c
 }
 
-func (calendar *Calendar) Serialize() string {
+func (cal *Calendar) Serialize() string {
 	b := bytes.NewBufferString("")
 	// We are intentionally ignoring the return value. _ used to communicate this to lint.
-	_ = calendar.SerializeTo(b)
+	_ = cal.SerializeTo(b)
 	return b.String()
 }
 
-func (calendar *Calendar) SerializeTo(w io.Writer) error {
+func (cal *Calendar) SerializeTo(w io.Writer) error {
 	_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
-	for _, p := range calendar.CalendarProperties {
+	for _, p := range cal.CalendarProperties {
 		p.serialize(w)
 	}
-	for _, c := range calendar.Components {
+	for _, c := range cal.Components {
 		c.SerializeTo(w)
 	}
 	_, _ = fmt.Fprint(w, "END:VCALENDAR", "\r\n")
 	return nil
 }
 
-func (calendar *Calendar) SetMethod(method Method, params ...PropertyParameter) {
-	calendar.setProperty(PropertyMethod, string(method), params...)
+func (cal *Calendar) SetMethod(method Method, params ...PropertyParameter) {
+	cal.setProperty(PropertyMethod, string(method), params...)
 }
 
-func (calendar *Calendar) SetXPublishedTTL(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyXPublishedTTL, s, params...)
+func (cal *Calendar) SetXPublishedTTL(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXPublishedTTL, s, params...)
 }
 
-func (calendar *Calendar) SetVersion(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyVersion, s, params...)
+func (cal *Calendar) SetVersion(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyVersion, s, params...)
 }
 
-func (calendar *Calendar) SetProductId(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyProductId, s, params...)
+func (cal *Calendar) SetProductId(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyProductId, s, params...)
 }
 
-func (calendar *Calendar) SetName(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyName, s, params...)
-	calendar.setProperty(PropertyXWRCalName, s, params...)
+func (cal *Calendar) SetName(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyName, s, params...)
+	cal.setProperty(PropertyXWRCalName, s, params...)
 }
 
-func (calendar *Calendar) SetColor(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyColor, s, params...)
+func (cal *Calendar) SetColor(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyColor, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalName(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalName, s, params...)
+func (cal *Calendar) SetXWRCalName(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRCalName, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalDesc(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalDesc, s, params...)
+func (cal *Calendar) SetXWRCalDesc(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRCalDesc, s, params...)
 }
 
-func (calendar *Calendar) SetXWRTimezone(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRTimezone, s, params...)
+func (cal *Calendar) SetXWRTimezone(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRTimezone, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalID(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalID, s, params...)
+func (cal *Calendar) SetXWRCalID(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRCalID, s, params...)
 }
 
-func (calendar *Calendar) SetDescription(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyDescription, s, params...)
+func (cal *Calendar) SetDescription(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyDescription, s, params...)
 }
 
-func (calendar *Calendar) SetLastModified(t time.Time, params ...PropertyParameter) {
-	calendar.setProperty(PropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), params...)
+func (cal *Calendar) SetLastModified(t time.Time, params ...PropertyParameter) {
+	cal.setProperty(PropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (calendar *Calendar) SetRefreshInterval(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyRefreshInterval, s, params...)
+func (cal *Calendar) SetRefreshInterval(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyRefreshInterval, s, params...)
 }
 
-func (calendar *Calendar) SetCalscale(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyCalscale, s, params...)
+func (cal *Calendar) SetCalscale(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyCalscale, s, params...)
 }
 
-func (calendar *Calendar) SetUrl(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyUrl, s, params...)
+func (cal *Calendar) SetUrl(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyUrl, s, params...)
 }
 
-func (calendar *Calendar) SetTzid(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyTzid, s, params...)
+func (cal *Calendar) SetTzid(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyTzid, s, params...)
 }
 
-func (calendar *Calendar) SetTimezoneId(s string, params ...PropertyParameter) {
-	calendar.setProperty(PropertyTimezoneId, s, params...)
+func (cal *Calendar) SetTimezoneId(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyTimezoneId, s, params...)
 }
 
-func (calendar *Calendar) setProperty(property Property, value string, params ...PropertyParameter) {
-	for i := range calendar.CalendarProperties {
-		if calendar.CalendarProperties[i].IANAToken == string(property) {
-			calendar.CalendarProperties[i].Value = value
-			calendar.CalendarProperties[i].ICalParameters = map[string][]string{}
+func (cal *Calendar) setProperty(property Property, value string, params ...PropertyParameter) {
+	for i := range cal.CalendarProperties {
+		if cal.CalendarProperties[i].IANAToken == string(property) {
+			cal.CalendarProperties[i].Value = value
+			cal.CalendarProperties[i].ICalParameters = map[string][]string{}
 			for _, p := range params {
 				k, v := p.KeyValue()
-				calendar.CalendarProperties[i].ICalParameters[k] = v
+				cal.CalendarProperties[i].ICalParameters[k] = v
 			}
 			return
 		}
@@ -409,7 +409,7 @@ func (calendar *Calendar) setProperty(property Property, value string, params ..
 		k, v := p.KeyValue()
 		r.ICalParameters[k] = v
 	}
-	calendar.CalendarProperties = append(calendar.CalendarProperties, r)
+	cal.CalendarProperties = append(cal.CalendarProperties, r)
 }
 
 func ParseCalendar(r io.Reader) (*Calendar, error) {
