@@ -178,7 +178,7 @@ const (
 	CalendarUserTypeUnknown    CalendarUserType = "UNKNOWN"
 )
 
-func (cut CalendarUserType) KeyValue(s ...interface{}) (string, []string) {
+func (cut CalendarUserType) KeyValue(_ ...interface{}) (string, []string) {
 	return string(ParameterCutype), []string{string(cut)}
 }
 
@@ -203,7 +203,7 @@ const (
 	ParticipationStatusInProcess   ParticipationStatus = "IN-PROCESS"
 )
 
-func (ps ParticipationStatus) KeyValue(s ...interface{}) (string, []string) {
+func (ps ParticipationStatus) KeyValue(_ ...interface{}) (string, []string) {
 	return string(ParameterParticipationStatus), []string{string(ps)}
 }
 
@@ -220,7 +220,7 @@ const (
 	ObjectStatusFinal       ObjectStatus = "FINAL"
 )
 
-func (ps ObjectStatus) KeyValue(s ...interface{}) (string, []string) {
+func (ps ObjectStatus) KeyValue(_ ...interface{}) (string, []string) {
 	return string(PropertyStatus), []string{string(ps)}
 }
 
@@ -241,7 +241,7 @@ const (
 	ParticipationRoleNonParticipant ParticipationRole = "NON-PARTICIPANT"
 )
 
-func (pr ParticipationRole) KeyValue(s ...interface{}) (string, []string) {
+func (pr ParticipationRole) KeyValue(_ ...interface{}) (string, []string) {
 	return string(ParameterRole), []string{string(pr)}
 }
 

@@ -28,7 +28,7 @@ type KeyValues struct {
 	Value []string
 }
 
-func (kv *KeyValues) KeyValue(s ...interface{}) (string, []string) {
+func (kv *KeyValues) KeyValue(_ ...interface{}) (string, []string) {
 	return kv.Key, kv.Value
 }
 
