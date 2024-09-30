@@ -71,22 +71,22 @@ func (cb *ComponentBase) GetProperty(componentProperty ComponentProperty) *IANAP
 	return nil
 }
 
-func (cb *ComponentBase) SetProperty(property ComponentProperty, value string, props ...PropertyParameter) {
+func (cb *ComponentBase) SetProperty(property ComponentProperty, value string, params ...PropertyParameter) {
 	for i := range cb.Properties {
 		if cb.Properties[i].IANAToken == string(property) {
 			cb.Properties[i].Value = value
 			cb.Properties[i].ICalParameters = map[string][]string{}
-			for _, p := range props {
+			for _, p := range params {
 				k, v := p.KeyValue()
 				cb.Properties[i].ICalParameters[k] = v
 			}
 			return
 		}
 	}
-	cb.AddProperty(property, value, props...)
+	cb.AddProperty(property, value, params...)
 }
 
-func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, props ...PropertyParameter) {
+func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, params ...PropertyParameter) {
 	r := IANAProperty{
 		BaseProperty{
 			IANAToken:      string(property),
@@ -94,7 +94,7 @@ func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, p
 			ICalParameters: map[string][]string{},
 		},
 	}
-	for _, p := range props {
+	for _, p := range params {
 		k, v := p.KeyValue()
 		r.ICalParameters[k] = v
 	}
@@ -122,43 +122,43 @@ const (
 
 var timeStampVariations = regexp.MustCompile("^([0-9]{8})?([TZ])?([0-9]{6})?(Z)?$")
 
-func (cb *ComponentBase) SetCreatedTime(t time.Time, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyCreated, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (cb *ComponentBase) SetCreatedTime(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyCreated, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (cb *ComponentBase) SetDtStampTime(t time.Time, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDtstamp, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (cb *ComponentBase) SetDtStampTime(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyDtstamp, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (cb *ComponentBase) SetModifiedAt(t time.Time, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (cb *ComponentBase) SetModifiedAt(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (cb *ComponentBase) SetSequence(seq int, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertySequence, strconv.Itoa(seq), props...)
+func (cb *ComponentBase) SetSequence(seq int, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertySequence, strconv.Itoa(seq), params...)
 }
 
-func (cb *ComponentBase) SetStartAt(t time.Time, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (cb *ComponentBase) SetStartAt(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (cb *ComponentBase) SetAllDayStartAt(t time.Time, props ...PropertyParameter) {
+func (cb *ComponentBase) SetAllDayStartAt(t time.Time, params ...PropertyParameter) {
 	cb.SetProperty(
 		ComponentPropertyDtStart,
 		t.Format(icalDateFormatLocal),
-		append(props, WithValue(string(ValueDataTypeDate)))...,
+		append(params, WithValue(string(ValueDataTypeDate)))...,
 	)
 }
 
-func (cb *ComponentBase) SetEndAt(t time.Time, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (cb *ComponentBase) SetEndAt(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (cb *ComponentBase) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
+func (cb *ComponentBase) SetAllDayEndAt(t time.Time, params ...PropertyParameter) {
 	cb.SetProperty(
 		ComponentPropertyDtEnd,
 		t.Format(icalDateFormatLocal),
-		append(props, WithValue(string(ValueDataTypeDate)))...,
+		append(params, WithValue(string(ValueDataTypeDate)))...,
 	)
 }
 
@@ -284,80 +284,80 @@ func (cb *ComponentBase) GetDtStampTime() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyDtstamp, false)
 }
 
-func (cb *ComponentBase) SetSummary(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertySummary, s, props...)
+func (cb *ComponentBase) SetSummary(s string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertySummary, s, params...)
 }
 
-func (cb *ComponentBase) SetStatus(s ObjectStatus, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyStatus, string(s), props...)
+func (cb *ComponentBase) SetStatus(s ObjectStatus, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyStatus, string(s), params...)
 }
 
-func (cb *ComponentBase) SetDescription(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDescription, s, props...)
+func (cb *ComponentBase) SetDescription(s string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyDescription, s, params...)
 }
 
-func (cb *ComponentBase) SetLocation(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyLocation, s, props...)
+func (cb *ComponentBase) SetLocation(s string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyLocation, s, params...)
 }
 
-func (cb *ComponentBase) setGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyGeo, fmt.Sprintf("%v;%v", lat, lng), props...)
+func (cb *ComponentBase) setGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyGeo, fmt.Sprintf("%v;%v", lat, lng), params...)
 }
 
-func (cb *ComponentBase) SetURL(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyUrl, s, props...)
+func (cb *ComponentBase) SetURL(s string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyUrl, s, params...)
 }
 
-func (cb *ComponentBase) SetOrganizer(s string, props ...PropertyParameter) {
+func (cb *ComponentBase) SetOrganizer(s string, params ...PropertyParameter) {
 	if !strings.HasPrefix(s, "mailto:") {
 		s = "mailto:" + s
 	}
 
-	cb.SetProperty(ComponentPropertyOrganizer, s, props...)
+	cb.SetProperty(ComponentPropertyOrganizer, s, params...)
 }
 
-func (cb *ComponentBase) SetColor(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyColor, s, props...)
+func (cb *ComponentBase) SetColor(s string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyColor, s, params...)
 }
 
-func (cb *ComponentBase) SetClass(c Classification, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyClass, string(c), props...)
+func (cb *ComponentBase) SetClass(c Classification, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyClass, string(c), params...)
 }
 
-func (cb *ComponentBase) setPriority(p int, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyPriority, strconv.Itoa(p), props...)
+func (cb *ComponentBase) setPriority(p int, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyPriority, strconv.Itoa(p), params...)
 }
 
-func (cb *ComponentBase) setResources(r string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyResources, r, props...)
+func (cb *ComponentBase) setResources(r string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyResources, r, params...)
 }
 
-func (cb *ComponentBase) AddAttendee(s string, props ...PropertyParameter) {
+func (cb *ComponentBase) AddAttendee(s string, params ...PropertyParameter) {
 	if !strings.HasPrefix(s, "mailto:") {
 		s = "mailto:" + s
 	}
 
-	cb.AddProperty(ComponentPropertyAttendee, s, props...)
+	cb.AddProperty(ComponentPropertyAttendee, s, params...)
 }
 
-func (cb *ComponentBase) AddExdate(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyExdate, s, props...)
+func (cb *ComponentBase) AddExdate(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyExdate, s, params...)
 }
 
-func (cb *ComponentBase) AddExrule(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyExrule, s, props...)
+func (cb *ComponentBase) AddExrule(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyExrule, s, params...)
 }
 
-func (cb *ComponentBase) AddRdate(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyRdate, s, props...)
+func (cb *ComponentBase) AddRdate(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyRdate, s, params...)
 }
 
-func (cb *ComponentBase) AddRrule(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyRrule, s, props...)
+func (cb *ComponentBase) AddRrule(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyRrule, s, params...)
 }
 
-func (cb *ComponentBase) AddAttachment(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyAttach, s, props...)
+func (cb *ComponentBase) AddAttachment(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyAttach, s, params...)
 }
 
 func (cb *ComponentBase) AddAttachmentURL(uri string, contentType string) {
@@ -370,12 +370,12 @@ func (cb *ComponentBase) AddAttachmentBinary(binary []byte, contentType string) 
 	)
 }
 
-func (cb *ComponentBase) AddComment(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyComment, s, props...)
+func (cb *ComponentBase) AddComment(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyComment, s, params...)
 }
 
-func (cb *ComponentBase) AddCategory(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyCategories, s, props...)
+func (cb *ComponentBase) AddCategory(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyCategories, s, params...)
 }
 
 type Attendee struct {
@@ -511,24 +511,24 @@ func (calendar *Calendar) Events() []*VEvent {
 	return r
 }
 
-func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (event *VEvent) SetEndAt(t time.Time, params ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (event *VEvent) SetLastModifiedAt(t time.Time, params ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (event *VEvent) SetGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
-	event.setGeo(lat, lng, props...)
+func (event *VEvent) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
+	event.setGeo(lat, lng, params...)
 }
 
-func (event *VEvent) SetPriority(p int, props ...PropertyParameter) {
-	event.setPriority(p, props...)
+func (event *VEvent) SetPriority(p int, params ...PropertyParameter) {
+	event.setPriority(p, params...)
 }
 
-func (event *VEvent) SetResources(r string, props ...PropertyParameter) {
-	event.setResources(r, props...)
+func (event *VEvent) SetResources(r string, params ...PropertyParameter) {
+	event.setResources(r, params...)
 }
 
 func (event *VEvent) AddAlarm() *VAlarm {
@@ -554,8 +554,8 @@ const (
 	TransparencyTransparent TimeTransparency = "TRANSPARENT"
 )
 
-func (event *VEvent) SetTimeTransparency(v TimeTransparency, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyTransp, string(v), props...)
+func (event *VEvent) SetTimeTransparency(v TimeTransparency, params ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyTransp, string(v), params...)
 }
 
 type VTodo struct {
@@ -600,38 +600,38 @@ func (calendar *Calendar) Todos() []*VTodo {
 	return r
 }
 
-func (todo *VTodo) SetCompletedAt(t time.Time, props ...PropertyParameter) {
-	todo.SetProperty(ComponentPropertyCompleted, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (todo *VTodo) SetCompletedAt(t time.Time, params ...PropertyParameter) {
+	todo.SetProperty(ComponentPropertyCompleted, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (todo *VTodo) SetAllDayCompletedAt(t time.Time, props ...PropertyParameter) {
-	props = append(props, WithValue(string(ValueDataTypeDate)))
-	todo.SetProperty(ComponentPropertyCompleted, t.Format(icalDateFormatLocal), props...)
+func (todo *VTodo) SetAllDayCompletedAt(t time.Time, params ...PropertyParameter) {
+	params = append(params, WithValue(string(ValueDataTypeDate)))
+	todo.SetProperty(ComponentPropertyCompleted, t.Format(icalDateFormatLocal), params...)
 }
 
-func (todo *VTodo) SetDueAt(t time.Time, props ...PropertyParameter) {
-	todo.SetProperty(ComponentPropertyDue, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (todo *VTodo) SetDueAt(t time.Time, params ...PropertyParameter) {
+	todo.SetProperty(ComponentPropertyDue, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (todo *VTodo) SetAllDayDueAt(t time.Time, props ...PropertyParameter) {
-	props = append(props, WithValue(string(ValueDataTypeDate)))
-	todo.SetProperty(ComponentPropertyDue, t.Format(icalDateFormatLocal), props...)
+func (todo *VTodo) SetAllDayDueAt(t time.Time, params ...PropertyParameter) {
+	params = append(params, WithValue(string(ValueDataTypeDate)))
+	todo.SetProperty(ComponentPropertyDue, t.Format(icalDateFormatLocal), params...)
 }
 
-func (todo *VTodo) SetPercentComplete(p int, props ...PropertyParameter) {
-	todo.SetProperty(ComponentPropertyPercentComplete, strconv.Itoa(p), props...)
+func (todo *VTodo) SetPercentComplete(p int, params ...PropertyParameter) {
+	todo.SetProperty(ComponentPropertyPercentComplete, strconv.Itoa(p), params...)
 }
 
-func (todo *VTodo) SetGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
-	todo.setGeo(lat, lng, props...)
+func (todo *VTodo) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
+	todo.setGeo(lat, lng, params...)
 }
 
-func (todo *VTodo) SetPriority(p int, props ...PropertyParameter) {
-	todo.setPriority(p, props...)
+func (todo *VTodo) SetPriority(p int, params ...PropertyParameter) {
+	todo.setPriority(p, params...)
 }
 
-func (todo *VTodo) SetResources(r string, props ...PropertyParameter) {
-	todo.setResources(r, props...)
+func (todo *VTodo) SetResources(r string, params ...PropertyParameter) {
+	todo.setResources(r, params...)
 }
 
 // SetDuration updates the duration of an event.
@@ -838,12 +838,12 @@ func (calendar *Calendar) Alarms() []*VAlarm {
 	return r
 }
 
-func (alarm *VAlarm) SetAction(a Action, props ...PropertyParameter) {
-	alarm.SetProperty(ComponentPropertyAction, string(a), props...)
+func (alarm *VAlarm) SetAction(a Action, params ...PropertyParameter) {
+	alarm.SetProperty(ComponentPropertyAction, string(a), params...)
 }
 
-func (alarm *VAlarm) SetTrigger(s string, props ...PropertyParameter) {
-	alarm.SetProperty(ComponentPropertyTrigger, s, props...)
+func (alarm *VAlarm) SetTrigger(s string, params ...PropertyParameter) {
+	alarm.SetProperty(ComponentPropertyTrigger, s, params...)
 }
 
 type Standard struct {

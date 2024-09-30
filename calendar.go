@@ -317,81 +317,81 @@ func (calendar *Calendar) SerializeTo(w io.Writer) error {
 	return nil
 }
 
-func (calendar *Calendar) SetMethod(method Method, props ...PropertyParameter) {
-	calendar.setProperty(PropertyMethod, string(method), props...)
+func (calendar *Calendar) SetMethod(method Method, params ...PropertyParameter) {
+	calendar.setProperty(PropertyMethod, string(method), params...)
 }
 
-func (calendar *Calendar) SetXPublishedTTL(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXPublishedTTL, s, props...)
+func (calendar *Calendar) SetXPublishedTTL(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyXPublishedTTL, s, params...)
 }
 
-func (calendar *Calendar) SetVersion(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyVersion, s, props...)
+func (calendar *Calendar) SetVersion(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyVersion, s, params...)
 }
 
-func (calendar *Calendar) SetProductId(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyProductId, s, props...)
+func (calendar *Calendar) SetProductId(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyProductId, s, params...)
 }
 
-func (calendar *Calendar) SetName(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyName, s, props...)
-	calendar.setProperty(PropertyXWRCalName, s, props...)
+func (calendar *Calendar) SetName(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyName, s, params...)
+	calendar.setProperty(PropertyXWRCalName, s, params...)
 }
 
-func (calendar *Calendar) SetColor(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyColor, s, props...)
+func (calendar *Calendar) SetColor(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyColor, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalName(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalName, s, props...)
+func (calendar *Calendar) SetXWRCalName(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyXWRCalName, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalDesc(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalDesc, s, props...)
+func (calendar *Calendar) SetXWRCalDesc(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyXWRCalDesc, s, params...)
 }
 
-func (calendar *Calendar) SetXWRTimezone(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRTimezone, s, props...)
+func (calendar *Calendar) SetXWRTimezone(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyXWRTimezone, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalID(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalID, s, props...)
+func (calendar *Calendar) SetXWRCalID(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyXWRCalID, s, params...)
 }
 
-func (calendar *Calendar) SetDescription(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyDescription, s, props...)
+func (calendar *Calendar) SetDescription(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyDescription, s, params...)
 }
 
-func (calendar *Calendar) SetLastModified(t time.Time, props ...PropertyParameter) {
-	calendar.setProperty(PropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (calendar *Calendar) SetLastModified(t time.Time, params ...PropertyParameter) {
+	calendar.setProperty(PropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (calendar *Calendar) SetRefreshInterval(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyRefreshInterval, s, props...)
+func (calendar *Calendar) SetRefreshInterval(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyRefreshInterval, s, params...)
 }
 
-func (calendar *Calendar) SetCalscale(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyCalscale, s, props...)
+func (calendar *Calendar) SetCalscale(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyCalscale, s, params...)
 }
 
-func (calendar *Calendar) SetUrl(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyUrl, s, props...)
+func (calendar *Calendar) SetUrl(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyUrl, s, params...)
 }
 
-func (calendar *Calendar) SetTzid(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyTzid, s, props...)
+func (calendar *Calendar) SetTzid(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyTzid, s, params...)
 }
 
-func (calendar *Calendar) SetTimezoneId(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyTimezoneId, s, props...)
+func (calendar *Calendar) SetTimezoneId(s string, params ...PropertyParameter) {
+	calendar.setProperty(PropertyTimezoneId, s, params...)
 }
 
-func (calendar *Calendar) setProperty(property Property, value string, props ...PropertyParameter) {
+func (calendar *Calendar) setProperty(property Property, value string, params ...PropertyParameter) {
 	for i := range calendar.CalendarProperties {
 		if calendar.CalendarProperties[i].IANAToken == string(property) {
 			calendar.CalendarProperties[i].Value = value
 			calendar.CalendarProperties[i].ICalParameters = map[string][]string{}
-			for _, p := range props {
+			for _, p := range params {
 				k, v := p.KeyValue()
 				calendar.CalendarProperties[i].ICalParameters[k] = v
 			}
@@ -405,7 +405,7 @@ func (calendar *Calendar) setProperty(property Property, value string, props ...
 			ICalParameters: map[string][]string{},
 		},
 	}
-	for _, p := range props {
+	for _, p := range params {
 		k, v := p.KeyValue()
 		r.ICalParameters[k] = v
 	}
