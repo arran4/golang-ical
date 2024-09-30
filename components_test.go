@@ -52,7 +52,7 @@ END:VEVENT
 			err := e.SetDuration(duration)
 
 			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
-			text := strings.Replace(e.Serialize(), "\r\n", "\n", -1)
+			text := strings.ReplaceAll(e.Serialize(), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
 			assert.Equal(t, nil, err)
@@ -184,7 +184,7 @@ END:VTODO
 			e.RemoveProperty("X-TESTREMOVE")
 
 			// adjust to expected linebreaks, since we're not testing the encoding
-			text := strings.Replace(e.Serialize(), "\r\n", "\n", -1)
+			text := strings.ReplaceAll(e.Serialize(), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
 		})
