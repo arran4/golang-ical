@@ -247,17 +247,18 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 		return time.Time{}, fmt.Errorf("time value matched but unsupported all-day timestamp, got '%s'", timeVal)
 	}
 
-	if grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "Z" {
+	switch {
+	case grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "Z":
 		return time.ParseInLocation(icalTimestampFormatUtc, timeVal, time.UTC)
-	} else if grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "" {
+	case grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "":
 		if propLoc == nil {
 			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, time.Local)
 		} else {
 			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, propLoc)
 		}
-	} else if grp1len > 0 && grp3len == 0 && tOrZGrp == "Z" && zGrp == "" {
+	case grp1len > 0 && grp3len == 0 && tOrZGrp == "Z" && zGrp == "":
 		return time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
-	} else if grp1len > 0 && grp3len == 0 && tOrZGrp == "" && zGrp == "" {
+	case grp1len > 0 && grp3len == 0 && tOrZGrp == "" && zGrp == "":
 		if propLoc == nil {
 			return time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
 		} else {

@@ -516,13 +516,14 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 	for c {
 		var b []byte
 		b, err = cs.b.ReadBytes('\n')
-		if len(b) == 0 {
+		switch {
+		case len(b) == 0:
 			if err == nil {
 				continue
 			} else {
 				c = false
 			}
-		} else if b[len(b)-1] == '\n' {
+		case b[len(b)-1] == '\n':
 			o := 1
 			if len(b) > 1 && b[len(b)-2] == '\r' {
 				o = 2
@@ -532,14 +533,15 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			if err == io.EOF {
 				c = false
 			}
-			if len(p) == 0 {
+			switch {
+			case len(p) == 0:
 				c = false
-			} else if p[0] == ' ' || p[0] == '\t' {
+			case p[0] == ' ' || p[0] == '\t':
 				_, _ = cs.b.Discard(1) // nolint:errcheck
-			} else {
+			default:
 				c = false
 			}
-		} else {
+		default:
 			r = append(r, b...)
 		}
 		switch err {
