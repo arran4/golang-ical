@@ -1,35 +1,48 @@
 package ics
 
-const (
-	MalformedCalendarExpectedVCalendarError  = "malformed calendar; expected a vcalendar"
-	MalformedCalendarExpectedBeginError      = "malformed calendar; expected begin"
-	MalformedCalendarExpectedEndError        = "malformed calendar; expected a end"
-	MalformedCalendarExpectedBeginOrEndError = "malformed calendar; expected begin or end"
+import (
+	"errors"
+	"fmt"
+)
 
-	MalformedCalendarUnexpectedEndError             = "malformed calendar; unexpected end"
-	MalformedCalendarBadStateError                  = "malformed calendar; bad state"
-	MalformedCalendarVCalendarNotWhereExpectedError = "malformed calendar; vcalendar not where expected"
+var (
+	ErrUnexpectedParamValueLength = errors.New("unexpected end of param value")
 
-	StartOrEndNotYetDefinedError = "start or end not yet defined"
-	PropertyNotFoundError        = "property not found"
-	ExpectedOneTZIDError         = "expected one TZID"
+	ErrMalformedCalendar = errors.New("malformed calendar")
 
-	TimeValueNotMatchedError                           = "time value not matched"
-	TimeValueMatchedButUnsupportedAllDayTimeStampError = "time value matched but unsupported all-day timestamp"
-	TimeValueMatchedButNotSupportedError               = "time value matched but not supported"
+	ErrMalformedCalendarExpectedVCalendar  = fmt.Errorf("%w: expected a vcalendar", ErrMalformedCalendar)
+	ErrMalformedCalendarExpectedBegin      = fmt.Errorf("%w: expected begin", ErrMalformedCalendar)
+	ErrMalformedCalendarExpectedEnd        = fmt.Errorf("%w: expected a end", ErrMalformedCalendar)
+	ErrMalformedCalendarExpectedBeginOrEnd = fmt.Errorf("%w: expected begin or end", ErrMalformedCalendar)
 
-	ParsingComponentPropertyError = "parsing component property"
-	ParsingComponentLineError     = "parsing component line"
-	ParsingLineError              = "parsing line"
-	ParsingCalendarLineError      = "parsing calendar line"
-	ParsingPropertyError          = "parsing property"
-	ParseError                    = "parse error"
+	ErrMissingPropertyParamOperator               = fmt.Errorf("%w: missing property param operator", ErrMalformedCalendar)
+	ErrUnexpectedEndOfProperty                    = fmt.Errorf("%w: unexpected end of property", ErrMalformedCalendar)
+	ErrMalformedCalendarUnexpectedEnd             = fmt.Errorf("%w: unexpected end", ErrMalformedCalendar)
+	ErrMalformedCalendarBadState                  = fmt.Errorf("%w: bad state", ErrMalformedCalendar)
+	ErrMalformedCalendarVCalendarNotWhereExpected = fmt.Errorf("%w: vcalendar not where expected", ErrMalformedCalendar)
 
-	MissingPropertyValueError = "missing property value"
+	ErrStartOrEndNotYetDefined = errors.New("start or end not yet defined")
+	// ErrPropertyNotFound is the error returned if the requested valid
+	// property is not set.
+	ErrPropertyNotFound = errors.New("property not found")
+	ErrExpectedOneTZID  = errors.New("expected one TZID")
 
-	UnexpectedASCIICharError                       = "unexpected char ascii"
-	UnexpectedDoubleQuoteInPropertyParamValueError = "unexpected double quote in property param value"
+	ErrTimeValueNotMatched                           = errors.New("time value not matched")
+	ErrTimeValueMatchedButUnsupportedAllDayTimeStamp = errors.New("time value matched but unsupported all-day timestamp")
+	ErrTimeValueMatchedButNotSupported               = errors.New("time value matched but not supported")
 
-	UnbalancedEndError = "unbalanced end"
-	OutOfLinesError    = "ran out of lines"
+	ErrParsingComponentProperty = errors.New("parsing component property")
+	ErrParsingComponentLine     = errors.New("parsing component line")
+	ErrParsingLine              = errors.New("parsing line")
+	ErrParsingCalendarLine      = errors.New("parsing calendar line")
+	ErrParsingProperty          = errors.New("parsing property")
+	ErrParse                    = errors.New("parse error")
+
+	ErrMissingPropertyValue = errors.New("missing property value")
+
+	ErrUnexpectedASCIIChar                       = errors.New("unexpected char ascii")
+	ErrUnexpectedDoubleQuoteInPropertyParamValue = errors.New("unexpected double quote in property param value")
+
+	ErrUnbalancedEnd = errors.New("unbalanced end")
+	ErrOutOfLines    = errors.New("ran out of lines")
 )

@@ -132,3 +132,34 @@ func TestSetMailtoPrefix(t *testing.T) {
 		t.Errorf("expected single mailto: prefix for email att2")
 	}
 }
+
+func TestRemoveProperty(t *testing.T) {
+	testCases := []struct {
+		name   string
+		output string
+	}{
+		{
+			name: "test RemoveProperty - start",
+			output: `BEGIN:VTODO
+UID:test-removeproperty
+X-TEST:42
+END:VTODO
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := NewTodo("test-removeproperty")
+			e.AddProperty("X-TEST", "42")
+			e.AddProperty("X-TESTREMOVE", "FOO")
+			e.AddProperty("X-TESTREMOVE", "BAR")
+			e.RemoveProperty("X-TESTREMOVE")
+
+			// adjust to expected linebreaks, since we're not testing the encoding
+			text := strings.Replace(e.Serialize(), "\r\n", "\n", -1)
+
+			assert.Equal(t, tc.output, text)
+		})
+	}
+}

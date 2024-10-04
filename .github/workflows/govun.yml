@@ -1,0 +1,11 @@
+name: Go vunderability check
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Golang
+      uses: actions/setup-go@v5
+    - id: govulncheck
+      uses: golang/govulncheck-action@v1

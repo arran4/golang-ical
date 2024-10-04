@@ -311,7 +311,7 @@ func (calendar *Calendar) SerializeTo(w io.Writer) error {
 		p.serialize(w)
 	}
 	for _, c := range calendar.Components {
-		c.serialize(w)
+		c.SerializeTo(w)
 	}
 	_, _ = fmt.Fprint(w, "END:VCALENDAR", "\r\n")
 	return nil
@@ -420,8 +420,8 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 	for ln := 0; cont; ln++ {
 		l, err := cs.ReadLine()
 		if err != nil {
-			switch err {
-			case io.EOF:
+			switch {
+			case errors.Is(err, io.EOF):
 				cont = false
 			default:
 				return c, err
@@ -432,10 +432,10 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 		}
 		line, err := ParseProperty(*l)
 		if err != nil {
-			return nil, fmt.Errorf("%s %d: %w", ParsingLineError, ln, err)
+			return nil, fmt.Errorf("%w %d: %w", ErrParsingLine, ln, err)
 		}
 		if line == nil {
-			return nil, fmt.Errorf("%s %d", ParsingCalendarLineError, ln)
+			return nil, fmt.Errorf("%w %d", ErrParsingCalendarLine, ln)
 		}
 		switch state {
 		case "begin":
@@ -445,10 +445,10 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 				case "VCALENDAR":
 					state = "properties"
 				default:
-					return nil, errors.New(MalformedCalendarExpectedVCalendarError)
+					return nil, ErrMalformedCalendarExpectedVCalendar
 				}
 			default:
-				return nil, errors.New(MalformedCalendarExpectedBeginError)
+				return nil, ErrMalformedCalendarExpectedBegin
 			}
 		case "properties":
 			switch line.IANAToken {
@@ -457,7 +457,7 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 				case "VCALENDAR":
 					state = "end"
 				default:
-					return nil, errors.New(MalformedCalendarExpectedEndError)
+					return nil, ErrMalformedCalendarExpectedEnd
 				}
 			case "BEGIN":
 				state = "components"
@@ -475,23 +475,23 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 				case "VCALENDAR":
 					state = "end"
 				default:
-					return nil, errors.New(MalformedCalendarExpectedEndError)
+					return nil, fmt.Errorf("%w at '%s': %w", ErrMalformedCalendarExpectedEnd, line.IANAToken, err)
 				}
 			case "BEGIN":
 				co, err := GeneralParseComponent(cs, line)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("%w at '%s': %w", ErrMalformedCalendarExpectedEnd, line.IANAToken, err)
 				}
 				if co != nil {
 					c.Components = append(c.Components, co)
 				}
 			default:
-				return nil, errors.New(MalformedCalendarExpectedBeginOrEndError)
+				return nil, fmt.Errorf("%w at '%s'", ErrMalformedCalendarExpectedBeginOrEnd, line.IANAToken)
 			}
 		case "end":
-			return nil, errors.New(MalformedCalendarUnexpectedEndError)
+			return nil, ErrMalformedCalendarUnexpectedEnd
 		default:
-			return nil, errors.New(MalformedCalendarBadStateError)
+			return nil, ErrMalformedCalendarBadState
 		}
 	}
 	return c, nil
@@ -529,7 +529,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			}
 			p, err := cs.b.Peek(1)
 			r = append(r, b[:len(b)-o]...)
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				c = false
 			}
 			if len(p) == 0 {
@@ -542,20 +542,27 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 		} else {
 			r = append(r, b...)
 		}
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			if len(r) == 0 {
 				c = true
 			}
-		case io.EOF:
+		case errors.Is(err, io.EOF):
 			c = false
 		default:
+			// This must be as a result of boxing?
+			if err != nil {
+				err = fmt.Errorf("readline: %w", err)
+			}
 			return nil, err
 		}
 	}
 	if len(r) == 0 && err != nil {
-		return nil, err
+		return nil, fmt.Errorf("readline: %w", err)
 	}
 	cl := ContentLine(r)
+	if err != nil {
+		err = fmt.Errorf("readline: %w", err)
+	}
 	return &cl, err
 }

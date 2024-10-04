@@ -2,7 +2,6 @@ package ics
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -234,7 +233,7 @@ func ParseProperty(contentLine ContentLine) (*BaseProperty, error) {
 			t := r.IANAToken
 			r, np, err = parsePropertyParam(r, string(contentLine), p+1)
 			if err != nil {
-				return nil, fmt.Errorf("%s %s: %w", ParsingPropertyError, t, err)
+				return nil, fmt.Errorf("%w %s: %w", ErrParsingProperty, t, err)
 			}
 			if r == nil {
 				return nil, nil
@@ -255,13 +254,13 @@ func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProper
 	k = string(contentLine[p : p+tokenPos[1]])
 	p += tokenPos[1]
 	if p >= len(contentLine) {
-		return nil, p, fmt.Errorf("missing property param operator for %s in %s", k, r.IANAToken)
+		return nil, p, fmt.Errorf("%w for %s in %s", ErrMissingPropertyParamOperator, k, r.IANAToken)
 	}
 	switch rune(contentLine[p]) {
 	case '=':
 		p += 1
 	default:
-		return nil, p, fmt.Errorf("%s for %s in %s", MissingPropertyValueError, k, r.IANAToken)
+		return nil, p, fmt.Errorf("%w for %s in %s", ErrMissingPropertyValue, k, r.IANAToken)
 	}
 	for {
 		if p >= len(contentLine) {
@@ -270,11 +269,11 @@ func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProper
 		var err error
 		v, p, err = parsePropertyParamValue(contentLine, p)
 		if err != nil {
-			return nil, 0, fmt.Errorf("%s: %w %s in %s", ParseError, err, k, r.IANAToken)
+			return nil, 0, fmt.Errorf("%w: %w %s in %s", ErrParse, err, k, r.IANAToken)
 		}
 		r.ICalParameters[k] = append(r.ICalParameters[k], v)
 		if p >= len(contentLine) {
-			return nil, p, fmt.Errorf("unexpected end of property %s", r.IANAToken)
+			return nil, p, fmt.Errorf("%w %s", ErrUnexpectedEndOfProperty, r.IANAToken)
 		}
 		switch rune(contentLine[p]) {
 		case ',':
@@ -319,13 +318,13 @@ func parsePropertyParamValue(s string, p int) (string, int, error) {
 	for ; p < len(s) && !done; p++ {
 		switch s[p] {
 		case 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08:
-			return "", 0, fmt.Errorf("%s:%d in property param value", UnexpectedASCIICharError, s[p])
+			return "", 0, fmt.Errorf("%w:%d in property param value", ErrUnexpectedASCIIChar, s[p])
 		case 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B,
 			0x1C, 0x1D, 0x1E, 0x1F:
-			return "", 0, fmt.Errorf("%s:%d in property param value", UnexpectedASCIICharError, s[p])
+			return "", 0, fmt.Errorf("%w:%d in property param value", ErrUnexpectedASCIIChar, s[p])
 		case '\\':
 			if p+2 >= len(s) {
-				return "", 0, errors.New("unexpected end of param value")
+				return "", 0, ErrUnexpectedParamValueLength
 			}
 			r = append(r, []byte(FromText(string(s[p+1:p+2])))...)
 			p++
@@ -345,7 +344,7 @@ func parsePropertyParamValue(s string, p int) (string, int, error) {
 				done = true
 				continue
 			}
-			return "", 0, errors.New(UnexpectedDoubleQuoteInPropertyParamValueError)
+			return "", 0, ErrUnexpectedDoubleQuoteInPropertyParamValue
 		}
 		r = append(r, s[p])
 	}
