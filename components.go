@@ -217,7 +217,7 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 		case *time.Location:
 			fallBackTimezone = op
 		default:
-			return time.Time{}, fmt.Errorf("%w: option %i: %s", ErrorUnsupportedOptionalArgument, opi, reflect.TypeOf(op))
+			return time.Time{}, fmt.Errorf("%w: option %d: %s", ErrorUnsupportedOptionalArgument, opi, reflect.TypeOf(op))
 		}
 	}
 	timeProp := cb.GetProperty(componentProperty)
