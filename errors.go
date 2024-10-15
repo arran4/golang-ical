@@ -23,6 +23,7 @@ var (
 
 	ErrStartOrEndNotYetDefined = errors.New("start or end not yet defined")
 	// ErrPropertyNotFound is the error returned if the requested valid
+	// ErrorPropertyNotFound is the error returned if the requested valid
 	// property is not set.
 	ErrPropertyNotFound = errors.New("property not found")
 	ErrExpectedOneTZID  = errors.New("expected one TZID")
@@ -45,4 +46,5 @@ var (
 
 	ErrUnbalancedEnd = errors.New("unbalanced end")
 	ErrOutOfLines    = errors.New("ran out of lines")
+	ErrorPropertyNotFound = errors.New("property not found")
 )
