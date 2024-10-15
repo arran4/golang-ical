@@ -1,7 +1,11 @@
 package ics
 
 import (
+	"bytes"
+	"embed"
+	"github.com/google/go-cmp/cmp"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -402,6 +406,43 @@ func TestIssue52(t *testing.T) {
 				t.Fatalf("Error parsing file: %s", err)
 			}
 
+		})
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("cannot read test directory: %v", err)
+	}
+}
+
+var (
+	//go:embed testdata/issue52 testdata/issue97
+	TestData embed.FS
+)
+
+func TestIssue97(t *testing.T) {
+	err := fs.WalkDir(TestData, "testdata/issue97", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		t.Run(path, func(t *testing.T) {
+			b, err := TestData.ReadFile(path)
+			if err != nil {
+				t.Fatalf("Error reading file: %s", err)
+			}
+			ics, err := ParseCalendar(bytes.NewReader(b))
+			if err != nil {
+				t.Fatalf("Error parsing file: %s", err)
+			}
+
+			if diff := cmp.Diff(string(b), ics.Serialize(), cmp.Transformer("ToUnixText", func(a string) string {
+				return strings.ReplaceAll(a, "\r\n", "\n")
+			})); diff != "" {
+				t.Errorf("ParseCalendar() mismatch (-want +got):\n%s", diff)
+			}
 		})
 		return nil
 	})
