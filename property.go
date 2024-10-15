@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -198,6 +200,249 @@ func (bp *BaseProperty) serialize(w io.Writer) {
 
 type IANAProperty struct {
 	BaseProperty
+}
+
+// ParseTime Parses the time, all day is if we should treat the value as an all day event.
+// Returns the time if parsable, if it is an all day time, and an error if there is one
+func (p IANAProperty) ParseTime(expectAllDay bool) (*time.Time, bool, error) {
+	timeVal := p.BaseProperty.Value
+	matched := timeStampVariations.FindStringSubmatch(timeVal)
+	if matched == nil {
+		return nil, false, fmt.Errorf("time value not matched, got '%s'", timeVal)
+	}
+	tOrZGrp := matched[2]
+	zGrp := matched[4]
+	grp1len := len(matched[1])
+	grp3len := len(matched[3])
+
+	tzId, tzIdOk := p.ICalParameters["TZID"]
+	var propLoc *time.Location
+	if tzIdOk {
+		if len(tzId) != 1 {
+			return nil, false, errors.New("expected only one TZID")
+		}
+		var tzErr error
+		propLoc, tzErr = time.LoadLocation(tzId[0])
+		if tzErr != nil {
+			return nil, false, tzErr
+		}
+	}
+	dateStr := matched[1]
+
+	if expectAllDay {
+		if grp1len > 0 {
+			if tOrZGrp == "Z" || zGrp == "Z" {
+				t, err := time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
+				return &t, true, err
+			} else {
+				if propLoc == nil {
+					t, err := time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
+					return &t, true, err
+				} else {
+					t, err := time.ParseInLocation(icalDateFormatLocal, dateStr, propLoc)
+					return &t, true, err
+				}
+			}
+		}
+		return nil, false, fmt.Errorf("time value matched but unsupported all-day timestamp, got '%s'", timeVal)
+	}
+
+	switch {
+	case grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "Z":
+		t, err := time.ParseInLocation(icalTimestampFormatUtc, timeVal, time.UTC)
+		return &t, false, err
+	case grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "":
+		if propLoc == nil {
+			t, err := time.ParseInLocation(icalTimestampFormatLocal, timeVal, time.Local)
+			return &t, false, err
+		} else {
+			t, err := time.ParseInLocation(icalTimestampFormatLocal, timeVal, propLoc)
+			return &t, false, err
+		}
+	case grp1len > 0 && grp3len == 0 && tOrZGrp == "Z" && zGrp == "":
+		t, err := time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
+		return &t, true, err
+	case grp1len > 0 && grp3len == 0 && tOrZGrp == "" && zGrp == "":
+		if propLoc == nil {
+			t, err := time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
+			return &t, true, err
+		} else {
+			t, err := time.ParseInLocation(icalDateFormatLocal, dateStr, propLoc)
+			return &t, true, err
+		}
+	}
+
+	return nil, false, fmt.Errorf("time value matched but not supported, got '%s'", timeVal)
+}
+
+// ParseDurations assumes the value is a duration and tries to parse it
+//
+//	 Value Name:  DURATION
+//
+//	Purpose:  This value type is used to identify properties that contain
+//	   a duration of time.
+//
+//	Format Definition:  This value type is defined by the following
+//	   notation:
+//
+//	    dur-value  = (["+"] / "-") "P" (dur-date / dur-time / dur-week)
+//
+//	    dur-date   = dur-day [dur-time]
+//	    dur-time   = "T" (dur-hour / dur-minute / dur-second)
+//	    dur-week   = 1*DIGIT "W"
+//	    dur-hour   = 1*DIGIT "H" [dur-minute]
+//	    dur-minute = 1*DIGIT "M" [dur-second]
+//	    dur-second = 1*DIGIT "S"
+//	    dur-day    = 1*DIGIT "D"
+//
+//	Description:  If the property permits, multiple "duration" values are
+//	   specified by a COMMA-separated list of values.  The format is
+//	   based on the [ISO.8601.2004] complete representation basic format
+//	   with designators for the duration of time.  The format can
+//	   represent nominal durations (weeks and days) and accurate
+//	   durations (hours, minutes, and seconds).  Note that unlike
+//	   [ISO.8601.2004], this value type doesn't support the "Y" and "M"
+//	   designators to specify durations in terms of years and months.
+//
+// Desruisseaux                Standards Track                    [Page 35]
+//
+// # RFC 5545                       iCalendar                  September 2009
+//
+//	   The duration of a week or a day depends on its position in the
+//	   calendar.  In the case of discontinuities in the time scale, such
+//	   as the change from standard time to daylight time and back, the
+//	   computation of the exact duration requires the subtraction or
+//	   addition of the change of duration of the discontinuity.  Leap
+//	   seconds MUST NOT be considered when computing an exact duration.
+//	   When computing an exact duration, the greatest order time
+//	   components MUST be added first, that is, the number of days MUST
+//	   be added first, followed by the number of hours, number of
+//	   minutes, and number of seconds.
+//
+//	   Negative durations are typically used to schedule an alarm to
+//	   trigger before an associated time (see Section 3.8.6.3).
+//
+//	   No additional content value encoding (i.e., BACKSLASH character
+//	   encoding, see Section 3.3.11) are defined for this value type.
+//
+//	Example:  A duration of 15 days, 5 hours, and 20 seconds would be:
+//
+//	    P15DT5H0M20S
+//
+//	   A duration of 7 weeks would be:
+//
+//	    P7W
+func (p IANAProperty) ParseDurations() ([]Duration, error) {
+	var result []Duration
+	br := bytes.NewReader([]byte(strings.ToUpper(p.Value)))
+	for {
+		value, err := ParseDurationReader(br)
+		if err != nil && err != io.EOF {
+			return nil, fmt.Errorf("%w: '%s'", err, p.Value)
+		}
+		if value != nil {
+			result = append(result, *value)
+		}
+		if err == io.EOF {
+			return result, nil
+		}
+	}
+}
+
+type DurationOrder struct {
+	Key      rune
+	Value    *Duration
+	Required bool
+}
+
+var order = []DurationOrder{
+	{Key: 'P', Value: nil, Required: true},
+	{Key: 'W', Value: &Duration{Duration: 0, Days: 7}},
+	{Key: 'D', Value: &Duration{Duration: 0, Days: 1}},
+	{Key: 'T', Value: nil},
+	{Key: 'H', Value: &Duration{Duration: time.Hour, Days: 0}},
+	{Key: 'M', Value: &Duration{Duration: time.Minute, Days: 0}},
+	{Key: 'S', Value: &Duration{Duration: time.Second, Days: 0}},
+}
+
+func ParseDuration(s string) (*Duration, error) {
+	return ParseDurationReader(strings.NewReader(strings.ToUpper(s)))
+}
+
+type ReaderRuneBuffer interface {
+	ReadRune() (rune, int, error)
+	UnreadRune() error
+}
+
+func ParseDurationReader(br ReaderRuneBuffer) (*Duration, error) {
+	var value = Duration{
+		Positive: true,
+	}
+	pos := 0
+	for pos != 1 {
+		b, _, err := br.ReadRune()
+		if err == io.EOF {
+			return nil, err
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse duration")
+		}
+		switch b {
+		case '-':
+			value.Positive = false
+		case '+':
+		case 'P':
+			pos = 1
+		default:
+			return nil, fmt.Errorf("missing p initializer got %c", b)
+		}
+	}
+	for pos < len(order) {
+		var number int
+		var b rune
+		var err error
+		for {
+			b, _, err = br.ReadRune()
+			if err == io.EOF || b == ',' {
+				break
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse duration")
+			}
+			if unicode.IsSpace(b) {
+				continue
+			}
+			if unicode.IsDigit(b) {
+				number = number*10 + int(b-'0')
+			} else {
+				break
+			}
+		}
+		if err == io.EOF || b == ',' {
+			break
+		}
+		for ; pos < len(order) && order[pos].Key != b; pos++ {
+		}
+		if pos >= len(order) {
+			err := br.UnreadRune()
+			if err != nil {
+				return nil, fmt.Errorf("unread rune error '%w'", err)
+			}
+			break
+		}
+		selected := order[pos]
+		if selected.Value != nil {
+			value.Days += selected.Value.Days * number
+			value.Duration += selected.Value.Duration * time.Duration(number)
+		}
+	}
+	return &value, nil
+}
+
+type Duration struct {
+	Positive bool
+	Duration time.Duration
+	Days     int
 }
 
 var (

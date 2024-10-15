@@ -163,17 +163,17 @@ func (cb *ComponentBase) SetAllDayEndAt(t time.Time, params ...PropertyParameter
 }
 
 // SetDuration updates the duration of an event.
-// This function will set either the end or start time of an event depending what is already given.
-// The duration defines the length of a event relative to start or end time.
+// This function will set either the end or start time of an event depending on what is already given.
+// The duration defines the length of an event relative to start or end time.
 //
 // Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
 func (cb *ComponentBase) SetDuration(d time.Duration) error {
 	startProp := cb.GetProperty(ComponentPropertyDtStart)
 	if startProp != nil {
-		t, err := cb.GetStartAt()
-		if err == nil {
+		t, allDay, err := startProp.ParseTime(false)
+		if t != nil && err == nil {
 			v, _ := startProp.parameterValue(ParameterValue)
-			if v == string(ValueDataTypeDate) {
+			if v == string(ValueDataTypeDate) || allDay {
 				cb.SetAllDayEndAt(t.Add(d))
 			} else {
 				cb.SetEndAt(t.Add(d))
@@ -183,10 +183,10 @@ func (cb *ComponentBase) SetDuration(d time.Duration) error {
 	}
 	endProp := cb.GetProperty(ComponentPropertyDtEnd)
 	if endProp != nil {
-		t, err := cb.GetEndAt()
-		if err == nil {
+		t, allDay, err := endProp.ParseTime(false)
+		if t != nil && err == nil {
 			v, _ := endProp.parameterValue(ParameterValue)
-			if v == string(ValueDataTypeDate) {
+			if v == string(ValueDataTypeDate) || allDay {
 				cb.SetAllDayStartAt(t.Add(-d))
 			} else {
 				cb.SetStartAt(t.Add(-d))
@@ -195,6 +195,75 @@ func (cb *ComponentBase) SetDuration(d time.Duration) error {
 		}
 	}
 	return errors.New("start or end not yet defined")
+}
+
+func (cb *ComponentBase) IsDuring(point time.Time) (bool, error) {
+	var effectiveStartTime *time.Time
+	var effectiveEndTime *time.Time
+	var durations []Duration
+	var startAllDay bool
+	var endAllDay bool
+	var err error
+	startProp := cb.GetProperty(ComponentPropertyDtStart)
+	if startProp != nil {
+		effectiveStartTime, startAllDay, err = startProp.ParseTime(false)
+		if err != nil {
+			return false, fmt.Errorf("start time: %w", err)
+		}
+	}
+	endProp := cb.GetProperty(ComponentPropertyDtEnd)
+	if endProp != nil {
+		effectiveEndTime, endAllDay, err = endProp.ParseTime(false)
+		if err != nil {
+			return false, fmt.Errorf("start time: %w", err)
+		}
+	}
+	durationProp := cb.GetProperty(ComponentPropertyDuration)
+	if durationProp != nil {
+		durations, err = durationProp.ParseDurations()
+		if err != nil {
+			return false, fmt.Errorf("start time: %w", err)
+		}
+	}
+	switch {
+	case len(durations) == 1 && effectiveStartTime == nil && effectiveEndTime != nil:
+		d := durations[0].Duration
+		days := durations[0].Days
+		// TODO clarify expected behavior
+		if durations[0].Positive {
+			d = -d
+			days = -days
+		}
+		t := effectiveEndTime.Add(d).AddDate(0, 0, days)
+		effectiveStartTime = &t
+	case len(durations) == 1 && effectiveStartTime != nil && effectiveEndTime == nil:
+		d := durations[0].Duration
+		days := durations[0].Days
+		// TODO clarify expected behavior
+		if !durations[0].Positive {
+			d = -d
+			days = -days
+		}
+		t := effectiveStartTime.Add(d).AddDate(0, 0, days+1).Truncate(24 * time.Hour).Add(-1)
+		effectiveEndTime = &t
+	case effectiveStartTime == nil && effectiveEndTime == nil:
+		return false, ErrStartAndEndDateNotDefined
+	}
+	if startAllDay && effectiveStartTime != nil {
+		t := effectiveStartTime.Truncate(24 * time.Hour)
+		effectiveStartTime = &t
+	}
+	if endAllDay && effectiveEndTime != nil {
+		t := effectiveEndTime.AddDate(0, 0, 1).Truncate(24 * time.Hour).Add(-1)
+		effectiveEndTime = &t
+	}
+	switch {
+	case effectiveStartTime == nil && effectiveEndTime == nil:
+		return false, nil
+	case effectiveStartTime != nil && effectiveEndTime != nil:
+		return (point.Equal(*effectiveStartTime) || point.After(*effectiveStartTime)) && (point.Equal(*effectiveEndTime) || point.Before(*effectiveEndTime)), nil
+	}
+	return false, fmt.Errorf("unsupported state")
 }
 
 func (cb *ComponentBase) GetEndAt() (time.Time, error) {
@@ -206,67 +275,11 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 	if timeProp == nil {
 		return time.Time{}, fmt.Errorf("%w: %s", ErrorPropertyNotFound, componentProperty)
 	}
-
-	timeVal := timeProp.BaseProperty.Value
-	matched := timeStampVariations.FindStringSubmatch(timeVal)
-	if matched == nil {
-		return time.Time{}, fmt.Errorf("time value not matched, got '%s'", timeVal)
+	t, _, err := timeProp.ParseTime(expectAllDay)
+	if t == nil {
+		return time.Time{}, err
 	}
-	tOrZGrp := matched[2]
-	zGrp := matched[4]
-	grp1len := len(matched[1])
-	grp3len := len(matched[3])
-
-	tzId, tzIdOk := timeProp.ICalParameters["TZID"]
-	var propLoc *time.Location
-	if tzIdOk {
-		if len(tzId) != 1 {
-			return time.Time{}, errors.New("expected only one TZID")
-		}
-		var tzErr error
-		propLoc, tzErr = time.LoadLocation(tzId[0])
-		if tzErr != nil {
-			return time.Time{}, tzErr
-		}
-	}
-	dateStr := matched[1]
-
-	if expectAllDay {
-		if grp1len > 0 {
-			if tOrZGrp == "Z" || zGrp == "Z" {
-				return time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
-			} else {
-				if propLoc == nil {
-					return time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
-				} else {
-					return time.ParseInLocation(icalDateFormatLocal, dateStr, propLoc)
-				}
-			}
-		}
-
-		return time.Time{}, fmt.Errorf("time value matched but unsupported all-day timestamp, got '%s'", timeVal)
-	}
-
-	switch {
-	case grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "Z":
-		return time.ParseInLocation(icalTimestampFormatUtc, timeVal, time.UTC)
-	case grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "":
-		if propLoc == nil {
-			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, time.Local)
-		} else {
-			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, propLoc)
-		}
-	case grp1len > 0 && grp3len == 0 && tOrZGrp == "Z" && zGrp == "":
-		return time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
-	case grp1len > 0 && grp3len == 0 && tOrZGrp == "" && zGrp == "":
-		if propLoc == nil {
-			return time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
-		} else {
-			return time.ParseInLocation(icalDateFormatLocal, dateStr, propLoc)
-		}
-	}
-
-	return time.Time{}, fmt.Errorf("time value matched but not supported, got '%s'", timeVal)
+	return *t, err
 }
 
 func (cb *ComponentBase) GetStartAt() (time.Time, error) {
@@ -452,6 +465,15 @@ func (cb *ComponentBase) alarms() []*VAlarm {
 		}
 	}
 	return r
+}
+
+func (cb *ComponentBase) SetDurationStr(duration string) error {
+	_, err := ParseDuration(duration)
+	if err != nil {
+		return err
+	}
+	cb.SetProperty(ComponentPropertyDuration, duration)
+	return nil
 }
 
 type VEvent struct {

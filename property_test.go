@@ -2,6 +2,7 @@ package ics
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -184,4 +185,87 @@ func Test_parsePropertyParamValue(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseDurations(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected []Duration
+		hasError bool
+	}{
+		{
+			name:  "Valid duration with days, hours, and seconds",
+			value: "P15DT5H0M20S",
+			expected: []Duration{
+				{Positive: true, Duration: 5*time.Hour + 20*time.Second, Days: 15},
+			},
+			hasError: false,
+		},
+		{
+			name:  "Valid duration with weeks",
+			value: "P7W",
+			expected: []Duration{
+				{Positive: true, Duration: 0, Days: 7 * 7}, // 7 weeks
+			},
+			hasError: false,
+		},
+		{
+			name:  "Valid negative duration",
+			value: "-P1DT3H",
+			expected: []Duration{
+				{Positive: false, Duration: 3 * time.Hour, Days: 1},
+			},
+			hasError: false,
+		},
+		{
+			name:     "Invalid duration missing 'P'",
+			value:    "15DT5H0M20S",
+			expected: nil,
+			hasError: true,
+		},
+		{
+			name:     "Invalid input format with random string",
+			value:    "INVALID",
+			expected: nil,
+			hasError: true,
+		},
+		{
+			name:  "Multiple durations in comma-separated list",
+			value: "P1DT5H,P2DT3H",
+			expected: []Duration{
+				{Positive: true, Duration: 5 * time.Hour, Days: 1},
+				{Positive: true, Duration: 3 * time.Hour, Days: 2},
+			},
+			hasError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prop := IANAProperty{BaseProperty{Value: tt.value}}
+			durations, err := prop.ParseDurations()
+
+			if (err != nil) != tt.hasError {
+				t.Fatalf("expected error: %v, got: %v", tt.hasError, err)
+			}
+
+			if !tt.hasError && !equalDurations(durations, tt.expected) {
+				t.Errorf("expected durations: %v, got: %v", tt.expected, durations)
+			}
+		})
+	}
+}
+
+// Helper function to compare two slices of Duration
+func equalDurations(a, b []Duration) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

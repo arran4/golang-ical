@@ -61,6 +61,7 @@ const (
 	ComponentPropertyTzid            = ComponentProperty(PropertyTzid)
 	ComponentPropertyComment         = ComponentProperty(PropertyComment)
 	ComponentPropertyRelatedTo       = ComponentProperty(PropertyRelatedTo)
+	ComponentPropertyDuration        = ComponentProperty(PropertyDuration)
 )
 
 type Property string

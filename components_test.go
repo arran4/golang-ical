@@ -1,6 +1,7 @@
 package ics
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -187,6 +188,141 @@ END:VTODO
 			text := strings.ReplaceAll(e.Serialize(), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
+		})
+	}
+}
+
+// Helper function to create a *time.Time from a string
+func MustNewTime(value string) *time.Time {
+	t, err := time.ParseInLocation(time.RFC3339, value, time.UTC)
+	if err != nil {
+		return nil
+	}
+	return &t
+}
+
+func TestIsDuring(t *testing.T) {
+	tests := []struct {
+		name           string
+		startTime      *time.Time
+		endTime        *time.Time
+		duration       string
+		pointInTime    time.Time
+		expectedResult bool
+		expectedError  error
+		allDayStart    bool
+		allDayEnd      bool
+	}{
+		{
+			name:           "Valid start and end time",
+			startTime:      MustNewTime("2024-10-15T09:00:00Z"),
+			endTime:        MustNewTime("2024-10-15T17:00:00Z"),
+			pointInTime:    time.Date(2024, 10, 15, 10, 0, 0, 0, time.UTC),
+			expectedResult: true,
+			expectedError:  nil,
+		},
+		{
+			name:           "Valid start time, no end, duration",
+			startTime:      MustNewTime("2024-10-15T09:00:00Z"),
+			duration:       "P2H",
+			pointInTime:    time.Date(2024, 10, 15, 11, 0, 0, 0, time.UTC),
+			expectedResult: true,
+			expectedError:  nil,
+		},
+		{
+			name:           "No start or end time",
+			pointInTime:    time.Date(2024, 10, 15, 10, 0, 0, 0, time.UTC),
+			expectedResult: false,
+			expectedError:  ErrStartAndEndDateNotDefined,
+		},
+		{
+			name:           "All-day event",
+			startTime:      MustNewTime("2024-10-15T00:00:00Z"),
+			endTime:        MustNewTime("2024-10-15T23:59:59Z"),
+			pointInTime:    time.Date(2024, 10, 15, 12, 0, 0, 0, time.UTC),
+			expectedResult: true,
+			expectedError:  nil,
+			allDayStart:    true,
+			allDayEnd:      true,
+		},
+		{
+			name:           "Point outside event duration",
+			startTime:      MustNewTime("2024-10-15T09:00:00Z"),
+			endTime:        MustNewTime("2024-10-15T17:00:00Z"),
+			pointInTime:    time.Date(2024, 10, 15, 18, 0, 0, 0, time.UTC),
+			expectedResult: false,
+			expectedError:  nil,
+		},
+		{
+			name:           "All-day start with valid end time",
+			startTime:      MustNewTime("2024-10-15T00:00:00Z"),
+			endTime:        MustNewTime("2024-10-15T17:00:00Z"),
+			pointInTime:    time.Date(2024, 10, 15, 12, 0, 0, 0, time.UTC),
+			expectedResult: true,
+			expectedError:  nil,
+			allDayStart:    true,
+		},
+		{
+			name:           "All-day end with valid start time",
+			startTime:      MustNewTime("2024-10-15T09:00:00Z"),
+			endTime:        MustNewTime("2024-10-15T23:59:59Z"),
+			pointInTime:    time.Date(2024, 10, 15, 22, 0, 0, 0, time.UTC),
+			expectedResult: true,
+			expectedError:  nil,
+			allDayEnd:      true,
+		},
+		{
+			name:           "Duration 1 day, point within event",
+			startTime:      MustNewTime("2024-10-15T09:00:00Z"),
+			duration:       "P1D",
+			pointInTime:    time.Date(2024, 10, 16, 10, 0, 0, 0, time.UTC),
+			expectedResult: true,
+			expectedError:  nil,
+		},
+		{
+			name:           "Duration 2 hours, point after event",
+			startTime:      MustNewTime("2024-10-15T09:00:00Z"),
+			duration:       "P2H",
+			pointInTime:    time.Date(2024, 10, 15, 12, 0, 0, 0, time.UTC),
+			expectedResult: false,
+			expectedError:  nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := &ComponentBase{}
+			if tt.startTime != nil {
+				if tt.allDayStart {
+					cb.SetAllDayStartAt(*tt.startTime)
+				} else {
+					cb.SetStartAt(*tt.startTime)
+				}
+			}
+			if tt.endTime != nil {
+				if tt.allDayEnd {
+					cb.SetAllDayEndAt(*tt.endTime)
+				} else {
+					cb.SetEndAt(*tt.endTime)
+				}
+			}
+			if tt.duration != "" {
+				err := cb.SetDurationStr(tt.duration)
+				if err != nil {
+					t.Fatalf("Duration parse failed: %s", err)
+				}
+			}
+			// Call the IsDuring method
+			result, err := cb.IsDuring(tt.pointInTime)
+
+			if err != nil || tt.expectedError != nil {
+				if !errors.Is(err, tt.expectedError) {
+					t.Fatalf("expected error: %v, got: %v", tt.expectedError, err)
+				}
+			}
+
+			if result != tt.expectedResult {
+				t.Errorf("expected result: %v, got: %v", tt.expectedResult, result)
+			}
 		})
 	}
 }
