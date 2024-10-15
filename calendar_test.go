@@ -6,7 +6,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"io"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -17,8 +16,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	//go:embed testdata/*
+	TestData embed.FS
+)
+
 func TestTimeParsing(t *testing.T) {
-	calFile, err := os.OpenFile("./testdata/timeparsing.ics", os.O_RDONLY, 0400)
+	calFile, err := TestData.Open("testdata/timeparsing.ics")
 	if err != nil {
 		t.Errorf("read file: %v", err)
 	}
@@ -166,12 +170,15 @@ CLASS:PUBLIC
 func TestRfc5545Sec4Examples(t *testing.T) {
 	rnReplace := regexp.MustCompile("\r?\n")
 
-	err := filepath.Walk("./testdata/rfc5545sec4/", func(path string, info os.FileInfo, _ error) error {
+	err := fs.WalkDir(TestData, "testdata/rfc5545sec4", func(path string, info fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if info.IsDir() {
 			return nil
 		}
 
-		inputBytes, err := os.ReadFile(path)
+		inputBytes, err := fs.ReadFile(TestData, path)
 		if err != nil {
 			return err
 		}
@@ -390,13 +397,13 @@ END:VCALENDAR
 }
 
 func TestIssue52(t *testing.T) {
-	err := filepath.Walk("./testdata/issue52/", func(path string, info os.FileInfo, _ error) error {
+	err := fs.WalkDir(TestData, "testdata/issue52", func(path string, info fs.DirEntry, _ error) error {
 		if info.IsDir() {
 			return nil
 		}
 		_, fn := filepath.Split(path)
 		t.Run(fn, func(t *testing.T) {
-			f, err := os.Open(path)
+			f, err := TestData.Open(path)
 			if err != nil {
 				t.Fatalf("Error reading file: %s", err)
 			}
@@ -415,11 +422,6 @@ func TestIssue52(t *testing.T) {
 	}
 }
 
-var (
-	//go:embed testdata/issue52 testdata/issue97
-	TestData embed.FS
-)
-
 func TestIssue97(t *testing.T) {
 	err := fs.WalkDir(TestData, "testdata/issue97", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -428,7 +430,13 @@ func TestIssue97(t *testing.T) {
 		if d.IsDir() {
 			return nil
 		}
+		if !strings.HasSuffix(d.Name(), ".ics") && !strings.HasSuffix(d.Name(), ".ics_disabled") {
+			return nil
+		}
 		t.Run(path, func(t *testing.T) {
+			if strings.HasSuffix(d.Name(), ".ics_disabled") {
+				t.Skipf("Test disabled")
+			}
 			b, err := TestData.ReadFile(path)
 			if err != nil {
 				t.Fatalf("Error reading file: %s", err)
@@ -438,10 +446,12 @@ func TestIssue97(t *testing.T) {
 				t.Fatalf("Error parsing file: %s", err)
 			}
 
-			if diff := cmp.Diff(string(b), ics.Serialize(), cmp.Transformer("ToUnixText", func(a string) string {
+			got := ics.Serialize(WithLineLength(74))
+			if diff := cmp.Diff(string(b), got, cmp.Transformer("ToUnixText", func(a string) string {
 				return strings.ReplaceAll(a, "\r\n", "\n")
 			})); diff != "" {
 				t.Errorf("ParseCalendar() mismatch (-want +got):\n%s", diff)
+				t.Errorf("Complete got:\b%s", got)
 			}
 		})
 		return nil
