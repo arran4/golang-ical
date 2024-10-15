@@ -263,7 +263,7 @@ END:VCALENDAR
 			c := NewCalendar()
 			c.SetDescription(tc.input)
 			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
-			text := strings.Replace(c.Serialize(), "\r\n", "\n", -1)
+			text := strings.ReplaceAll(c.Serialize(), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
 			assert.True(t, utf8.ValidString(text), "Serialized .ics calendar isn't valid UTF-8 string")
@@ -380,7 +380,7 @@ END:VCALENDAR
 			}
 
 			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
-			text := strings.Replace(c.Serialize(), "\r\n", "\n", -1)
+			text := strings.ReplaceAll(c.Serialize(), "\r\n", "\n")
 			if !assert.Equal(t, tc.output, text) {
 				return
 			}

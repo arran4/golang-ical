@@ -52,7 +52,7 @@ END:VEVENT
 			err := e.SetDuration(duration)
 
 			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
-			text := strings.Replace(e.Serialize(), "\r\n", "\n", -1)
+			text := strings.ReplaceAll(e.Serialize(), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
 			assert.Equal(t, nil, err)
@@ -64,16 +64,36 @@ func TestSetAllDay(t *testing.T) {
 	date, _ := time.Parse(time.RFC822, time.RFC822)
 
 	testCases := []struct {
-		name   string
-		start  time.Time
-		end    time.Time
-		output string
+		name     string
+		start    time.Time
+		end      time.Time
+		duration time.Duration
+		output   string
 	}{
 		{
-			name:  "test set duration - start",
+			name:  "test set all day - start",
 			start: date,
 			output: `BEGIN:VEVENT
-UID:test-duration
+UID:test-allday
+DTSTART;VALUE=DATE:20060102
+END:VEVENT
+`,
+		},
+		{
+			name: "test set all day - end",
+			end:  date,
+			output: `BEGIN:VEVENT
+UID:test-allday
+DTEND;VALUE=DATE:20060102
+END:VEVENT
+`,
+		},
+		{
+			name:     "test set all day - duration",
+			start:    date,
+			duration: time.Hour * 24,
+			output: `BEGIN:VEVENT
+UID:test-allday
 DTSTART;VALUE=DATE:20060102
 DTEND;VALUE=DATE:20060103
 END:VEVENT
@@ -83,12 +103,19 @@ END:VEVENT
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			e := NewEvent("test-duration")
-			e.SetAllDayStartAt(date)
-			e.SetAllDayEndAt(date.AddDate(0, 0, 1))
+			e := NewEvent("test-allday")
+			if !tc.start.IsZero() {
+				e.SetAllDayStartAt(tc.start)
+			}
+			if !tc.end.IsZero() {
+				e.SetAllDayEndAt(tc.end)
+			}
+			if tc.duration != 0 {
+				err := e.SetDuration(tc.duration)
+				assert.NoError(t, err)
+			}
 
-			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
-			text := strings.Replace(e.Serialize(), "\r\n", "\n", -1)
+			text := strings.ReplaceAll(e.Serialize(), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
 		})
@@ -157,7 +184,7 @@ END:VTODO
 			e.RemoveProperty("X-TESTREMOVE")
 
 			// adjust to expected linebreaks, since we're not testing the encoding
-			text := strings.Replace(e.Serialize(), "\r\n", "\n", -1)
+			text := strings.ReplaceAll(e.Serialize(), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
 		})

@@ -181,7 +181,7 @@ const (
 	CalendarUserTypeUnknown    CalendarUserType = "UNKNOWN"
 )
 
-func (cut CalendarUserType) KeyValue(s ...interface{}) (string, []string) {
+func (cut CalendarUserType) KeyValue(_ ...interface{}) (string, []string) {
 	return string(ParameterCutype), []string{string(cut)}
 }
 
@@ -206,7 +206,7 @@ const (
 	ParticipationStatusInProcess   ParticipationStatus = "IN-PROCESS"
 )
 
-func (ps ParticipationStatus) KeyValue(s ...interface{}) (string, []string) {
+func (ps ParticipationStatus) KeyValue(_ ...interface{}) (string, []string) {
 	return string(ParameterParticipationStatus), []string{string(ps)}
 }
 
@@ -223,7 +223,7 @@ const (
 	ObjectStatusFinal       ObjectStatus = "FINAL"
 )
 
-func (ps ObjectStatus) KeyValue(s ...interface{}) (string, []string) {
+func (ps ObjectStatus) KeyValue(_ ...interface{}) (string, []string) {
 	return string(PropertyStatus), []string{string(ps)}
 }
 
@@ -244,7 +244,7 @@ const (
 	ParticipationRoleNonParticipant ParticipationRole = "NON-PARTICIPANT"
 )
 
-func (pr ParticipationRole) KeyValue(s ...interface{}) (string, []string) {
+func (pr ParticipationRole) KeyValue(_ ...interface{}) (string, []string) {
 	return string(ParameterRole), []string{string(pr)}
 }
 
@@ -301,102 +301,102 @@ func NewCalendarFor(service string) *Calendar {
 	return c
 }
 
-func (calendar *Calendar) Serialize() string {
+func (cal *Calendar) Serialize() string {
 	b := bytes.NewBufferString("")
 	// We are intentionally ignoring the return value. _ used to communicate this to lint.
-	_ = calendar.SerializeTo(b)
+	_ = cal.SerializeTo(b)
 	return b.String()
 }
 
-func (calendar *Calendar) SerializeTo(w io.Writer) error {
+func (cal *Calendar) SerializeTo(w io.Writer) error {
 	_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
-	for _, p := range calendar.CalendarProperties {
+	for _, p := range cal.CalendarProperties {
 		p.serialize(w)
 	}
-	for _, c := range calendar.Components {
+	for _, c := range cal.Components {
 		c.SerializeTo(w)
 	}
 	_, _ = fmt.Fprint(w, "END:VCALENDAR", "\r\n")
 	return nil
 }
 
-func (calendar *Calendar) SetMethod(method Method, props ...PropertyParameter) {
-	calendar.setProperty(PropertyMethod, string(method), props...)
+func (cal *Calendar) SetMethod(method Method, params ...PropertyParameter) {
+	cal.setProperty(PropertyMethod, string(method), params...)
 }
 
-func (calendar *Calendar) SetXPublishedTTL(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXPublishedTTL, s, props...)
+func (cal *Calendar) SetXPublishedTTL(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXPublishedTTL, s, params...)
 }
 
-func (calendar *Calendar) SetVersion(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyVersion, s, props...)
+func (cal *Calendar) SetVersion(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyVersion, s, params...)
 }
 
-func (calendar *Calendar) SetProductId(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyProductId, s, props...)
+func (cal *Calendar) SetProductId(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyProductId, s, params...)
 }
 
-func (calendar *Calendar) SetName(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyName, s, props...)
-	calendar.setProperty(PropertyXWRCalName, s, props...)
+func (cal *Calendar) SetName(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyName, s, params...)
+	cal.setProperty(PropertyXWRCalName, s, params...)
 }
 
-func (calendar *Calendar) SetColor(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyColor, s, props...)
+func (cal *Calendar) SetColor(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyColor, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalName(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalName, s, props...)
+func (cal *Calendar) SetXWRCalName(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRCalName, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalDesc(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalDesc, s, props...)
+func (cal *Calendar) SetXWRCalDesc(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRCalDesc, s, params...)
 }
 
-func (calendar *Calendar) SetXWRTimezone(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRTimezone, s, props...)
+func (cal *Calendar) SetXWRTimezone(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRTimezone, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalID(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalID, s, props...)
+func (cal *Calendar) SetXWRCalID(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRCalID, s, params...)
 }
 
-func (calendar *Calendar) SetDescription(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyDescription, s, props...)
+func (cal *Calendar) SetDescription(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyDescription, s, params...)
 }
 
-func (calendar *Calendar) SetLastModified(t time.Time, props ...PropertyParameter) {
-	calendar.setProperty(PropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (cal *Calendar) SetLastModified(t time.Time, params ...PropertyParameter) {
+	cal.setProperty(PropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (calendar *Calendar) SetRefreshInterval(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyRefreshInterval, s, props...)
+func (cal *Calendar) SetRefreshInterval(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyRefreshInterval, s, params...)
 }
 
-func (calendar *Calendar) SetCalscale(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyCalscale, s, props...)
+func (cal *Calendar) SetCalscale(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyCalscale, s, params...)
 }
 
-func (calendar *Calendar) SetUrl(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyUrl, s, props...)
+func (cal *Calendar) SetUrl(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyUrl, s, params...)
 }
 
-func (calendar *Calendar) SetTzid(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyTzid, s, props...)
+func (cal *Calendar) SetTzid(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyTzid, s, params...)
 }
 
-func (calendar *Calendar) SetTimezoneId(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyTimezoneId, s, props...)
+func (cal *Calendar) SetTimezoneId(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyTimezoneId, s, params...)
 }
 
-func (calendar *Calendar) setProperty(property Property, value string, props ...PropertyParameter) {
-	for i := range calendar.CalendarProperties {
-		if calendar.CalendarProperties[i].IANAToken == string(property) {
-			calendar.CalendarProperties[i].Value = value
-			calendar.CalendarProperties[i].ICalParameters = map[string][]string{}
-			for _, p := range props {
+func (cal *Calendar) setProperty(property Property, value string, params ...PropertyParameter) {
+	for i := range cal.CalendarProperties {
+		if cal.CalendarProperties[i].IANAToken == string(property) {
+			cal.CalendarProperties[i].Value = value
+			cal.CalendarProperties[i].ICalParameters = map[string][]string{}
+			for _, p := range params {
 				k, v := p.KeyValue()
-				calendar.CalendarProperties[i].ICalParameters[k] = v
+				cal.CalendarProperties[i].ICalParameters[k] = v
 			}
 			return
 		}
@@ -408,11 +408,11 @@ func (calendar *Calendar) setProperty(property Property, value string, props ...
 			ICalParameters: map[string][]string{},
 		},
 	}
-	for _, p := range props {
+	for _, p := range params {
 		k, v := p.KeyValue()
 		r.ICalParameters[k] = v
 	}
-	calendar.CalendarProperties = append(calendar.CalendarProperties, r)
+	cal.CalendarProperties = append(cal.CalendarProperties, r)
 }
 
 func NewEvent(uniqueId string) *VEvent {
@@ -632,13 +632,14 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 	for c {
 		var b []byte
 		b, err = cs.b.ReadBytes('\n')
-		if len(b) == 0 {
+		switch {
+		case len(b) == 0:
 			if err == nil {
 				continue
 			} else {
 				c = false
 			}
-		} else if b[len(b)-1] == '\n' {
+		case b[len(b)-1] == '\n':
 			o := 1
 			if len(b) > 1 && b[len(b)-2] == '\r' {
 				o = 2
@@ -648,14 +649,15 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			if err == io.EOF {
 				c = false
 			}
-			if len(p) == 0 {
+			switch {
+			case len(p) == 0:
 				c = false
-			} else if p[0] == ' ' || p[0] == '\t' {
+			case p[0] == ' ' || p[0] == '\t':
 				_, _ = cs.b.Discard(1) // nolint:errcheck
-			} else {
+			default:
 				c = false
 			}
-		} else {
+		default:
 			r = append(r, b...)
 		}
 		switch err {

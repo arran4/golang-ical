@@ -28,7 +28,7 @@ type KeyValues struct {
 	Value []string
 }
 
-func (kv *KeyValues) KeyValue(s ...interface{}) (string, []string) {
+func (kv *KeyValues) KeyValue(_ ...interface{}) (string, []string) {
 	return kv.Key, kv.Value
 }
 
@@ -88,15 +88,26 @@ func trimUT8StringUpTo(maxLength int, s string) string {
 	return s[:length]
 }
 
-func (p *BaseProperty) GetValueType() ValueDataType {
-	for k, v := range p.ICalParameters {
+func (bp *BaseProperty) parameterValue(param Parameter) (string, error) {
+	v, ok := bp.ICalParameters[string(param)]
+	if !ok || len(v) == 0 {
+		return "", fmt.Errorf("parameter %q not found in property", param)
+	}
+	if len(v) != 1 {
+		return "", fmt.Errorf("expected only one value for parameter %q in property, found %d", param, len(v))
+	}
+	return v[0], nil
+}
+
+func (bp *BaseProperty) GetValueType() ValueDataType {
+	for k, v := range bp.ICalParameters {
 		if Parameter(k) == ParameterValue && len(v) == 1 {
 			return ValueDataType(v[0])
 		}
 	}
 
 	// defaults from spec if unspecified
-	switch Property(p.IANAToken) {
+	switch Property(bp.IANAToken) {
 	default:
 		fallthrough
 	case PropertyCalscale, PropertyMethod, PropertyProductId, PropertyVersion, PropertyCategories, PropertyClass,
@@ -135,17 +146,17 @@ func (p *BaseProperty) GetValueType() ValueDataType {
 	}
 }
 
-func (property *BaseProperty) serialize(w io.Writer) {
+func (bp *BaseProperty) serialize(w io.Writer) {
 	b := bytes.NewBufferString("")
-	fmt.Fprint(b, property.IANAToken)
+	fmt.Fprint(b, bp.IANAToken)
 
 	var keys []string
-	for k := range property.ICalParameters {
+	for k := range bp.ICalParameters {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		vs := property.ICalParameters[k]
+		vs := bp.ICalParameters[k]
 		fmt.Fprint(b, ";")
 		fmt.Fprint(b, k)
 		fmt.Fprint(b, "=")
@@ -154,18 +165,18 @@ func (property *BaseProperty) serialize(w io.Writer) {
 				fmt.Fprint(b, ",")
 			}
 			if strings.ContainsAny(v, ";:\\\",") {
-				v = strings.Replace(v, "\\", "\\\\", -1)
-				v = strings.Replace(v, ";", "\\;", -1)
-				v = strings.Replace(v, ":", "\\:", -1)
-				v = strings.Replace(v, "\"", "\\\"", -1)
-				v = strings.Replace(v, ",", "\\,", -1)
+				v = strings.ReplaceAll(v, "\\", "\\\\")
+				v = strings.ReplaceAll(v, ";", "\\;")
+				v = strings.ReplaceAll(v, ":", "\\:")
+				v = strings.ReplaceAll(v, "\"", "\\\"")
+				v = strings.ReplaceAll(v, ",", "\\,")
 			}
 			fmt.Fprint(b, v)
 		}
 	}
 	fmt.Fprint(b, ":")
-	propertyValue := property.Value
-	if property.GetValueType() == ValueDataTypeText {
+	propertyValue := bp.Value
+	if bp.GetValueType() == ValueDataTypeText {
 		propertyValue = ToText(propertyValue)
 	}
 	fmt.Fprint(b, propertyValue)
