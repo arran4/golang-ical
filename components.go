@@ -62,6 +62,8 @@ func NewComponent(uniqueId string) ComponentBase {
 	}
 }
 
+// GetProperty returns the first match for the particular property you're after. Please consider using:
+// ComponentProperty.Required to determine if GetProperty or GetProperties is more appropriate.
 func (cb *ComponentBase) GetProperty(componentProperty ComponentProperty) *IANAProperty {
 	for i := range cb.Properties {
 		if cb.Properties[i].IANAToken == string(componentProperty) {
@@ -71,6 +73,31 @@ func (cb *ComponentBase) GetProperty(componentProperty ComponentProperty) *IANAP
 	return nil
 }
 
+// GetProperties returns all matches for the particular property you're after. Please consider using:
+// ComponentProperty.Singular/ComponentProperty.Multiple to determine if GetProperty or GetProperties is more appropriate.
+func (cb *ComponentBase) GetProperties(componentProperty ComponentProperty) []*IANAProperty {
+	var result []*IANAProperty
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken == string(componentProperty) {
+			result = append(result, &cb.Properties[i])
+		}
+	}
+	return result
+}
+
+// HasProperty returns true if a component property is in the component.
+func (cb *ComponentBase) HasProperty(componentProperty ComponentProperty) bool {
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken == string(componentProperty) {
+			return true
+		}
+	}
+	return false
+}
+
+// SetProperty replaces the first match for the particular property you're setting, otherwise adds it. Please consider using:
+// ComponentProperty.Singular/ComponentProperty.Multiple to determine if AddProperty, SetProperty or ReplaceProperty is
+// more appropriate.
 func (cb *ComponentBase) SetProperty(property ComponentProperty, value string, params ...PropertyParameter) {
 	for i := range cb.Properties {
 		if cb.Properties[i].IANAToken == string(property) {
@@ -86,6 +113,17 @@ func (cb *ComponentBase) SetProperty(property ComponentProperty, value string, p
 	cb.AddProperty(property, value, params...)
 }
 
+// ReplaceProperty replaces all matches of the particular property you're setting, otherwise adds it. Returns a slice
+// of removed properties. Please consider using:
+// ComponentProperty.Singular/ComponentProperty.Multiple to determine if AddProperty, SetProperty or ReplaceProperty is
+// more appropriate.
+func (cb *ComponentBase) ReplaceProperty(property ComponentProperty, value string, params ...PropertyParameter) []IANAProperty {
+	removed := cb.RemoveProperty(property)
+	cb.AddProperty(property, value, params...)
+	return removed
+}
+
+// AddProperty appends a property
 func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, params ...PropertyParameter) {
 	r := IANAProperty{
 		BaseProperty{
@@ -101,16 +139,44 @@ func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, p
 	cb.Properties = append(cb.Properties, r)
 }
 
-// RemoveProperty removes from the component all properties that has
-// the name passed in removeProp.
-func (cb *ComponentBase) RemoveProperty(removeProp ComponentProperty) {
+// RemoveProperty removes from the component all properties that is of a particular property type, returning an slice of
+// removed entities
+func (cb *ComponentBase) RemoveProperty(removeProp ComponentProperty) []IANAProperty {
 	var keptProperties []IANAProperty
+	var removedProperties []IANAProperty
 	for i := range cb.Properties {
 		if cb.Properties[i].IANAToken != string(removeProp) {
 			keptProperties = append(keptProperties, cb.Properties[i])
+		} else {
+			removedProperties = append(removedProperties, cb.Properties[i])
 		}
 	}
 	cb.Properties = keptProperties
+	return removedProperties
+}
+
+// RemovePropertyByValue removes from the component all properties that has a particular property type and value,
+// return a count of removed properties
+func (cb *ComponentBase) RemovePropertyByValue(removeProp ComponentProperty, value string) []IANAProperty {
+	return cb.RemovePropertyByFunc(removeProp, func(p IANAProperty) bool {
+		return p.Value == value
+	})
+}
+
+// RemovePropertyByFunc removes from the component all properties that has a particular property type and the function
+// remove returns true for
+func (cb *ComponentBase) RemovePropertyByFunc(removeProp ComponentProperty, remove func(p IANAProperty) bool) []IANAProperty {
+	var keptProperties []IANAProperty
+	var removedProperties []IANAProperty
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken != string(removeProp) && remove(cb.Properties[i]) {
+			keptProperties = append(keptProperties, cb.Properties[i])
+		} else {
+			removedProperties = append(removedProperties, cb.Properties[i])
+		}
+	}
+	cb.Properties = keptProperties
+	return removedProperties
 }
 
 const (

@@ -61,7 +61,110 @@ const (
 	ComponentPropertyTzid            = ComponentProperty(PropertyTzid)
 	ComponentPropertyComment         = ComponentProperty(PropertyComment)
 	ComponentPropertyRelatedTo       = ComponentProperty(PropertyRelatedTo)
+	ComponentPropertyMethod          = ComponentProperty(PropertyMethod)
+	ComponentPropertyRecurrenceId    = ComponentProperty(PropertyRecurrenceId)
+	ComponentPropertyDuration        = ComponentProperty(PropertyDuration)
+	ComponentPropertyContact         = ComponentProperty(PropertyContact)
+	ComponentPropertyRequestStatus   = ComponentProperty(PropertyRequestStatus)
+	ComponentPropertyRDate           = ComponentProperty(PropertyRdate)
 )
+
+// Required returns the rules from the RFC as to if they are required or not for any particular component type
+// If unspecified or incomplete, it returns false. -- This list is incomplete verify source. Happy to take PRs with reference
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Required(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyDtstamp, ComponentPropertyUniqueId:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	case ComponentPropertyDtStart:
+		switch c := c.(type) {
+		case *VEvent:
+			return !c.HasProperty(ComponentPropertyMethod)
+		}
+	}
+	return false
+}
+
+// Exclusive returns the ComponentProperty's using the rules from the RFC as to if one or more existing properties are prohibiting this one
+// If unspecified or incomplete, it returns false. -- This list is incomplete verify source. Happy to take PRs with reference
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Exclusive(c Component) []ComponentProperty {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyDtEnd:
+		switch c := c.(type) {
+		case *VEvent:
+			if c.HasProperty(ComponentPropertyDuration) {
+				return []ComponentProperty{ComponentPropertyDuration}
+			}
+		}
+	case ComponentPropertyDuration:
+		switch c := c.(type) {
+		case *VEvent:
+			if c.HasProperty(ComponentPropertyDtEnd) {
+				return []ComponentProperty{ComponentPropertyDtEnd}
+			}
+		}
+	}
+	return nil
+}
+
+// Singular returns the rules from the RFC as to if the spec states that if "Must not occur more than once"
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Singular(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyClass, ComponentPropertyCreated, ComponentPropertyDescription, ComponentPropertyGeo,
+		ComponentPropertyLastModified, ComponentPropertyLocation, ComponentPropertyOrganizer, ComponentPropertyPriority,
+		ComponentPropertySequence, ComponentPropertyStatus, ComponentPropertySummary, ComponentPropertyTransp,
+		ComponentPropertyUrl, ComponentPropertyRecurrenceId:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	}
+	return false
+}
+
+// Optional returns the rules from the RFC as to if the spec states that if these are optional
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Optional(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyClass, ComponentPropertyCreated, ComponentPropertyDescription, ComponentPropertyGeo,
+		ComponentPropertyLastModified, ComponentPropertyLocation, ComponentPropertyOrganizer, ComponentPropertyPriority,
+		ComponentPropertySequence, ComponentPropertyStatus, ComponentPropertySummary, ComponentPropertyTransp,
+		ComponentPropertyUrl, ComponentPropertyRecurrenceId, ComponentPropertyRrule, ComponentPropertyAttach,
+		ComponentPropertyAttendee, ComponentPropertyCategories, ComponentPropertyComment,
+		ComponentPropertyContact, ComponentPropertyExdate, ComponentPropertyRequestStatus, ComponentPropertyRelatedTo,
+		ComponentPropertyResources, ComponentPropertyRDate:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	}
+	return false
+}
+
+// Multiple returns the rules from the RFC as to if the spec states explicitly if multiple are allowed
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Multiple(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyAttach, ComponentPropertyAttendee, ComponentPropertyCategories, ComponentPropertyComment,
+		ComponentPropertyContact, ComponentPropertyExdate, ComponentPropertyRequestStatus, ComponentPropertyRelatedTo,
+		ComponentPropertyResources, ComponentPropertyRDate:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	}
+	return false
+}
 
 type Property string
 
