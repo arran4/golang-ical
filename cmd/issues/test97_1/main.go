@@ -29,6 +29,6 @@ func main() {
 		Scheme: "data",
 		Opaque: "text/html,I%20want%20a%20custom%20linkout%20for%20Thunderbird.%3Cbr%3EThis%20is%20the%20Github%20%3Ca%20href%3D%22https%3A%2F%2Fgithub.com%2Farran4%2Fgolang-ical%2Fissues%2F97%22%3EIssue%3C%2Fa%3E.",
 	}
-	vEvent.AddProperty(ics.ComponentPropertyDescription, `"I want a custom linkout for Thunderbird.\nThis is the Github Issue.`, ics.WithAlternativeRepresentation(uri))
+	vEvent.AddProperty(ics.ComponentPropertyDescription, "I want a custom linkout for Thunderbird.\nThis is the Github Issue.", ics.WithAlternativeRepresentation(uri))
 	fmt.Println(i.Serialize())
 }
