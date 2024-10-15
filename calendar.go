@@ -3,9 +3,12 @@ package ics
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"reflect"
 	"time"
 )
 
@@ -410,6 +413,108 @@ func (cal *Calendar) setProperty(property Property, value string, params ...Prop
 		r.ICalParameters[k] = v
 	}
 	cal.CalendarProperties = append(cal.CalendarProperties, r)
+}
+
+func (calendar *Calendar) AddEvent(id string) *VEvent {
+	e := NewEvent(id)
+	calendar.Components = append(calendar.Components, e)
+	return e
+}
+
+func (calendar *Calendar) AddVEvent(e *VEvent) {
+	calendar.Components = append(calendar.Components, e)
+}
+
+func (calendar *Calendar) Events() (r []*VEvent) {
+	r = []*VEvent{}
+	for i := range calendar.Components {
+		switch event := calendar.Components[i].(type) {
+		case *VEvent:
+			r = append(r, event)
+		}
+	}
+	return
+}
+
+func (calendar *Calendar) RemoveEvent(id string) {
+	for i := range calendar.Components {
+		switch event := calendar.Components[i].(type) {
+		case *VEvent:
+			if event.Id() == id {
+				if len(calendar.Components) > i+1 {
+					calendar.Components = append(calendar.Components[:i], calendar.Components[i+1:]...)
+				} else {
+					calendar.Components = calendar.Components[:i]
+				}
+				return
+			}
+		}
+	}
+}
+
+func WithCustomClient(client *http.Client) *http.Client {
+	return client
+}
+
+func WithCustomRequest(request *http.Request) *http.Request {
+	return request
+}
+
+func ParseCalendarFromUrl(url string, opts ...any) (*Calendar, error) {
+	var ctx context.Context
+	var req *http.Request
+	var client HttpClientLike = http.DefaultClient
+	for opti, opt := range opts {
+		switch opt := opt.(type) {
+		case *http.Client:
+			client = opt
+		case HttpClientLike:
+			client = opt
+		case func() *http.Client:
+			client = opt()
+		case *http.Request:
+			req = opt
+		case func() *http.Request:
+			req = opt()
+		case context.Context:
+			ctx = opt
+		case func() context.Context:
+			ctx = opt()
+		default:
+			return nil, fmt.Errorf("unknown optional argument %d on ParseCalendarFromUrl: %s", opti, reflect.TypeOf(opt))
+		}
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if req == nil {
+		var err error
+		req, err = http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("creating http request: %w", err)
+		}
+	}
+	return parseCalendarFromHttpRequest(client, req)
+}
+
+type HttpClientLike interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+func parseCalendarFromHttpRequest(client HttpClientLike, request *http.Request) (*Calendar, error) {
+	resp, err := client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %w", err)
+	}
+	defer func(closer io.ReadCloser) {
+		if derr := closer.Close(); derr != nil && err == nil {
+			err = fmt.Errorf("http request close: %w", derr)
+		}
+	}(resp.Body)
+	var cal *Calendar
+	cal, err = ParseCalendar(resp.Body)
+	// This allows the defer func to change the error
+	return cal, err
 }
 
 func ParseCalendar(r io.Reader) (*Calendar, error) {
