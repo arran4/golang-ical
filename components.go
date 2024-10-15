@@ -201,28 +201,8 @@ func (cb *ComponentBase) GetEndAt() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyDtEnd, false)
 }
 
-// SetDuration updates the duration of an event.
-// This function will set either the end or start time of an event depending what is already given.
-// The duration defines the length of a event relative to start or end time.
-//
-// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
-func (event *VEvent) SetDuration(d time.Duration) error {
-	t, err := event.GetStartAt()
-	if err == nil {
-		event.SetEndAt(t.Add(d))
-		return nil
-	} else {
-		t, err = event.GetEndAt()
-		if err == nil {
-			event.SetStartAt(t.Add(-d))
-			return nil
-		}
-	}
-	return ErrStartOrEndNotYetDefined
-}
-
-func (event *VEvent) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
-	timeProp := event.GetProperty(componentProperty)
+func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
+	timeProp := cb.GetProperty(componentProperty)
 	if timeProp == nil {
 		return time.Time{}, fmt.Errorf("%w: %s", ErrPropertyNotFound, componentProperty)
 	}
@@ -289,19 +269,19 @@ func (event *VEvent) getTimeProp(componentProperty ComponentProperty, expectAllD
 	return time.Time{}, fmt.Errorf("%w, got '%s'", ErrTimeValueMatchedButNotSupported, timeVal)
 }
 
-func (cb *VEvent) GetStartAt() (time.Time, error) {
+func (cb *ComponentBase) GetStartAt() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyDtStart, false)
 }
 
-func (cb *VEvent) GetAllDayStartAt() (time.Time, error) {
+func (cb *ComponentBase) GetAllDayStartAt() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyDtStart, true)
 }
 
-func (cb *VEvent) GetLastModifiedAt() (time.Time, error) {
+func (cb *ComponentBase) GetLastModifiedAt() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyLastModified, false)
 }
 
-func (cb *VEvent) GetDtStampTime() (time.Time, error) {
+func (cb *ComponentBase) GetDtStampTime() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyDtstamp, false)
 }
 
@@ -687,8 +667,8 @@ func (c *VTodo) Alarms() []*VAlarm {
 	return c.alarms()
 }
 
-func (c *VEvent) GetDueAt() (time.Time, error) {
-	return c.getTimeProp(ComponentPropertyDue, false)
+func (cb *ComponentBase) GetDueAt() (time.Time, error) {
+	return cb.getTimeProp(ComponentPropertyDue, false)
 }
 
 func (c *VEvent) GetAllDayDueAt() (time.Time, error) {
