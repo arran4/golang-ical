@@ -415,17 +415,6 @@ func (cal *Calendar) setProperty(property Property, value string, params ...Prop
 	cal.CalendarProperties = append(cal.CalendarProperties, r)
 }
 
-func NewEvent(uniqueId string) *VEvent {
-	e := &VEvent{
-		ComponentBase{
-			Properties: []IANAProperty{
-				{BaseProperty{IANAToken: ToText(string(ComponentPropertyUniqueId)), Value: uniqueId}},
-			},
-		},
-	}
-	return e
-}
-
 func (calendar *Calendar) AddEvent(id string) *VEvent {
 	e := NewEvent(id)
 	calendar.Components = append(calendar.Components, e)

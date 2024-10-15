@@ -458,13 +458,13 @@ type VEvent struct {
 	ComponentBase
 }
 
-func (c *VEvent) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VEVENT")
+func (event *VEvent) SerializeTo(w io.Writer) {
+	event.ComponentBase.serializeThis(w, "VEVENT")
 }
 
-func (c *VEvent) Serialize() string {
+func (event *VEvent) Serialize() string {
 	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VEVENT")
+	event.ComponentBase.serializeThis(b, "VEVENT")
 	return b.String()
 }
 
@@ -475,43 +475,6 @@ func NewEvent(uniqueId string) *VEvent {
 	return e
 }
 
-func (cal *Calendar) AddEvent(id string) *VEvent {
-	e := NewEvent(id)
-	cal.Components = append(cal.Components, e)
-	return e
-}
-
-func (cal *Calendar) AddVEvent(e *VEvent) {
-	cal.Components = append(cal.Components, e)
-}
-
-func (cal *Calendar) RemoveEvent(id string) {
-	for i := range cal.Components {
-		switch event := cal.Components[i].(type) {
-		case *VEvent:
-			if event.Id() == id {
-				if len(cal.Components) > i+1 {
-					cal.Components = append(cal.Components[:i], cal.Components[i+1:]...)
-				} else {
-					cal.Components = cal.Components[:i]
-				}
-				return
-			}
-		}
-	}
-}
-
-func (cal *Calendar) Events() []*VEvent {
-	var r []*VEvent
-	for i := range cal.Components {
-		switch event := cal.Components[i].(type) {
-		case *VEvent:
-			r = append(r, event)
-		}
-	}
-	return r
-}
-
 func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
 	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
@@ -520,32 +483,32 @@ func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) 
 	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
-func (c *VEvent) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
-	c.setGeo(lat, lng, params...)
+func (event *VEvent) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
+	event.setGeo(lat, lng, params...)
 }
 
-func (c *VEvent) SetPriority(p int, params ...PropertyParameter) {
-	c.setPriority(p, params...)
+func (event *VEvent) SetPriority(p int, params ...PropertyParameter) {
+	event.setPriority(p, params...)
 }
 
-func (c *VEvent) SetResources(r string, params ...PropertyParameter) {
-	c.setResources(r, params...)
+func (event *VEvent) SetResources(r string, params ...PropertyParameter) {
+	event.setResources(r, params...)
 }
 
-func (c *VEvent) AddAlarm() *VAlarm {
-	return c.addAlarm()
+func (event *VEvent) AddAlarm() *VAlarm {
+	return event.addAlarm()
 }
 
-func (c *VEvent) AddVAlarm(a *VAlarm) {
-	c.addVAlarm(a)
+func (event *VEvent) AddVAlarm(a *VAlarm) {
+	event.addVAlarm(a)
 }
 
-func (c *VEvent) Alarms() []*VAlarm {
-	return c.alarms()
+func (event *VEvent) Alarms() []*VAlarm {
+	return event.alarms()
 }
 
-func (c *VEvent) GetAllDayEndAt() (time.Time, error) {
-	return c.getTimeProp(ComponentPropertyDtEnd, true)
+func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
+	return event.getTimeProp(ComponentPropertyDtEnd, true)
 }
 
 type TimeTransparency string
@@ -555,8 +518,8 @@ const (
 	TransparencyTransparent TimeTransparency = "TRANSPARENT"
 )
 
-func (c *VEvent) SetTimeTransparency(v TimeTransparency, params ...PropertyParameter) {
-	c.SetProperty(ComponentPropertyTransp, string(v), params...)
+func (event *VEvent) SetTimeTransparency(v TimeTransparency, params ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyTransp, string(v), params...)
 }
 
 type VTodo struct {
