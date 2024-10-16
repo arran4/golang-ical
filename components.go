@@ -62,6 +62,8 @@ func NewComponent(uniqueId string) ComponentBase {
 	}
 }
 
+// GetProperty returns the first match for the particular property you're after. Please consider using:
+// ComponentProperty.Required to determine if GetProperty or GetProperties is more appropriate.
 func (cb *ComponentBase) GetProperty(componentProperty ComponentProperty) *IANAProperty {
 	for i := range cb.Properties {
 		if cb.Properties[i].IANAToken == string(componentProperty) {
@@ -71,6 +73,31 @@ func (cb *ComponentBase) GetProperty(componentProperty ComponentProperty) *IANAP
 	return nil
 }
 
+// GetProperties returns all matches for the particular property you're after. Please consider using:
+// ComponentProperty.Singular/ComponentProperty.Multiple to determine if GetProperty or GetProperties is more appropriate.
+func (cb *ComponentBase) GetProperties(componentProperty ComponentProperty) []*IANAProperty {
+	var result []*IANAProperty
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken == string(componentProperty) {
+			result = append(result, &cb.Properties[i])
+		}
+	}
+	return result
+}
+
+// HasProperty returns true if a component property is in the component.
+func (cb *ComponentBase) HasProperty(componentProperty ComponentProperty) bool {
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken == string(componentProperty) {
+			return true
+		}
+	}
+	return false
+}
+
+// SetProperty replaces the first match for the particular property you're setting, otherwise adds it. Please consider using:
+// ComponentProperty.Singular/ComponentProperty.Multiple to determine if AddProperty, SetProperty or ReplaceProperty is
+// more appropriate.
 func (cb *ComponentBase) SetProperty(property ComponentProperty, value string, params ...PropertyParameter) {
 	for i := range cb.Properties {
 		if cb.Properties[i].IANAToken == string(property) {
@@ -86,6 +113,17 @@ func (cb *ComponentBase) SetProperty(property ComponentProperty, value string, p
 	cb.AddProperty(property, value, params...)
 }
 
+// ReplaceProperty replaces all matches of the particular property you're setting, otherwise adds it. Returns a slice
+// of removed properties. Please consider using:
+// ComponentProperty.Singular/ComponentProperty.Multiple to determine if AddProperty, SetProperty or ReplaceProperty is
+// more appropriate.
+func (cb *ComponentBase) ReplaceProperty(property ComponentProperty, value string, params ...PropertyParameter) []IANAProperty {
+	removed := cb.RemoveProperty(property)
+	cb.AddProperty(property, value, params...)
+	return removed
+}
+
+// AddProperty appends a property
 func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, params ...PropertyParameter) {
 	r := IANAProperty{
 		BaseProperty{
@@ -101,16 +139,44 @@ func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, p
 	cb.Properties = append(cb.Properties, r)
 }
 
-// RemoveProperty removes from the component all properties that has
-// the name passed in removeProp.
-func (cb *ComponentBase) RemoveProperty(removeProp ComponentProperty) {
+// RemoveProperty removes from the component all properties that is of a particular property type, returning an slice of
+// removed entities
+func (cb *ComponentBase) RemoveProperty(removeProp ComponentProperty) []IANAProperty {
 	var keptProperties []IANAProperty
+	var removedProperties []IANAProperty
 	for i := range cb.Properties {
 		if cb.Properties[i].IANAToken != string(removeProp) {
 			keptProperties = append(keptProperties, cb.Properties[i])
+		} else {
+			removedProperties = append(removedProperties, cb.Properties[i])
 		}
 	}
 	cb.Properties = keptProperties
+	return removedProperties
+}
+
+// RemovePropertyByValue removes from the component all properties that has a particular property type and value,
+// return a count of removed properties
+func (cb *ComponentBase) RemovePropertyByValue(removeProp ComponentProperty, value string) []IANAProperty {
+	return cb.RemovePropertyByFunc(removeProp, func(p IANAProperty) bool {
+		return p.Value == value
+	})
+}
+
+// RemovePropertyByFunc removes from the component all properties that has a particular property type and the function
+// remove returns true for
+func (cb *ComponentBase) RemovePropertyByFunc(removeProp ComponentProperty, remove func(p IANAProperty) bool) []IANAProperty {
+	var keptProperties []IANAProperty
+	var removedProperties []IANAProperty
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken != string(removeProp) && remove(cb.Properties[i]) {
+			keptProperties = append(keptProperties, cb.Properties[i])
+		} else {
+			removedProperties = append(removedProperties, cb.Properties[i])
+		}
+	}
+	cb.Properties = keptProperties
+	return removedProperties
 }
 
 const (
@@ -480,13 +546,13 @@ type VEvent struct {
 	ComponentBase
 }
 
-func (c *VEvent) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VEVENT")
+func (event *VEvent) SerializeTo(w io.Writer) {
+	event.ComponentBase.serializeThis(w, "VEVENT")
 }
 
-func (c *VEvent) Serialize() string {
+func (event *VEvent) Serialize() string {
 	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VEVENT")
+	event.ComponentBase.serializeThis(b, "VEVENT")
 	return b.String()
 }
 
@@ -497,77 +563,40 @@ func NewEvent(uniqueId string) *VEvent {
 	return e
 }
 
-func (cal *Calendar) AddEvent(id string) *VEvent {
-	e := NewEvent(id)
-	cal.Components = append(cal.Components, e)
-	return e
+func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
-func (cal *Calendar) AddVEvent(e *VEvent) {
-	cal.Components = append(cal.Components, e)
+func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
-func (cal *Calendar) RemoveEvent(id string) {
-	for i := range cal.Components {
-		switch event := cal.Components[i].(type) {
-		case *VEvent:
-			if event.Id() == id {
-				if len(cal.Components) > i+1 {
-					cal.Components = append(cal.Components[:i], cal.Components[i+1:]...)
-				} else {
-					cal.Components = cal.Components[:i]
-				}
-				return
-			}
-		}
-	}
+func (event *VEvent) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
+	event.setGeo(lat, lng, params...)
 }
 
-func (cal *Calendar) Events() []*VEvent {
-	var r []*VEvent
-	for i := range cal.Components {
-		switch event := cal.Components[i].(type) {
-		case *VEvent:
-			r = append(r, event)
-		}
-	}
-	return r
+func (event *VEvent) SetPriority(p int, params ...PropertyParameter) {
+	event.setPriority(p, params...)
 }
 
-func (c *VEvent) SetEndAt(t time.Time, params ...PropertyParameter) {
-	c.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), params...)
+func (event *VEvent) SetResources(r string, params ...PropertyParameter) {
+	event.setResources(r, params...)
 }
 
-func (c *VEvent) SetLastModifiedAt(t time.Time, params ...PropertyParameter) {
-	c.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), params...)
+func (event *VEvent) AddAlarm() *VAlarm {
+	return event.addAlarm()
 }
 
-func (c *VEvent) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
-	c.setGeo(lat, lng, params...)
+func (event *VEvent) AddVAlarm(a *VAlarm) {
+	event.addVAlarm(a)
 }
 
-func (c *VEvent) SetPriority(p int, params ...PropertyParameter) {
-	c.setPriority(p, params...)
+func (event *VEvent) Alarms() []*VAlarm {
+	return event.alarms()
 }
 
-func (c *VEvent) SetResources(r string, params ...PropertyParameter) {
-	c.setResources(r, params...)
-}
-
-func (c *VEvent) AddAlarm() *VAlarm {
-	return c.addAlarm()
-}
-
-func (c *VEvent) AddVAlarm(a *VAlarm) {
-	c.addVAlarm(a)
-}
-
-func (c *VEvent) Alarms() []*VAlarm {
-	return c.alarms()
-}
-
-func (c *VEvent) GetAllDayEndAt() (time.Time, error) {
-	return c.getTimeProp(ComponentPropertyDtEnd, true)
+func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
+	return event.getTimeProp(ComponentPropertyDtEnd, true)
 }
 
 type TimeTransparency string
@@ -577,8 +606,8 @@ const (
 	TransparencyTransparent TimeTransparency = "TRANSPARENT"
 )
 
-func (c *VEvent) SetTimeTransparency(v TimeTransparency, params ...PropertyParameter) {
-	c.SetProperty(ComponentPropertyTransp, string(v), params...)
+func (event *VEvent) SetTimeTransparency(v TimeTransparency, params ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyTransp, string(v), params...)
 }
 
 type VTodo struct {
