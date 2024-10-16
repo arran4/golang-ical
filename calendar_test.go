@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"embed"
 	"github.com/google/go-cmp/cmp"
+	"bytes"
+	_ "embed"
 	"io"
 	"io/fs"
+	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -459,5 +463,35 @@ func TestIssue97(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("cannot read test directory: %v", err)
+	}
+}
+
+type MockHttpClient struct {
+	Response *http.Response
+	Error    error
+}
+
+func (m *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
+	return m.Response, m.Error
+}
+
+var (
+	_ HttpClientLike = &MockHttpClient{}
+	//go:embed "testdata/rfc5545sec4/input1.ics"
+	input1TestData []byte
+)
+
+func TestIssue77(t *testing.T) {
+	url := "https://proseconsult.umontpellier.fr/jsp/custom/modules/plannings/direct_cal.jsp?data=58c99062bab31d256bee14356aca3f2423c0f022cb9660eba051b2653be722c4c7f281e4e3ad06b85d3374100ac416a4dc5c094f7d1a811b903031bde802c7f50e0bd1077f9461bed8f9a32b516a3c63525f110c026ed6da86f487dd451ca812c1c60bb40b1502b6511435cf9908feb2166c54e36382c1aa3eb0ff5cb8980cdb,1"
+
+	_, err := ParseCalendarFromUrl(url, &MockHttpClient{
+		Response: &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(bytes.NewReader(input1TestData)),
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("Error reading file: %s", err)
 	}
 }
