@@ -20,7 +20,7 @@ import (
 type Component interface {
 	UnknownPropertiesIANAProperties() []IANAProperty
 	SubComponents() []Component
-	SerializeTo(b io.Writer)
+	SerializeTo(b io.Writer, serialConfig *SerializationConfiguration) error
 }
 
 var (
@@ -43,15 +43,22 @@ func (cb *ComponentBase) SubComponents() []Component {
 	return cb.Components
 }
 
-func (cb ComponentBase) serializeThis(writer io.Writer, componentType string) {
-	_, _ = fmt.Fprint(writer, "BEGIN:"+componentType, "\r\n")
+func (cb *ComponentBase) serializeThis(writer io.Writer, componentType ComponentType, serialConfig *SerializationConfiguration) error {
+	_, _ = fmt.Fprint(writer, "BEGIN:"+componentType, serialConfig.NewLine)
 	for _, p := range cb.Properties {
-		p.serialize(writer)
+		err := p.serialize(writer, serialConfig)
+		if err != nil {
+			return err
+		}
 	}
 	for _, c := range cb.Components {
-		c.SerializeTo(writer)
+		err := c.SerializeTo(writer, serialConfig)
+		if err != nil {
+			return err
+		}
 	}
-	_, _ = fmt.Fprint(writer, "END:"+componentType, "\r\n")
+	_, err := fmt.Fprint(writer, "END:"+componentType, serialConfig.NewLine)
+	return err
 }
 
 func NewComponent(uniqueId string) ComponentBase {
@@ -546,14 +553,19 @@ type VEvent struct {
 	ComponentBase
 }
 
-func (event *VEvent) SerializeTo(w io.Writer) {
-	event.ComponentBase.serializeThis(w, "VEVENT")
+func (event *VEvent) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return event.ComponentBase.serializeThis(w, ComponentVEvent, serialConfig)
 }
 
-func (event *VEvent) Serialize() string {
+func (event *VEvent) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := event.serialize(serialConfig)
+	return s
+}
+
+func (event *VEvent) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &bytes.Buffer{}
-	event.ComponentBase.serializeThis(b, "VEVENT")
-	return b.String()
+	err := event.ComponentBase.serializeThis(b, ComponentVEvent, serialConfig)
+	return b.String(), err
 }
 
 func NewEvent(uniqueId string) *VEvent {
@@ -571,6 +583,7 @@ func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) 
 	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
+// TODO use generics
 func (event *VEvent) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
 	event.setGeo(lat, lng, params...)
 }
@@ -614,14 +627,22 @@ type VTodo struct {
 	ComponentBase
 }
 
-func (c *VTodo) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VTODO")
+func (todo *VTodo) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return todo.ComponentBase.serializeThis(w, ComponentVTodo, serialConfig)
 }
 
-func (c *VTodo) Serialize() string {
+func (todo *VTodo) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := todo.serialize(serialConfig)
+	return s
+}
+
+func (todo *VTodo) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VTODO")
-	return b.String()
+	err := todo.ComponentBase.serializeThis(b, ComponentVTodo, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
 }
 
 func NewTodo(uniqueId string) *VTodo {
@@ -652,38 +673,38 @@ func (cal *Calendar) Todos() []*VTodo {
 	return r
 }
 
-func (c *VTodo) SetCompletedAt(t time.Time, params ...PropertyParameter) {
-	c.SetProperty(ComponentPropertyCompleted, t.UTC().Format(icalTimestampFormatUtc), params...)
+func (todo *VTodo) SetCompletedAt(t time.Time, params ...PropertyParameter) {
+	todo.SetProperty(ComponentPropertyCompleted, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (c *VTodo) SetAllDayCompletedAt(t time.Time, params ...PropertyParameter) {
+func (todo *VTodo) SetAllDayCompletedAt(t time.Time, params ...PropertyParameter) {
 	params = append(params, WithValue(string(ValueDataTypeDate)))
-	c.SetProperty(ComponentPropertyCompleted, t.Format(icalDateFormatLocal), params...)
+	todo.SetProperty(ComponentPropertyCompleted, t.Format(icalDateFormatLocal), params...)
 }
 
-func (c *VTodo) SetDueAt(t time.Time, params ...PropertyParameter) {
-	c.SetProperty(ComponentPropertyDue, t.UTC().Format(icalTimestampFormatUtc), params...)
+func (todo *VTodo) SetDueAt(t time.Time, params ...PropertyParameter) {
+	todo.SetProperty(ComponentPropertyDue, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (c *VTodo) SetAllDayDueAt(t time.Time, params ...PropertyParameter) {
+func (todo *VTodo) SetAllDayDueAt(t time.Time, params ...PropertyParameter) {
 	params = append(params, WithValue(string(ValueDataTypeDate)))
-	c.SetProperty(ComponentPropertyDue, t.Format(icalDateFormatLocal), params...)
+	todo.SetProperty(ComponentPropertyDue, t.Format(icalDateFormatLocal), params...)
 }
 
-func (c *VTodo) SetPercentComplete(p int, params ...PropertyParameter) {
-	c.SetProperty(ComponentPropertyPercentComplete, strconv.Itoa(p), params...)
+func (todo *VTodo) SetPercentComplete(p int, params ...PropertyParameter) {
+	todo.SetProperty(ComponentPropertyPercentComplete, strconv.Itoa(p), params...)
 }
 
-func (c *VTodo) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
-	c.setGeo(lat, lng, params...)
+func (todo *VTodo) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
+	todo.setGeo(lat, lng, params...)
 }
 
-func (c *VTodo) SetPriority(p int, params ...PropertyParameter) {
-	c.setPriority(p, params...)
+func (todo *VTodo) SetPriority(p int, params ...PropertyParameter) {
+	todo.setPriority(p, params...)
 }
 
-func (c *VTodo) SetResources(r string, params ...PropertyParameter) {
-	c.setResources(r, params...)
+func (todo *VTodo) SetResources(r string, params ...PropertyParameter) {
+	todo.setResources(r, params...)
 }
 
 // SetDuration updates the duration of an event.
@@ -691,53 +712,61 @@ func (c *VTodo) SetResources(r string, params ...PropertyParameter) {
 // The duration defines the length of a event relative to start or end time.
 //
 // Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
-func (c *VTodo) SetDuration(d time.Duration) error {
-	t, err := c.GetStartAt()
+func (todo *VTodo) SetDuration(d time.Duration) error {
+	t, err := todo.GetStartAt()
 	if err == nil {
-		c.SetDueAt(t.Add(d))
+		todo.SetDueAt(t.Add(d))
 		return nil
 	} else {
-		t, err = c.GetDueAt()
+		t, err = todo.GetDueAt()
 		if err == nil {
-			c.SetStartAt(t.Add(-d))
+			todo.SetStartAt(t.Add(-d))
 			return nil
 		}
 	}
 	return errors.New("start or end not yet defined")
 }
 
-func (c *VTodo) AddAlarm() *VAlarm {
-	return c.addAlarm()
+func (todo *VTodo) AddAlarm() *VAlarm {
+	return todo.addAlarm()
 }
 
-func (c *VTodo) AddVAlarm(a *VAlarm) {
-	c.addVAlarm(a)
+func (todo *VTodo) AddVAlarm(a *VAlarm) {
+	todo.addVAlarm(a)
 }
 
-func (c *VTodo) Alarms() []*VAlarm {
-	return c.alarms()
+func (todo *VTodo) Alarms() []*VAlarm {
+	return todo.alarms()
 }
 
-func (c *VTodo) GetDueAt() (time.Time, error) {
-	return c.getTimeProp(ComponentPropertyDue, false)
+func (todo *VTodo) GetDueAt() (time.Time, error) {
+	return todo.getTimeProp(ComponentPropertyDue, false)
 }
 
-func (c *VTodo) GetAllDayDueAt() (time.Time, error) {
-	return c.getTimeProp(ComponentPropertyDue, true)
+func (todo *VTodo) GetAllDayDueAt() (time.Time, error) {
+	return todo.getTimeProp(ComponentPropertyDue, true)
 }
 
 type VJournal struct {
 	ComponentBase
 }
 
-func (c *VJournal) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VJOURNAL")
+func (journal *VJournal) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return journal.ComponentBase.serializeThis(w, ComponentVJournal, serialConfig)
 }
 
-func (c *VJournal) Serialize() string {
+func (journal *VJournal) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := journal.serialize(serialConfig)
+	return s
+}
+
+func (journal *VJournal) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VJOURNAL")
-	return b.String()
+	err := journal.ComponentBase.serializeThis(b, ComponentVJournal, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
 }
 
 func NewJournal(uniqueId string) *VJournal {
@@ -772,14 +801,22 @@ type VBusy struct {
 	ComponentBase
 }
 
-func (c *VBusy) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VFREEBUSY")
-	return b.String()
+func (busy *VBusy) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := busy.serialize(serialConfig)
+	return s
 }
 
-func (c *VBusy) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VFREEBUSY")
+func (busy *VBusy) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := busy.ComponentBase.serializeThis(b, ComponentVFreeBusy, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (busy *VBusy) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return busy.ComponentBase.serializeThis(w, ComponentVFreeBusy, serialConfig)
 }
 
 func NewBusy(uniqueId string) *VBusy {
@@ -814,14 +851,28 @@ type VTimezone struct {
 	ComponentBase
 }
 
-func (c *VTimezone) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VTIMEZONE")
-	return b.String()
+func (timezone *VTimezone) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := timezone.serialize(serialConfig)
+	return s
 }
 
-func (c *VTimezone) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VTIMEZONE")
+func (timezone *VTimezone) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := timezone.ComponentBase.serializeThis(b, ComponentVTimezone, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (timezone *VTimezone) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return timezone.ComponentBase.serializeThis(w, ComponentVTimezone, serialConfig)
+}
+
+func (timezone *VTimezone) AddStandard() *Standard {
+	e := NewStandard()
+	timezone.Components = append(timezone.Components, e)
+	return e
 }
 
 func NewTimezone(tzId string) *VTimezone {
@@ -860,17 +911,26 @@ type VAlarm struct {
 	ComponentBase
 }
 
-func (c *VAlarm) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VALARM")
-	return b.String()
+func (c *VAlarm) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := c.serialize(serialConfig)
+	return s
 }
 
-func (c *VAlarm) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VALARM")
+func (c *VAlarm) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := c.ComponentBase.serializeThis(b, ComponentVAlarm, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (c *VAlarm) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return c.ComponentBase.serializeThis(w, ComponentVAlarm, serialConfig)
 }
 
 func NewAlarm(tzId string) *VAlarm {
+	// Todo How did this come about?
 	e := &VAlarm{}
 	return e
 }
@@ -902,28 +962,51 @@ type Standard struct {
 	ComponentBase
 }
 
-func (c *Standard) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "STANDARD")
-	return b.String()
+func NewStandard() *Standard {
+	e := &Standard{
+		ComponentBase{},
+	}
+	return e
 }
 
-func (c *Standard) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "STANDARD")
+func (standard *Standard) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := standard.serialize(serialConfig)
+	return s
+}
+
+func (standard *Standard) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := standard.ComponentBase.serializeThis(b, ComponentStandard, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (standard *Standard) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return standard.ComponentBase.serializeThis(w, ComponentStandard, serialConfig)
 }
 
 type Daylight struct {
 	ComponentBase
 }
 
-func (c *Daylight) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "DAYLIGHT")
-	return b.String()
+func (daylight *Daylight) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := daylight.serialize(serialConfig)
+	return s
 }
 
-func (c *Daylight) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "DAYLIGHT")
+func (daylight *Daylight) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := daylight.ComponentBase.serializeThis(b, ComponentDaylight, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (daylight *Daylight) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return daylight.ComponentBase.serializeThis(w, ComponentDaylight, serialConfig)
 }
 
 type GeneralComponent struct {
@@ -931,141 +1014,195 @@ type GeneralComponent struct {
 	Token string
 }
 
-func (c *GeneralComponent) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, c.Token)
-	return b.String()
+func (general *GeneralComponent) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := general.serialize(serialConfig)
+	return s
 }
 
-func (c *GeneralComponent) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, c.Token)
+func (general *GeneralComponent) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := general.ComponentBase.serializeThis(b, ComponentType(general.Token), serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (general *GeneralComponent) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return general.ComponentBase.serializeThis(w, ComponentType(general.Token), serialConfig)
 }
 
 func GeneralParseComponent(cs *CalendarStream, startLine *BaseProperty) (Component, error) {
 	var co Component
-	switch startLine.Value {
-	case "VCALENDAR":
+	var err error
+	switch ComponentType(startLine.Value) {
+	case ComponentVCalendar:
 		return nil, errors.New("malformed calendar; vcalendar not where expected")
-	case "VEVENT":
-		co = ParseVEvent(cs, startLine)
-	case "VTODO":
-		co = ParseVTodo(cs, startLine)
-	case "VJOURNAL":
-		co = ParseVJournal(cs, startLine)
-	case "VFREEBUSY":
-		co = ParseVBusy(cs, startLine)
-	case "VTIMEZONE":
-		co = ParseVTimezone(cs, startLine)
-	case "VALARM":
-		co = ParseVAlarm(cs, startLine)
-	case "STANDARD":
-		co = ParseStandard(cs, startLine)
-	case "DAYLIGHT":
-		co = ParseDaylight(cs, startLine)
+	case ComponentVEvent:
+		co, err = ParseVEventWithError(cs, startLine)
+	case ComponentVTodo:
+		co, err = ParseVTodoWithError(cs, startLine)
+	case ComponentVJournal:
+		co, err = ParseVJournalWithError(cs, startLine)
+	case ComponentVFreeBusy:
+		co, err = ParseVBusyWithError(cs, startLine)
+	case ComponentVTimezone:
+		co, err = ParseVTimezoneWithError(cs, startLine)
+	case ComponentVAlarm:
+		co, err = ParseVAlarmWithError(cs, startLine)
+	case ComponentStandard:
+		co, err = ParseStandardWithError(cs, startLine)
+	case ComponentDaylight:
+		co, err = ParseDaylightWithError(cs, startLine)
 	default:
-		co = ParseGeneralComponent(cs, startLine)
+		co, err = ParseGeneralComponentWithError(cs, startLine)
 	}
-	return co, nil
+	return co, err
 }
 
 func ParseVEvent(cs *CalendarStream, startLine *BaseProperty) *VEvent {
+	ev, _ := ParseVEventWithError(cs, startLine)
+	return ev
+}
+
+func ParseVEventWithError(cs *CalendarStream, startLine *BaseProperty) (*VEvent, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to parse event: %w", err)
 	}
 	rr := &VEvent{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseVTodo(cs *CalendarStream, startLine *BaseProperty) *VTodo {
+	c, _ := ParseVTodoWithError(cs, startLine)
+	return c
+}
+
+func ParseVTodoWithError(cs *CalendarStream, startLine *BaseProperty) (*VTodo, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &VTodo{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseVJournal(cs *CalendarStream, startLine *BaseProperty) *VJournal {
+	c, _ := ParseVJournalWithError(cs, startLine)
+	return c
+}
+
+func ParseVJournalWithError(cs *CalendarStream, startLine *BaseProperty) (*VJournal, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &VJournal{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseVBusy(cs *CalendarStream, startLine *BaseProperty) *VBusy {
+	c, _ := ParseVBusyWithError(cs, startLine)
+	return c
+}
+
+func ParseVBusyWithError(cs *CalendarStream, startLine *BaseProperty) (*VBusy, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &VBusy{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseVTimezone(cs *CalendarStream, startLine *BaseProperty) *VTimezone {
+	c, _ := ParseVTimezoneWithError(cs, startLine)
+	return c
+}
+
+func ParseVTimezoneWithError(cs *CalendarStream, startLine *BaseProperty) (*VTimezone, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &VTimezone{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseVAlarm(cs *CalendarStream, startLine *BaseProperty) *VAlarm {
+	c, _ := ParseVAlarmWithError(cs, startLine)
+	return c
+}
+
+func ParseVAlarmWithError(cs *CalendarStream, startLine *BaseProperty) (*VAlarm, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &VAlarm{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseStandard(cs *CalendarStream, startLine *BaseProperty) *Standard {
+	c, _ := ParseStandardWithError(cs, startLine)
+	return c
+}
+
+func ParseStandardWithError(cs *CalendarStream, startLine *BaseProperty) (*Standard, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &Standard{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseDaylight(cs *CalendarStream, startLine *BaseProperty) *Daylight {
+	c, _ := ParseDaylightWithError(cs, startLine)
+	return c
+}
+
+func ParseDaylightWithError(cs *CalendarStream, startLine *BaseProperty) (*Daylight, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &Daylight{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseGeneralComponent(cs *CalendarStream, startLine *BaseProperty) *GeneralComponent {
+	c, _ := ParseGeneralComponentWithError(cs, startLine)
+	return c
+}
+
+func ParseGeneralComponentWithError(cs *CalendarStream, startLine *BaseProperty) (*GeneralComponent, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &GeneralComponent{
 		ComponentBase: r,
 		Token:         startLine.Value,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase, error) {

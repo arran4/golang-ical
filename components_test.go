@@ -53,7 +53,7 @@ END:VEVENT
 			err := e.SetDuration(duration)
 
 			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
-			text := strings.ReplaceAll(e.Serialize(), "\r\n", "\n")
+			text := strings.ReplaceAll(e.Serialize(defaultSerializationOptions()), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
 			assert.Equal(t, nil, err)
@@ -116,7 +116,7 @@ END:VEVENT
 				assert.NoError(t, err)
 			}
 
-			text := strings.ReplaceAll(e.Serialize(), "\r\n", "\n")
+			text := strings.ReplaceAll(e.Serialize(defaultSerializationOptions()), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
 		})
@@ -141,22 +141,22 @@ func TestSetMailtoPrefix(t *testing.T) {
 	e := NewEvent("test-set-organizer")
 
 	e.SetOrganizer("org1@provider.com")
-	if !strings.Contains(e.Serialize(), "ORGANIZER:mailto:org1@provider.com") {
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ORGANIZER:mailto:org1@provider.com") {
 		t.Errorf("expected single mailto: prefix for email org1")
 	}
 
 	e.SetOrganizer("mailto:org2@provider.com")
-	if !strings.Contains(e.Serialize(), "ORGANIZER:mailto:org2@provider.com") {
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ORGANIZER:mailto:org2@provider.com") {
 		t.Errorf("expected single mailto: prefix for email org2")
 	}
 
 	e.AddAttendee("att1@provider.com")
-	if !strings.Contains(e.Serialize(), "ATTENDEE:mailto:att1@provider.com") {
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ATTENDEE:mailto:att1@provider.com") {
 		t.Errorf("expected single mailto: prefix for email att1")
 	}
 
 	e.AddAttendee("mailto:att2@provider.com")
-	if !strings.Contains(e.Serialize(), "ATTENDEE:mailto:att2@provider.com") {
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ATTENDEE:mailto:att2@provider.com") {
 		t.Errorf("expected single mailto: prefix for email att2")
 	}
 }
@@ -185,7 +185,7 @@ END:VTODO
 			e.RemoveProperty("X-TESTREMOVE")
 
 			// adjust to expected linebreaks, since we're not testing the encoding
-			text := strings.ReplaceAll(e.Serialize(), "\r\n", "\n")
+			text := strings.ReplaceAll(e.Serialize(defaultSerializationOptions()), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
 		})

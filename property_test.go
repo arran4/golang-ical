@@ -269,3 +269,71 @@ func equalDurations(a, b []Duration) bool {
 	}
 	return true
 }
+
+func Test_trimUT8StringUpTo(t *testing.T) {
+	tests := []struct {
+		name      string
+		maxLength int
+		s         string
+		want      string
+	}{
+		{
+			name:      "simply break at spaces",
+			s:         "simply break at spaces",
+			maxLength: 14,
+			want:      "simply break",
+		},
+		{
+			name:      "(Don't) Break after punctuation 1", // See if we can change this.
+			s:         "hi.are.",
+			maxLength: len("hi.are"),
+			want:      "hi.are",
+		},
+		{
+			name:      "Break after punctuation 2",
+			s:         "Hi how are you?",
+			maxLength: len("Hi how are you"),
+			want:      "Hi how are",
+		},
+		{
+			name:      "HTML opening tag breaking",
+			s:         "I want a custom linkout for Thunderbird.<br>This is the Github<a href=\"https://github.com/arran4/golang-ical/issues/97\">Issue</a>.",
+			maxLength: len("I want a custom linkout for Thunderbird.<br>This is the Github<"),
+			want:      "I want a custom linkout for Thunderbird.<br>This is the Github",
+		},
+		{
+			name:      "HTML closing tag breaking",
+			s:         "I want a custom linkout for Thunderbird.<br>This is the Github<a href=\"https://github.com/arran4/golang-ical/issues/97\">Issue</a>.",
+			maxLength: len("I want a custom linkout for Thunderbird.<br>") + 1,
+			want:      "I want a custom linkout for Thunderbird.<br>",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, trimUT8StringUpTo(tt.maxLength, tt.s), "trimUT8StringUpTo(%v, %v)", tt.maxLength, tt.s)
+		})
+	}
+}
+
+func TestFixValueStrings(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"hello", "hello"},
+		{"hello;world", "hello\\;world"},
+		{"path\\to:file", "path\\\\to\\:file"},
+		{"name:\"value\"", "name\\:\\\"value\\\""},
+		{"key,value", "key\\,value"},
+		{";:\\\",", "\\;\\:\\\\\\\"\\,"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := escapeValueString(tt.input)
+			if result != tt.expected {
+				t.Errorf("got %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
