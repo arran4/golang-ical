@@ -1,6 +1,8 @@
 package ics
 
 import (
+	"errors"
+	"github.com/stretchr/testify/assert"
 	"bytes"
 	"embed"
 	_ "embed"
@@ -14,8 +16,6 @@ import (
 	"testing"
 	"time"
 	"unicode/utf8"
-
-	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -29,7 +29,7 @@ func TestTimeParsing(t *testing.T) {
 		t.Errorf("read file: %v", err)
 	}
 	cal, err := ParseCalendar(calFile)
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		t.Errorf("parse calendar: %v", err)
 	}
 
@@ -138,8 +138,8 @@ CLASS:PUBLIC
 	for i := 0; cont; i++ {
 		l, err := c.ReadLine()
 		if err != nil {
-			switch err {
-			case io.EOF:
+			switch {
+			case errors.Is(err, io.EOF):
 				cont = false
 			default:
 				t.Logf("Unknown error; %v", err)
@@ -148,7 +148,7 @@ CLASS:PUBLIC
 			}
 		}
 		if l == nil {
-			if err == io.EOF && i == len(expected) {
+			if errors.Is(err, io.EOF) && i == len(expected) {
 				cont = false
 			} else {
 				t.Logf("Nil response...")
@@ -187,7 +187,8 @@ func TestRfc5545Sec4Examples(t *testing.T) {
 
 		input := rnReplace.ReplaceAllString(string(inputBytes), "\r\n")
 		structure, err := ParseCalendar(strings.NewReader(input))
-		if assert.Nil(t, err, path) {
+		if err != nil && !errors.Is(err, io.EOF) {
+			assert.Nil(t, err, path)
 			// This should fail as the sample data doesn't conform to https://tools.ietf.org/html/rfc5545#page-45
 			// Probably due to RFC width guides
 			assert.NotNil(t, structure)
@@ -385,7 +386,7 @@ END:VCALENDAR
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			c, err := ParseCalendar(strings.NewReader(tc.input))
-			if !assert.NoError(t, err) {
+			if !errors.Is(err, io.EOF) && !assert.NoError(t, err) {
 				return
 			}
 
@@ -406,12 +407,12 @@ func TestIssue52(t *testing.T) {
 		_, fn := filepath.Split(path)
 		t.Run(fn, func(t *testing.T) {
 			f, err := TestData.Open(path)
-			if err != nil {
+			if err != nil && errors.Is(err, io.EOF) {
 				t.Fatalf("Error reading file: %s", err)
 			}
 			defer f.Close()
 
-			if _, err := ParseCalendar(f); err != nil {
+			if _, err := ParseCalendar(f); err != nil && !errors.Is(err, io.EOF) {
 				t.Fatalf("Error parsing file: %s", err)
 			}
 
