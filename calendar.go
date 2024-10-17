@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -169,6 +170,10 @@ func (cp ComponentProperty) Multiple(c Component) bool {
 	return false
 }
 
+func ComponentPropertyExtended(s string) ComponentProperty {
+	return ComponentProperty("X-" + strings.TrimPrefix("X-", s))
+}
+
 type Property string
 
 const (
@@ -231,6 +236,14 @@ const (
 )
 
 type Parameter string
+
+func (p Parameter) IsQuoted() bool {
+	switch p {
+	case ParameterAltrep:
+		return true
+	}
+	return false
+}
 
 const (
 	ParameterAltrep              Parameter = "ALTREP"
@@ -404,23 +417,70 @@ func NewCalendarFor(service string) *Calendar {
 	return c
 }
 
-func (cal *Calendar) Serialize() string {
+func (cal *Calendar) Serialize(ops ...any) string {
 	b := bytes.NewBufferString("")
 	// We are intentionally ignoring the return value. _ used to communicate this to lint.
-	_ = cal.SerializeTo(b)
+	_ = cal.SerializeTo(b, ops...)
 	return b.String()
 }
 
-func (cal *Calendar) SerializeTo(w io.Writer) error {
-	_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
+type WithLineLength int
+type WithNewLine string
+
+func (cal *Calendar) SerializeTo(w io.Writer, ops ...any) error {
+	serializeConfig, err := parseSerializeOps(ops)
+	if err != nil {
+		return err
+	}
+	_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR", serializeConfig.NewLine)
 	for _, p := range cal.CalendarProperties {
-		p.serialize(w)
+		err := p.serialize(w, serializeConfig)
+		if err != nil {
+			return err
+		}
 	}
 	for _, c := range cal.Components {
-		c.SerializeTo(w)
+		err := c.SerializeTo(w, serializeConfig)
+		if err != nil {
+			return err
+		}
 	}
-	_, _ = fmt.Fprint(w, "END:VCALENDAR", "\r\n")
+	_, _ = fmt.Fprint(w, "END:VCALENDAR", serializeConfig.NewLine)
 	return nil
+}
+
+type SerializationConfiguration struct {
+	MaxLength         int
+	NewLine           string
+	PropertyMaxLength int
+}
+
+func parseSerializeOps(ops []any) (*SerializationConfiguration, error) {
+	serializeConfig := defaultSerializationOptions()
+	for opi, op := range ops {
+		switch op := op.(type) {
+		case WithLineLength:
+			serializeConfig.MaxLength = int(op)
+		case WithNewLine:
+			serializeConfig.NewLine = string(op)
+		case *SerializationConfiguration:
+			return op, nil
+		case error:
+			return nil, op
+		default:
+			return nil, fmt.Errorf("unknown op %d of type %s", opi, reflect.TypeOf(op))
+		}
+	}
+	return serializeConfig, nil
+}
+
+func defaultSerializationOptions() *SerializationConfiguration {
+	serializeConfig := &SerializationConfiguration{
+		MaxLength:         75,
+		PropertyMaxLength: 75,
+		NewLine:           string(NewLine),
+	}
+	return serializeConfig
 }
 
 func (cal *Calendar) SetMethod(method Method, params ...PropertyParameter) {
