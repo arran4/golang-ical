@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -64,7 +65,114 @@ const (
 	ComponentPropertyTzid            = ComponentProperty(PropertyTzid)
 	ComponentPropertyComment         = ComponentProperty(PropertyComment)
 	ComponentPropertyRelatedTo       = ComponentProperty(PropertyRelatedTo)
+	ComponentPropertyMethod          = ComponentProperty(PropertyMethod)
+	ComponentPropertyRecurrenceId    = ComponentProperty(PropertyRecurrenceId)
+	ComponentPropertyDuration        = ComponentProperty(PropertyDuration)
+	ComponentPropertyContact         = ComponentProperty(PropertyContact)
+	ComponentPropertyRequestStatus   = ComponentProperty(PropertyRequestStatus)
+	ComponentPropertyRDate           = ComponentProperty(PropertyRdate)
 )
+
+// Required returns the rules from the RFC as to if they are required or not for any particular component type
+// If unspecified or incomplete, it returns false. -- This list is incomplete verify source. Happy to take PRs with reference
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Required(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyDtstamp, ComponentPropertyUniqueId:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	case ComponentPropertyDtStart:
+		switch c := c.(type) {
+		case *VEvent:
+			return !c.HasProperty(ComponentPropertyMethod)
+		}
+	}
+	return false
+}
+
+// Exclusive returns the ComponentProperty's using the rules from the RFC as to if one or more existing properties are prohibiting this one
+// If unspecified or incomplete, it returns false. -- This list is incomplete verify source. Happy to take PRs with reference
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Exclusive(c Component) []ComponentProperty {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyDtEnd:
+		switch c := c.(type) {
+		case *VEvent:
+			if c.HasProperty(ComponentPropertyDuration) {
+				return []ComponentProperty{ComponentPropertyDuration}
+			}
+		}
+	case ComponentPropertyDuration:
+		switch c := c.(type) {
+		case *VEvent:
+			if c.HasProperty(ComponentPropertyDtEnd) {
+				return []ComponentProperty{ComponentPropertyDtEnd}
+			}
+		}
+	}
+	return nil
+}
+
+// Singular returns the rules from the RFC as to if the spec states that if "Must not occur more than once"
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Singular(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyClass, ComponentPropertyCreated, ComponentPropertyDescription, ComponentPropertyGeo,
+		ComponentPropertyLastModified, ComponentPropertyLocation, ComponentPropertyOrganizer, ComponentPropertyPriority,
+		ComponentPropertySequence, ComponentPropertyStatus, ComponentPropertySummary, ComponentPropertyTransp,
+		ComponentPropertyUrl, ComponentPropertyRecurrenceId:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	}
+	return false
+}
+
+// Optional returns the rules from the RFC as to if the spec states that if these are optional
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Optional(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyClass, ComponentPropertyCreated, ComponentPropertyDescription, ComponentPropertyGeo,
+		ComponentPropertyLastModified, ComponentPropertyLocation, ComponentPropertyOrganizer, ComponentPropertyPriority,
+		ComponentPropertySequence, ComponentPropertyStatus, ComponentPropertySummary, ComponentPropertyTransp,
+		ComponentPropertyUrl, ComponentPropertyRecurrenceId, ComponentPropertyRrule, ComponentPropertyAttach,
+		ComponentPropertyAttendee, ComponentPropertyCategories, ComponentPropertyComment,
+		ComponentPropertyContact, ComponentPropertyExdate, ComponentPropertyRequestStatus, ComponentPropertyRelatedTo,
+		ComponentPropertyResources, ComponentPropertyRDate:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	}
+	return false
+}
+
+// Multiple returns the rules from the RFC as to if the spec states explicitly if multiple are allowed
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Multiple(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyAttach, ComponentPropertyAttendee, ComponentPropertyCategories, ComponentPropertyComment,
+		ComponentPropertyContact, ComponentPropertyExdate, ComponentPropertyRequestStatus, ComponentPropertyRelatedTo,
+		ComponentPropertyResources, ComponentPropertyRDate:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	}
+	return false
+}
+
+func ComponentPropertyExtended(s string) ComponentProperty {
+	return ComponentProperty("X-" + strings.TrimPrefix("X-", s))
+}
 
 type Property string
 
@@ -128,6 +236,14 @@ const (
 )
 
 type Parameter string
+
+func (p Parameter) IsQuoted() bool {
+	switch p {
+	case ParameterAltrep:
+		return true
+	}
+	return false
+}
 
 const (
 	ParameterAltrep              Parameter = "ALTREP"
@@ -301,23 +417,70 @@ func NewCalendarFor(service string) *Calendar {
 	return c
 }
 
-func (cal *Calendar) Serialize() string {
+func (cal *Calendar) Serialize(ops ...any) string {
 	b := bytes.NewBufferString("")
 	// We are intentionally ignoring the return value. _ used to communicate this to lint.
-	_ = cal.SerializeTo(b)
+	_ = cal.SerializeTo(b, ops...)
 	return b.String()
 }
 
-func (cal *Calendar) SerializeTo(w io.Writer) error {
-	_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
+type WithLineLength int
+type WithNewLine string
+
+func (cal *Calendar) SerializeTo(w io.Writer, ops ...any) error {
+	serializeConfig, err := parseSerializeOps(ops)
+	if err != nil {
+		return err
+	}
+	_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR", serializeConfig.NewLine)
 	for _, p := range cal.CalendarProperties {
-		p.serialize(w)
+		err := p.serialize(w, serializeConfig)
+		if err != nil {
+			return err
+		}
 	}
 	for _, c := range cal.Components {
-		c.SerializeTo(w)
+		err := c.SerializeTo(w, serializeConfig)
+		if err != nil {
+			return err
+		}
 	}
-	_, _ = fmt.Fprint(w, "END:VCALENDAR", "\r\n")
+	_, _ = fmt.Fprint(w, "END:VCALENDAR", serializeConfig.NewLine)
 	return nil
+}
+
+type SerializationConfiguration struct {
+	MaxLength         int
+	NewLine           string
+	PropertyMaxLength int
+}
+
+func parseSerializeOps(ops []any) (*SerializationConfiguration, error) {
+	serializeConfig := defaultSerializationOptions()
+	for opi, op := range ops {
+		switch op := op.(type) {
+		case WithLineLength:
+			serializeConfig.MaxLength = int(op)
+		case WithNewLine:
+			serializeConfig.NewLine = string(op)
+		case *SerializationConfiguration:
+			return op, nil
+		case error:
+			return nil, op
+		default:
+			return nil, fmt.Errorf("unknown op %d of type %s", opi, reflect.TypeOf(op))
+		}
+	}
+	return serializeConfig, nil
+}
+
+func defaultSerializationOptions() *SerializationConfiguration {
+	serializeConfig := &SerializationConfiguration{
+		MaxLength:         75,
+		PropertyMaxLength: 75,
+		NewLine:           string(NewLine),
+	}
+	return serializeConfig
 }
 
 func (cal *Calendar) SetMethod(method Method, params ...PropertyParameter) {
