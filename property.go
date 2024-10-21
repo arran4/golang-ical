@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -27,7 +28,7 @@ type KeyValues struct {
 	Value []string
 }
 
-func (kv *KeyValues) KeyValue(s ...interface{}) (string, []string) {
+func (kv *KeyValues) KeyValue(_ ...interface{}) (string, []string) {
 	return kv.Key, kv.Value
 }
 
@@ -35,6 +36,21 @@ func WithCN(cn string) PropertyParameter {
 	return &KeyValues{
 		Key:   string(ParameterCn),
 		Value: []string{cn},
+	}
+}
+
+func WithTZID(tzid string) PropertyParameter {
+	return &KeyValues{
+		Key:   string(ParameterTzid),
+		Value: []string{tzid},
+	}
+}
+
+// WithAlternativeRepresentation takes what must be a valid URI in quotation marks
+func WithAlternativeRepresentation(uri *url.URL) PropertyParameter {
+	return &KeyValues{
+		Key:   string(ParameterAltrep),
+		Value: []string{uri.String()},
 	}
 }
 
@@ -68,34 +84,48 @@ func WithRSVP(b bool) PropertyParameter {
 
 func trimUT8StringUpTo(maxLength int, s string) string {
 	length := 0
-	lastSpace := -1
+	lastWordBoundary := -1
+	var lastRune rune
 	for i, r := range s {
-		if r == ' ' {
-			lastSpace = i
+		if r == ' ' || r == '<' {
+			lastWordBoundary = i
+		} else if lastRune == '>' {
+			lastWordBoundary = i
 		}
-
+		lastRune = r
 		newLength := length + utf8.RuneLen(r)
 		if newLength > maxLength {
 			break
 		}
 		length = newLength
 	}
-	if lastSpace > 0 {
-		return s[:lastSpace]
+	if lastWordBoundary > 0 {
+		return s[:lastWordBoundary]
 	}
 
 	return s[:length]
 }
 
-func (p *BaseProperty) GetValueType() ValueDataType {
-	for k, v := range p.ICalParameters {
+func (bp *BaseProperty) parameterValue(param Parameter) (string, error) {
+	v, ok := bp.ICalParameters[string(param)]
+	if !ok || len(v) == 0 {
+		return "", fmt.Errorf("parameter %q not found in property", param)
+	}
+	if len(v) != 1 {
+		return "", fmt.Errorf("expected only one value for parameter %q in property, found %d", param, len(v))
+	}
+	return v[0], nil
+}
+
+func (bp *BaseProperty) GetValueType() ValueDataType {
+	for k, v := range bp.ICalParameters {
 		if Parameter(k) == ParameterValue && len(v) == 1 {
 			return ValueDataType(v[0])
 		}
 	}
 
 	// defaults from spec if unspecified
-	switch Property(p.IANAToken) {
+	switch Property(bp.IANAToken) {
 	default:
 		fallthrough
 	case PropertyCalscale, PropertyMethod, PropertyProductId, PropertyVersion, PropertyCategories, PropertyClass,
@@ -134,54 +164,98 @@ func (p *BaseProperty) GetValueType() ValueDataType {
 	}
 }
 
-func (property *BaseProperty) serialize(w io.Writer) {
+func (bp *BaseProperty) serialize(w io.Writer, serialConfig *SerializationConfiguration) error {
 	b := bytes.NewBufferString("")
-	fmt.Fprint(b, property.IANAToken)
+	_, _ = fmt.Fprint(b, bp.IANAToken)
 
 	var keys []string
-	for k := range property.ICalParameters {
+	for k := range bp.ICalParameters {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		vs := property.ICalParameters[k]
-		fmt.Fprint(b, ";")
-		fmt.Fprint(b, k)
-		fmt.Fprint(b, "=")
+		vs := bp.ICalParameters[k]
+		_, _ = fmt.Fprint(b, ";")
+		_, _ = fmt.Fprint(b, k)
+		_, _ = fmt.Fprint(b, "=")
 		for vi, v := range vs {
 			if vi > 0 {
-				fmt.Fprint(b, ",")
+				_, _ = fmt.Fprint(b, ",")
 			}
-			if strings.ContainsAny(v, ";:\\\",") {
-				v = strings.Replace(v, "\\", "\\\\", -1)
-				v = strings.Replace(v, ";", "\\;", -1)
-				v = strings.Replace(v, ":", "\\:", -1)
-				v = strings.Replace(v, "\"", "\\\"", -1)
-				v = strings.Replace(v, ",", "\\,", -1)
+			if Parameter(k).IsQuoted() {
+				v = quotedValueString(v)
+				_, _ = fmt.Fprint(b, v)
+			} else {
+				v = escapeValueString(v)
+				_, _ = fmt.Fprint(b, v)
 			}
-			fmt.Fprint(b, v)
 		}
 	}
-	fmt.Fprint(b, ":")
-	propertyValue := property.Value
-	if property.GetValueType() == ValueDataTypeText {
+	_, _ = fmt.Fprint(b, ":")
+	propertyValue := bp.Value
+	if bp.GetValueType() == ValueDataTypeText {
 		propertyValue = ToText(propertyValue)
 	}
-	fmt.Fprint(b, propertyValue)
+	_, _ = fmt.Fprint(b, propertyValue)
 	r := b.String()
-	if len(r) > 75 {
-		l := trimUT8StringUpTo(75, r)
-		fmt.Fprint(w, l, "\r\n")
+	if len(r) > serialConfig.MaxLength {
+		l := trimUT8StringUpTo(serialConfig.MaxLength, r)
+		_, err := fmt.Fprint(w, l, serialConfig.NewLine)
+		if err != nil {
+			return fmt.Errorf("property %s serialization: %w", bp.IANAToken, err)
+		}
 		r = r[len(l):]
 
-		for len(r) > 74 {
-			l := trimUT8StringUpTo(74, r)
-			fmt.Fprint(w, " ", l, "\r\n")
+		for len(r) > serialConfig.MaxLength-1 {
+			l := trimUT8StringUpTo(serialConfig.MaxLength-1, r)
+			_, err = fmt.Fprint(w, " ", l, serialConfig.NewLine)
+			if err != nil {
+				return fmt.Errorf("property %s serialization: %w", bp.IANAToken, err)
+			}
 			r = r[len(l):]
 		}
-		fmt.Fprint(w, " ")
+		_, err = fmt.Fprint(w, " ")
+		if err != nil {
+			return fmt.Errorf("property %s serialization: %w", bp.IANAToken, err)
+		}
 	}
-	fmt.Fprint(w, r, "\r\n")
+	_, err := fmt.Fprint(w, r, serialConfig.NewLine)
+	if err != nil {
+		return fmt.Errorf("property %s serialization: %w", bp.IANAToken, err)
+	}
+	return nil
+}
+
+func escapeValueString(v string) string {
+	changed := 0
+	result := ""
+	for i, r := range v {
+		switch r {
+		case ',', '"', ';', ':', '\\', '\'':
+			result = result + v[changed:i] + "\\" + string(r)
+			changed = i + 1
+		}
+	}
+	if changed == 0 {
+		return v
+	}
+	return result + v[changed:]
+}
+
+func quotedValueString(v string) string {
+	changed := 0
+	result := ""
+	for i, r := range v {
+		switch r {
+		case '"', '\\':
+			result = result + v[changed:i] + "\\" + string(r)
+			changed = i + 1
+		}
+	}
+	if changed == 0 {
+		return `"` + v + `"`
+	}
+	return `"` + result + v[changed:] + `"`
 }
 
 type IANAProperty struct {

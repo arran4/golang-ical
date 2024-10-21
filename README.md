@@ -6,13 +6,18 @@ A  ICS / ICal parser and serialiser for Golang.
 Because the other libraries didn't quite do what I needed.
 
 Usage, parsing:
-```
+```golang
     cal, err := ParseCalendar(strings.NewReader(input))
 
 ```
 
-Creating:
+Usage, parsing from a URL :
+```golang
+    cal, err := ParseCalendar("an-ics-url")
 ```
+
+Creating:
+```golang
   cal := ics.NewCalendar()
   cal.SetMethod(ics.MethodRequest)
   event := cal.AddEvent(fmt.Sprintf("id@domain", p.SessionKey.IntID()))

@@ -31,15 +31,16 @@ func TestCalendar_ReSerialization(t *testing.T) {
 	}
 
 	for _, filename := range testFileNames {
-		t.Run(fmt.Sprintf("compare serialized -> deserialized -> serialized: %s", filename), func(t *testing.T) {
+		fp := filepath.Join(testDir, filename)
+		t.Run(fmt.Sprintf("compare serialized -> deserialized -> serialized: %s", fp), func(t *testing.T) {
 			//given
-			originalSeriailizedCal, err := os.ReadFile(filepath.Join(testDir, filename))
+			originalSeriailizedCal, err := os.ReadFile(fp)
 			require.NoError(t, err)
 
 			//when
 			deserializedCal, err := ParseCalendar(bytes.NewReader(originalSeriailizedCal))
 			require.NoError(t, err)
-			serializedCal := deserializedCal.Serialize()
+			serializedCal := deserializedCal.Serialize(WithNewLineWindows)
 
 			//then
 			expectedCal, err := os.ReadFile(filepath.Join(expectedDir, filename))

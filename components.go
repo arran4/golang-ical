@@ -20,7 +20,7 @@ import (
 type Component interface {
 	UnknownPropertiesIANAProperties() []IANAProperty
 	SubComponents() []Component
-	SerializeTo(b io.Writer)
+	SerializeTo(b io.Writer, serialConfig *SerializationConfiguration) error
 }
 
 var (
@@ -43,15 +43,22 @@ func (cb *ComponentBase) SubComponents() []Component {
 	return cb.Components
 }
 
-func (cb ComponentBase) serializeThis(writer io.Writer, componentType string) {
-	_, _ = fmt.Fprint(writer, "BEGIN:"+componentType, "\r\n")
+func (cb *ComponentBase) serializeThis(writer io.Writer, componentType ComponentType, serialConfig *SerializationConfiguration) error {
+	_, _ = fmt.Fprint(writer, "BEGIN:"+componentType, serialConfig.NewLine)
 	for _, p := range cb.Properties {
-		p.serialize(writer)
+		err := p.serialize(writer, serialConfig)
+		if err != nil {
+			return err
+		}
 	}
 	for _, c := range cb.Components {
-		c.SerializeTo(writer)
+		err := c.SerializeTo(writer, serialConfig)
+		if err != nil {
+			return err
+		}
 	}
-	_, _ = fmt.Fprint(writer, "END:"+componentType, "\r\n")
+	_, err := fmt.Fprint(writer, "END:"+componentType, serialConfig.NewLine)
+	return err
 }
 
 func NewComponent(uniqueId string) ComponentBase {
@@ -62,6 +69,8 @@ func NewComponent(uniqueId string) ComponentBase {
 	}
 }
 
+// GetProperty returns the first match for the particular property you're after. Please consider using:
+// ComponentProperty.Required to determine if GetProperty or GetProperties is more appropriate.
 func (cb *ComponentBase) GetProperty(componentProperty ComponentProperty) *IANAProperty {
 	for i := range cb.Properties {
 		if cb.Properties[i].IANAToken == string(componentProperty) {
@@ -71,22 +80,58 @@ func (cb *ComponentBase) GetProperty(componentProperty ComponentProperty) *IANAP
 	return nil
 }
 
-func (cb *ComponentBase) SetProperty(property ComponentProperty, value string, props ...PropertyParameter) {
+// GetProperties returns all matches for the particular property you're after. Please consider using:
+// ComponentProperty.Singular/ComponentProperty.Multiple to determine if GetProperty or GetProperties is more appropriate.
+func (cb *ComponentBase) GetProperties(componentProperty ComponentProperty) []*IANAProperty {
+	var result []*IANAProperty
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken == string(componentProperty) {
+			result = append(result, &cb.Properties[i])
+		}
+	}
+	return result
+}
+
+// HasProperty returns true if a component property is in the component.
+func (cb *ComponentBase) HasProperty(componentProperty ComponentProperty) bool {
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken == string(componentProperty) {
+			return true
+		}
+	}
+	return false
+}
+
+// SetProperty replaces the first match for the particular property you're setting, otherwise adds it. Please consider using:
+// ComponentProperty.Singular/ComponentProperty.Multiple to determine if AddProperty, SetProperty or ReplaceProperty is
+// more appropriate.
+func (cb *ComponentBase) SetProperty(property ComponentProperty, value string, params ...PropertyParameter) {
 	for i := range cb.Properties {
 		if cb.Properties[i].IANAToken == string(property) {
 			cb.Properties[i].Value = value
 			cb.Properties[i].ICalParameters = map[string][]string{}
-			for _, p := range props {
+			for _, p := range params {
 				k, v := p.KeyValue()
 				cb.Properties[i].ICalParameters[k] = v
 			}
 			return
 		}
 	}
-	cb.AddProperty(property, value, props...)
+	cb.AddProperty(property, value, params...)
 }
 
-func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, props ...PropertyParameter) {
+// ReplaceProperty replaces all matches of the particular property you're setting, otherwise adds it. Returns a slice
+// of removed properties. Please consider using:
+// ComponentProperty.Singular/ComponentProperty.Multiple to determine if AddProperty, SetProperty or ReplaceProperty is
+// more appropriate.
+func (cb *ComponentBase) ReplaceProperty(property ComponentProperty, value string, params ...PropertyParameter) []IANAProperty {
+	removed := cb.RemoveProperty(property)
+	cb.AddProperty(property, value, params...)
+	return removed
+}
+
+// AddProperty appends a property
+func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, params ...PropertyParameter) {
 	r := IANAProperty{
 		BaseProperty{
 			IANAToken:      string(property),
@@ -94,23 +139,51 @@ func (cb *ComponentBase) AddProperty(property ComponentProperty, value string, p
 			ICalParameters: map[string][]string{},
 		},
 	}
-	for _, p := range props {
+	for _, p := range params {
 		k, v := p.KeyValue()
 		r.ICalParameters[k] = v
 	}
 	cb.Properties = append(cb.Properties, r)
 }
 
-// RemoveProperty removes from the component all properties that has
-// the name passed in removeProp.
-func (cb *ComponentBase) RemoveProperty(removeProp ComponentProperty) {
+// RemoveProperty removes from the component all properties that is of a particular property type, returning an slice of
+// removed entities
+func (cb *ComponentBase) RemoveProperty(removeProp ComponentProperty) []IANAProperty {
 	var keptProperties []IANAProperty
+	var removedProperties []IANAProperty
 	for i := range cb.Properties {
 		if cb.Properties[i].IANAToken != string(removeProp) {
 			keptProperties = append(keptProperties, cb.Properties[i])
+		} else {
+			removedProperties = append(removedProperties, cb.Properties[i])
 		}
 	}
 	cb.Properties = keptProperties
+	return removedProperties
+}
+
+// RemovePropertyByValue removes from the component all properties that has a particular property type and value,
+// return a count of removed properties
+func (cb *ComponentBase) RemovePropertyByValue(removeProp ComponentProperty, value string) []IANAProperty {
+	return cb.RemovePropertyByFunc(removeProp, func(p IANAProperty) bool {
+		return p.Value == value
+	})
+}
+
+// RemovePropertyByFunc removes from the component all properties that has a particular property type and the function
+// remove returns true for
+func (cb *ComponentBase) RemovePropertyByFunc(removeProp ComponentProperty, remove func(p IANAProperty) bool) []IANAProperty {
+	var keptProperties []IANAProperty
+	var removedProperties []IANAProperty
+	for i := range cb.Properties {
+		if cb.Properties[i].IANAToken != string(removeProp) && remove(cb.Properties[i]) {
+			keptProperties = append(keptProperties, cb.Properties[i])
+		} else {
+			removedProperties = append(removedProperties, cb.Properties[i])
+		}
+	}
+	cb.Properties = keptProperties
+	return removedProperties
 }
 
 const (
@@ -120,38 +193,46 @@ const (
 	icalDateFormatLocal      = "20060102"
 )
 
-var (
-	timeStampVariations = regexp.MustCompile("^([0-9]{8})?([TZ])?([0-9]{6})?(Z)?$")
-)
+var timeStampVariations = regexp.MustCompile("^([0-9]{8})?([TZ])?([0-9]{6})?(Z)?$")
 
-func (cb *ComponentBase) SetCreatedTime(t time.Time, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyCreated, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (cb *ComponentBase) SetCreatedTime(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyCreated, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (cb *ComponentBase) SetDtStampTime(t time.Time, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDtstamp, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (cb *ComponentBase) SetDtStampTime(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyDtstamp, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (cb *ComponentBase) SetModifiedAt(t time.Time, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (cb *ComponentBase) SetModifiedAt(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (cb *ComponentBase) SetSequence(seq int, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertySequence, strconv.Itoa(seq), props...)
+func (cb *ComponentBase) SetSequence(seq int, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertySequence, strconv.Itoa(seq), params...)
 }
 
-func (cb *ComponentBase) SetStartAt(t time.Time, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (cb *ComponentBase) SetStartAt(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (cb *ComponentBase) SetAllDayStartAt(t time.Time, props ...PropertyParameter) {
-	props = append(props, WithValue(string(ValueDataTypeDate)))
-	cb.SetProperty(ComponentPropertyDtStart, t.Format(icalDateFormatLocal), props...)
+func (cb *ComponentBase) SetAllDayStartAt(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(
+		ComponentPropertyDtStart,
+		t.Format(icalDateFormatLocal),
+		append(params, WithValue(string(ValueDataTypeDate)))...,
+	)
 }
 
-func (cb *ComponentBase) SetAllDayEndAt(t time.Time, props ...PropertyParameter) {
-	props = append(props, WithValue(string(ValueDataTypeDate)))
-	cb.SetProperty(ComponentPropertyDtEnd, t.Format(icalDateFormatLocal), props...)
+func (cb *ComponentBase) SetEndAt(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), params...)
+}
+
+func (cb *ComponentBase) SetAllDayEndAt(t time.Time, params ...PropertyParameter) {
+	cb.SetProperty(
+		ComponentPropertyDtEnd,
+		t.Format(icalDateFormatLocal),
+		append(params, WithValue(string(ValueDataTypeDate)))...,
+	)
 }
 
 // SetDuration updates the duration of an event.
@@ -159,23 +240,42 @@ func (cb *ComponentBase) SetAllDayEndAt(t time.Time, props ...PropertyParameter)
 // The duration defines the length of a event relative to start or end time.
 //
 // Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
-func (event *VEvent) SetDuration(d time.Duration) error {
-	t, err := event.GetStartAt()
-	if err == nil {
-		event.SetEndAt(t.Add(d))
-		return nil
-	} else {
-		t, err = event.GetEndAt()
+func (cb *ComponentBase) SetDuration(d time.Duration) error {
+	startProp := cb.GetProperty(ComponentPropertyDtStart)
+	if startProp != nil {
+		t, err := cb.GetStartAt()
 		if err == nil {
-			event.SetStartAt(t.Add(-d))
+			v, _ := startProp.parameterValue(ParameterValue)
+			if v == string(ValueDataTypeDate) {
+				cb.SetAllDayEndAt(t.Add(d))
+			} else {
+				cb.SetEndAt(t.Add(d))
+			}
 			return nil
 		}
 	}
-	return ErrStartOrEndNotYetDefined
+	endProp := cb.GetProperty(ComponentPropertyDtEnd)
+	if endProp != nil {
+		t, err := cb.GetEndAt()
+		if err == nil {
+			v, _ := endProp.parameterValue(ParameterValue)
+			if v == string(ValueDataTypeDate) {
+				cb.SetAllDayStartAt(t.Add(-d))
+			} else {
+				cb.SetStartAt(t.Add(-d))
+			}
+			return nil
+		}
+	}
+	return errors.New("start or end not yet defined")
 }
 
-func (event *VEvent) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
-	timeProp := event.GetProperty(componentProperty)
+func (cb *ComponentBase) GetEndAt() (time.Time, error) {
+	return cb.getTimeProp(ComponentPropertyDtEnd, false)
+}
+
+func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
+	timeProp := cb.GetProperty(componentProperty)
 	if timeProp == nil {
 		return time.Time{}, fmt.Errorf("%w: %s", ErrPropertyNotFound, componentProperty)
 	}
@@ -220,17 +320,18 @@ func (event *VEvent) getTimeProp(componentProperty ComponentProperty, expectAllD
 		return time.Time{}, fmt.Errorf("%w, got '%s'", ErrTimeValueMatchedButUnsupportedAllDayTimeStamp, timeVal)
 	}
 
-	if grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "Z" {
+	switch {
+	case grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "Z":
 		return time.ParseInLocation(icalTimestampFormatUtc, timeVal, time.UTC)
-	} else if grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "" {
+	case grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "":
 		if propLoc == nil {
 			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, time.Local)
 		} else {
 			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, propLoc)
 		}
-	} else if grp1len > 0 && grp3len == 0 && tOrZGrp == "Z" && zGrp == "" {
+	case grp1len > 0 && grp3len == 0 && tOrZGrp == "Z" && zGrp == "":
 		return time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
-	} else if grp1len > 0 && grp3len == 0 && tOrZGrp == "" && zGrp == "" {
+	case grp1len > 0 && grp3len == 0 && tOrZGrp == "" && zGrp == "":
 		if propLoc == nil {
 			return time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
 		} else {
@@ -241,96 +342,96 @@ func (event *VEvent) getTimeProp(componentProperty ComponentProperty, expectAllD
 	return time.Time{}, fmt.Errorf("%w, got '%s'", ErrTimeValueMatchedButNotSupported, timeVal)
 }
 
-func (cb *VEvent) GetStartAt() (time.Time, error) {
+func (cb *ComponentBase) GetStartAt() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyDtStart, false)
 }
 
-func (cb *VEvent) GetAllDayStartAt() (time.Time, error) {
+func (cb *ComponentBase) GetAllDayStartAt() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyDtStart, true)
 }
 
-func (cb *VEvent) GetLastModifiedAt() (time.Time, error) {
+func (cb *ComponentBase) GetLastModifiedAt() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyLastModified, false)
 }
 
-func (cb *VEvent) GetDtStampTime() (time.Time, error) {
+func (cb *ComponentBase) GetDtStampTime() (time.Time, error) {
 	return cb.getTimeProp(ComponentPropertyDtstamp, false)
 }
 
-func (cb *ComponentBase) SetSummary(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertySummary, s, props...)
+func (cb *ComponentBase) SetSummary(s string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertySummary, s, params...)
 }
 
-func (cb *ComponentBase) SetStatus(s ObjectStatus, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyStatus, string(s), props...)
+func (cb *ComponentBase) SetStatus(s ObjectStatus, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyStatus, string(s), params...)
 }
 
-func (cb *ComponentBase) SetDescription(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDescription, s, props...)
+func (cb *ComponentBase) SetDescription(s string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyDescription, s, params...)
 }
 
-func (cb *ComponentBase) SetLocation(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyLocation, s, props...)
+func (cb *ComponentBase) SetLocation(s string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyLocation, s, params...)
 }
 
-func (cb *ComponentBase) setGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyGeo, fmt.Sprintf("%v;%v", lat, lng), props...)
+func (cb *ComponentBase) setGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyGeo, fmt.Sprintf("%v;%v", lat, lng), params...)
 }
 
-func (cb *ComponentBase) SetURL(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyUrl, s, props...)
+func (cb *ComponentBase) SetURL(s string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyUrl, s, params...)
 }
 
-func (cb *ComponentBase) SetOrganizer(s string, props ...PropertyParameter) {
+func (cb *ComponentBase) SetOrganizer(s string, params ...PropertyParameter) {
 	if !strings.HasPrefix(s, "mailto:") {
 		s = "mailto:" + s
 	}
 
-	cb.SetProperty(ComponentPropertyOrganizer, s, props...)
+	cb.SetProperty(ComponentPropertyOrganizer, s, params...)
 }
 
-func (cb *ComponentBase) SetColor(s string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyColor, s, props...)
+func (cb *ComponentBase) SetColor(s string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyColor, s, params...)
 }
 
-func (cb *ComponentBase) SetClass(c Classification, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyClass, string(c), props...)
+func (cb *ComponentBase) SetClass(c Classification, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyClass, string(c), params...)
 }
 
-func (cb *ComponentBase) setPriority(p int, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyPriority, strconv.Itoa(p), props...)
+func (cb *ComponentBase) setPriority(p int, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyPriority, strconv.Itoa(p), params...)
 }
 
-func (cb *ComponentBase) setResources(r string, props ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyResources, r, props...)
+func (cb *ComponentBase) setResources(r string, params ...PropertyParameter) {
+	cb.SetProperty(ComponentPropertyResources, r, params...)
 }
 
-func (cb *ComponentBase) AddAttendee(s string, props ...PropertyParameter) {
+func (cb *ComponentBase) AddAttendee(s string, params ...PropertyParameter) {
 	if !strings.HasPrefix(s, "mailto:") {
 		s = "mailto:" + s
 	}
 
-	cb.AddProperty(ComponentPropertyAttendee, s, props...)
+	cb.AddProperty(ComponentPropertyAttendee, s, params...)
 }
 
-func (cb *ComponentBase) AddExdate(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyExdate, s, props...)
+func (cb *ComponentBase) AddExdate(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyExdate, s, params...)
 }
 
-func (cb *ComponentBase) AddExrule(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyExrule, s, props...)
+func (cb *ComponentBase) AddExrule(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyExrule, s, params...)
 }
 
-func (cb *ComponentBase) AddRdate(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyRdate, s, props...)
+func (cb *ComponentBase) AddRdate(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyRdate, s, params...)
 }
 
-func (cb *ComponentBase) AddRrule(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyRrule, s, props...)
+func (cb *ComponentBase) AddRrule(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyRrule, s, params...)
 }
 
-func (cb *ComponentBase) AddAttachment(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyAttach, s, props...)
+func (cb *ComponentBase) AddAttachment(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyAttach, s, params...)
 }
 
 func (cb *ComponentBase) AddAttachmentURL(uri string, contentType string) {
@@ -343,46 +444,46 @@ func (cb *ComponentBase) AddAttachmentBinary(binary []byte, contentType string) 
 	)
 }
 
-func (cb *ComponentBase) AddComment(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyComment, s, props...)
+func (cb *ComponentBase) AddComment(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyComment, s, params...)
 }
 
-func (cb *ComponentBase) AddCategory(s string, props ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyCategories, s, props...)
+func (cb *ComponentBase) AddCategory(s string, params ...PropertyParameter) {
+	cb.AddProperty(ComponentPropertyCategories, s, params...)
 }
 
 type Attendee struct {
 	IANAProperty
 }
 
-func (attendee *Attendee) Email() string {
-	if strings.HasPrefix(attendee.Value, "mailto:") {
-		return attendee.Value[len("mailto:"):]
+func (p *Attendee) Email() string {
+	if strings.HasPrefix(p.Value, "mailto:") {
+		return p.Value[len("mailto:"):]
 	}
-	return attendee.Value
+	return p.Value
 }
 
-func (attendee *Attendee) ParticipationStatus() ParticipationStatus {
-	return ParticipationStatus(attendee.getPropertyFirst(ParameterParticipationStatus))
+func (p *Attendee) ParticipationStatus() ParticipationStatus {
+	return ParticipationStatus(p.getPropertyFirst(ParameterParticipationStatus))
 }
 
-func (attendee *Attendee) getPropertyFirst(parameter Parameter) string {
-	vs := attendee.getProperty(parameter)
+func (p *Attendee) getPropertyFirst(parameter Parameter) string {
+	vs := p.getProperty(parameter)
 	if len(vs) > 0 {
 		return vs[0]
 	}
 	return ""
 }
 
-func (attendee *Attendee) getProperty(parameter Parameter) []string {
-	if vs, ok := attendee.ICalParameters[string(parameter)]; ok {
+func (p *Attendee) getProperty(parameter Parameter) []string {
+	if vs, ok := p.ICalParameters[string(parameter)]; ok {
 		return vs
 	}
 	return nil
 }
 
-func (cb *ComponentBase) Attendees() (r []*Attendee) {
-	r = []*Attendee{}
+func (cb *ComponentBase) Attendees() []*Attendee {
+	var r []*Attendee
 	for i := range cb.Properties {
 		switch cb.Properties[i].IANAToken {
 		case string(ComponentPropertyAttendee):
@@ -392,7 +493,7 @@ func (cb *ComponentBase) Attendees() (r []*Attendee) {
 			r = append(r, a)
 		}
 	}
-	return
+	return r
 }
 
 func (cb *ComponentBase) Id() string {
@@ -415,29 +516,34 @@ func (cb *ComponentBase) addVAlarm(a *VAlarm) {
 	cb.Components = append(cb.Components, a)
 }
 
-func (cb *ComponentBase) alarms() (r []*VAlarm) {
-	r = []*VAlarm{}
+func (cb *ComponentBase) alarms() []*VAlarm {
+	var r []*VAlarm
 	for i := range cb.Components {
 		switch alarm := cb.Components[i].(type) {
 		case *VAlarm:
 			r = append(r, alarm)
 		}
 	}
-	return
+	return r
 }
 
 type VEvent struct {
 	ComponentBase
 }
 
-func (event *VEvent) SerializeTo(w io.Writer) {
-	event.ComponentBase.serializeThis(w, "VEVENT")
+func (event *VEvent) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return event.ComponentBase.serializeThis(w, ComponentVEvent, serialConfig)
 }
 
-func (event *VEvent) Serialize() string {
+func (event *VEvent) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := event.serialize(serialConfig)
+	return s
+}
+
+func (event *VEvent) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &bytes.Buffer{}
-	event.ComponentBase.serializeThis(b, "VEVENT")
-	return b.String()
+	err := event.ComponentBase.serializeThis(b, ComponentVEvent, serialConfig)
+	return b.String(), err
 }
 
 func NewEvent(uniqueId string) *VEvent {
@@ -445,43 +551,6 @@ func NewEvent(uniqueId string) *VEvent {
 		NewComponent(uniqueId),
 	}
 	return e
-}
-
-func (calendar *Calendar) AddEvent(id string) *VEvent {
-	e := NewEvent(id)
-	calendar.Components = append(calendar.Components, e)
-	return e
-}
-
-func (calendar *Calendar) AddVEvent(e *VEvent) {
-	calendar.Components = append(calendar.Components, e)
-}
-
-func (calendar *Calendar) RemoveEvent(id string) {
-	for i := range calendar.Components {
-		switch event := calendar.Components[i].(type) {
-		case *VEvent:
-			if event.Id() == id {
-				if len(calendar.Components) > i+1 {
-					calendar.Components = append(calendar.Components[:i], calendar.Components[i+1:]...)
-				} else {
-					calendar.Components = calendar.Components[:i]
-				}
-				return
-			}
-		}
-	}
-}
-
-func (calendar *Calendar) Events() (r []*VEvent) {
-	r = []*VEvent{}
-	for i := range calendar.Components {
-		switch event := calendar.Components[i].(type) {
-		case *VEvent:
-			r = append(r, event)
-		}
-	}
-	return
 }
 
 func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
@@ -492,16 +561,17 @@ func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) 
 	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
-func (event *VEvent) SetGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
-	event.setGeo(lat, lng, props...)
+// TODO use generics
+func (event *VEvent) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
+	event.setGeo(lat, lng, params...)
 }
 
-func (event *VEvent) SetPriority(p int, props ...PropertyParameter) {
-	event.setPriority(p, props...)
+func (event *VEvent) SetPriority(p int, params ...PropertyParameter) {
+	event.setPriority(p, params...)
 }
 
-func (event *VEvent) SetResources(r string, props ...PropertyParameter) {
-	event.setResources(r, props...)
+func (event *VEvent) SetResources(r string, params ...PropertyParameter) {
+	event.setResources(r, params...)
 }
 
 func (event *VEvent) AddAlarm() *VAlarm {
@@ -512,12 +582,8 @@ func (event *VEvent) AddVAlarm(a *VAlarm) {
 	event.addVAlarm(a)
 }
 
-func (event *VEvent) Alarms() (r []*VAlarm) {
+func (event *VEvent) Alarms() []*VAlarm {
 	return event.alarms()
-}
-
-func (event *VEvent) GetEndAt() (time.Time, error) {
-	return event.getTimeProp(ComponentPropertyDtEnd, false)
 }
 
 func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
@@ -531,22 +597,30 @@ const (
 	TransparencyTransparent TimeTransparency = "TRANSPARENT"
 )
 
-func (event *VEvent) SetTimeTransparency(v TimeTransparency, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyTransp, string(v), props...)
+func (event *VEvent) SetTimeTransparency(v TimeTransparency, params ...PropertyParameter) {
+	event.SetProperty(ComponentPropertyTransp, string(v), params...)
 }
 
 type VTodo struct {
 	ComponentBase
 }
 
-func (todo *VTodo) SerializeTo(w io.Writer) {
-	todo.ComponentBase.serializeThis(w, "VTODO")
+func (todo *VTodo) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return todo.ComponentBase.serializeThis(w, ComponentVTodo, serialConfig)
 }
 
-func (todo *VTodo) Serialize() string {
+func (todo *VTodo) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := todo.serialize(serialConfig)
+	return s
+}
+
+func (todo *VTodo) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &bytes.Buffer{}
-	todo.ComponentBase.serializeThis(b, "VTODO")
-	return b.String()
+	err := todo.ComponentBase.serializeThis(b, ComponentVTodo, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
 }
 
 func NewTodo(uniqueId string) *VTodo {
@@ -556,59 +630,79 @@ func NewTodo(uniqueId string) *VTodo {
 	return e
 }
 
-func (calendar *Calendar) AddTodo(id string) *VTodo {
+func (cal *Calendar) AddTodo(id string) *VTodo {
 	e := NewTodo(id)
-	calendar.Components = append(calendar.Components, e)
+	cal.Components = append(cal.Components, e)
 	return e
 }
 
-func (calendar *Calendar) AddVTodo(e *VTodo) {
-	calendar.Components = append(calendar.Components, e)
+func (cal *Calendar) AddVTodo(e *VTodo) {
+	cal.Components = append(cal.Components, e)
 }
 
-func (calendar *Calendar) Todos() (r []*VTodo) {
-	r = []*VTodo{}
-	for i := range calendar.Components {
-		switch todo := calendar.Components[i].(type) {
+func (cal *Calendar) Todos() []*VTodo {
+	var r []*VTodo
+	for i := range cal.Components {
+		switch todo := cal.Components[i].(type) {
 		case *VTodo:
 			r = append(r, todo)
 		}
 	}
-	return
+	return r
 }
 
-func (todo *VTodo) SetCompletedAt(t time.Time, props ...PropertyParameter) {
-	todo.SetProperty(ComponentPropertyCompleted, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (todo *VTodo) SetCompletedAt(t time.Time, params ...PropertyParameter) {
+	todo.SetProperty(ComponentPropertyCompleted, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (todo *VTodo) SetAllDayCompletedAt(t time.Time, props ...PropertyParameter) {
-	props = append(props, WithValue(string(ValueDataTypeDate)))
-	todo.SetProperty(ComponentPropertyCompleted, t.Format(icalDateFormatLocal), props...)
+func (todo *VTodo) SetAllDayCompletedAt(t time.Time, params ...PropertyParameter) {
+	params = append(params, WithValue(string(ValueDataTypeDate)))
+	todo.SetProperty(ComponentPropertyCompleted, t.Format(icalDateFormatLocal), params...)
 }
 
-func (todo *VTodo) SetDueAt(t time.Time, props ...PropertyParameter) {
-	todo.SetProperty(ComponentPropertyDue, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (todo *VTodo) SetDueAt(t time.Time, params ...PropertyParameter) {
+	todo.SetProperty(ComponentPropertyDue, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (todo *VTodo) SetAllDayDueAt(t time.Time, props ...PropertyParameter) {
-	props = append(props, WithValue(string(ValueDataTypeDate)))
-	todo.SetProperty(ComponentPropertyDue, t.Format(icalDateFormatLocal), props...)
+func (todo *VTodo) SetAllDayDueAt(t time.Time, params ...PropertyParameter) {
+	params = append(params, WithValue(string(ValueDataTypeDate)))
+	todo.SetProperty(ComponentPropertyDue, t.Format(icalDateFormatLocal), params...)
 }
 
-func (todo *VTodo) SetPercentComplete(p int, props ...PropertyParameter) {
-	todo.SetProperty(ComponentPropertyPercentComplete, strconv.Itoa(p), props...)
+func (todo *VTodo) SetPercentComplete(p int, params ...PropertyParameter) {
+	todo.SetProperty(ComponentPropertyPercentComplete, strconv.Itoa(p), params...)
 }
 
-func (todo *VTodo) SetGeo(lat interface{}, lng interface{}, props ...PropertyParameter) {
-	todo.setGeo(lat, lng, props...)
+func (todo *VTodo) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
+	todo.setGeo(lat, lng, params...)
 }
 
-func (todo *VTodo) SetPriority(p int, props ...PropertyParameter) {
-	todo.setPriority(p, props...)
+func (todo *VTodo) SetPriority(p int, params ...PropertyParameter) {
+	todo.setPriority(p, params...)
 }
 
-func (todo *VTodo) SetResources(r string, props ...PropertyParameter) {
-	todo.setResources(r, props...)
+func (todo *VTodo) SetResources(r string, params ...PropertyParameter) {
+	todo.setResources(r, params...)
+}
+
+// SetDuration updates the duration of an event.
+// This function will set either the end or start time of an event depending what is already given.
+// The duration defines the length of a event relative to start or end time.
+//
+// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
+func (todo *VTodo) SetDuration(d time.Duration) error {
+	t, err := todo.GetStartAt()
+	if err == nil {
+		todo.SetDueAt(t.Add(d))
+		return nil
+	} else {
+		t, err = todo.GetDueAt()
+		if err == nil {
+			todo.SetStartAt(t.Add(-d))
+			return nil
+		}
+	}
+	return errors.New("start or end not yet defined")
 }
 
 func (todo *VTodo) AddAlarm() *VAlarm {
@@ -619,11 +713,12 @@ func (todo *VTodo) AddVAlarm(a *VAlarm) {
 	todo.addVAlarm(a)
 }
 
-func (todo *VTodo) Alarms() (r []*VAlarm) {
+func (todo *VTodo) Alarms() []*VAlarm {
 	return todo.alarms()
 }
 
-func (todo *VEvent) GetDueAt() (time.Time, error) {
+// TODO verify that due is only relevant to VTodo if not move to ComponentBase.
+func (todo *VTodo) GetDueAt() (time.Time, error) {
 	return todo.getTimeProp(ComponentPropertyDue, false)
 }
 
@@ -635,14 +730,22 @@ type VJournal struct {
 	ComponentBase
 }
 
-func (c *VJournal) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VJOURNAL")
+func (journal *VJournal) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return journal.ComponentBase.serializeThis(w, ComponentVJournal, serialConfig)
 }
 
-func (c *VJournal) Serialize() string {
+func (journal *VJournal) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := journal.serialize(serialConfig)
+	return s
+}
+
+func (journal *VJournal) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VJOURNAL")
-	return b.String()
+	err := journal.ComponentBase.serializeThis(b, ComponentVJournal, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
 }
 
 func NewJournal(uniqueId string) *VJournal {
@@ -652,39 +755,47 @@ func NewJournal(uniqueId string) *VJournal {
 	return e
 }
 
-func (calendar *Calendar) AddJournal(id string) *VJournal {
+func (cal *Calendar) AddJournal(id string) *VJournal {
 	e := NewJournal(id)
-	calendar.Components = append(calendar.Components, e)
+	cal.Components = append(cal.Components, e)
 	return e
 }
 
-func (calendar *Calendar) AddVJournal(e *VJournal) {
-	calendar.Components = append(calendar.Components, e)
+func (cal *Calendar) AddVJournal(e *VJournal) {
+	cal.Components = append(cal.Components, e)
 }
 
-func (calendar *Calendar) Journals() (r []*VJournal) {
-	r = []*VJournal{}
-	for i := range calendar.Components {
-		switch journal := calendar.Components[i].(type) {
+func (cal *Calendar) Journals() []*VJournal {
+	var r []*VJournal
+	for i := range cal.Components {
+		switch journal := cal.Components[i].(type) {
 		case *VJournal:
 			r = append(r, journal)
 		}
 	}
-	return
+	return r
 }
 
 type VBusy struct {
 	ComponentBase
 }
 
-func (c *VBusy) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VFREEBUSY")
-	return b.String()
+func (busy *VBusy) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := busy.serialize(serialConfig)
+	return s
 }
 
-func (c *VBusy) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VFREEBUSY")
+func (busy *VBusy) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := busy.ComponentBase.serializeThis(b, ComponentVFreeBusy, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (busy *VBusy) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return busy.ComponentBase.serializeThis(w, ComponentVFreeBusy, serialConfig)
 }
 
 func NewBusy(uniqueId string) *VBusy {
@@ -694,39 +805,53 @@ func NewBusy(uniqueId string) *VBusy {
 	return e
 }
 
-func (calendar *Calendar) AddBusy(id string) *VBusy {
+func (cal *Calendar) AddBusy(id string) *VBusy {
 	e := NewBusy(id)
-	calendar.Components = append(calendar.Components, e)
+	cal.Components = append(cal.Components, e)
 	return e
 }
 
-func (calendar *Calendar) AddVBusy(e *VBusy) {
-	calendar.Components = append(calendar.Components, e)
+func (cal *Calendar) AddVBusy(e *VBusy) {
+	cal.Components = append(cal.Components, e)
 }
 
-func (calendar *Calendar) Busys() (r []*VBusy) {
-	r = []*VBusy{}
-	for i := range calendar.Components {
-		switch busy := calendar.Components[i].(type) {
+func (cal *Calendar) Busys() []*VBusy {
+	var r []*VBusy
+	for i := range cal.Components {
+		switch busy := cal.Components[i].(type) {
 		case *VBusy:
 			r = append(r, busy)
 		}
 	}
-	return
+	return r
 }
 
 type VTimezone struct {
 	ComponentBase
 }
 
-func (c *VTimezone) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VTIMEZONE")
-	return b.String()
+func (timezone *VTimezone) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := timezone.serialize(serialConfig)
+	return s
 }
 
-func (c *VTimezone) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VTIMEZONE")
+func (timezone *VTimezone) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := timezone.ComponentBase.serializeThis(b, ComponentVTimezone, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (timezone *VTimezone) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return timezone.ComponentBase.serializeThis(w, ComponentVTimezone, serialConfig)
+}
+
+func (timezone *VTimezone) AddStandard() *Standard {
+	e := NewStandard()
+	timezone.Components = append(timezone.Components, e)
+	return e
 }
 
 func NewTimezone(tzId string) *VTimezone {
@@ -740,95 +865,127 @@ func NewTimezone(tzId string) *VTimezone {
 	return e
 }
 
-func (calendar *Calendar) AddTimezone(id string) *VTimezone {
+func (cal *Calendar) AddTimezone(id string) *VTimezone {
 	e := NewTimezone(id)
-	calendar.Components = append(calendar.Components, e)
+	cal.Components = append(cal.Components, e)
 	return e
 }
 
-func (calendar *Calendar) AddVTimezone(e *VTimezone) {
-	calendar.Components = append(calendar.Components, e)
+func (cal *Calendar) AddVTimezone(e *VTimezone) {
+	cal.Components = append(cal.Components, e)
 }
 
-func (calendar *Calendar) Timezones() (r []*VTimezone) {
-	r = []*VTimezone{}
-	for i := range calendar.Components {
-		switch timezone := calendar.Components[i].(type) {
+func (cal *Calendar) Timezones() []*VTimezone {
+	var r []*VTimezone
+	for i := range cal.Components {
+		switch timezone := cal.Components[i].(type) {
 		case *VTimezone:
 			r = append(r, timezone)
 		}
 	}
-	return
+	return r
 }
 
 type VAlarm struct {
 	ComponentBase
 }
 
-func (c *VAlarm) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "VALARM")
-	return b.String()
+func (c *VAlarm) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := c.serialize(serialConfig)
+	return s
 }
 
-func (c *VAlarm) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "VALARM")
+func (c *VAlarm) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := c.ComponentBase.serializeThis(b, ComponentVAlarm, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (c *VAlarm) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return c.ComponentBase.serializeThis(w, ComponentVAlarm, serialConfig)
 }
 
 func NewAlarm(tzId string) *VAlarm {
+	// Todo How did this come about?
 	e := &VAlarm{}
 	return e
 }
 
-func (calendar *Calendar) AddVAlarm(e *VAlarm) {
-	calendar.Components = append(calendar.Components, e)
+func (cal *Calendar) AddVAlarm(e *VAlarm) {
+	cal.Components = append(cal.Components, e)
 }
 
-func (calendar *Calendar) Alarms() (r []*VAlarm) {
-	r = []*VAlarm{}
-	for i := range calendar.Components {
-		switch alarm := calendar.Components[i].(type) {
+func (cal *Calendar) Alarms() []*VAlarm {
+	var r []*VAlarm
+	for i := range cal.Components {
+		switch alarm := cal.Components[i].(type) {
 		case *VAlarm:
 			r = append(r, alarm)
 		}
 	}
-	return
+	return r
 }
 
-func (alarm *VAlarm) SetAction(a Action, props ...PropertyParameter) {
-	alarm.SetProperty(ComponentPropertyAction, string(a), props...)
+func (c *VAlarm) SetAction(a Action, params ...PropertyParameter) {
+	c.SetProperty(ComponentPropertyAction, string(a), params...)
 }
 
-func (alarm *VAlarm) SetTrigger(s string, props ...PropertyParameter) {
-	alarm.SetProperty(ComponentPropertyTrigger, s, props...)
+func (c *VAlarm) SetTrigger(s string, params ...PropertyParameter) {
+	c.SetProperty(ComponentPropertyTrigger, s, params...)
 }
 
 type Standard struct {
 	ComponentBase
 }
 
-func (c *Standard) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "STANDARD")
-	return b.String()
+func NewStandard() *Standard {
+	e := &Standard{
+		ComponentBase{},
+	}
+	return e
 }
 
-func (c *Standard) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "STANDARD")
+func (standard *Standard) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := standard.serialize(serialConfig)
+	return s
+}
+
+func (standard *Standard) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := standard.ComponentBase.serializeThis(b, ComponentStandard, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (standard *Standard) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return standard.ComponentBase.serializeThis(w, ComponentStandard, serialConfig)
 }
 
 type Daylight struct {
 	ComponentBase
 }
 
-func (c *Daylight) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, "DAYLIGHT")
-	return b.String()
+func (daylight *Daylight) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := daylight.serialize(serialConfig)
+	return s
 }
 
-func (c *Daylight) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, "DAYLIGHT")
+func (daylight *Daylight) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := daylight.ComponentBase.serializeThis(b, ComponentDaylight, serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (daylight *Daylight) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return daylight.ComponentBase.serializeThis(w, ComponentDaylight, serialConfig)
 }
 
 type GeneralComponent struct {
@@ -836,141 +993,195 @@ type GeneralComponent struct {
 	Token string
 }
 
-func (c *GeneralComponent) Serialize() string {
-	b := &bytes.Buffer{}
-	c.ComponentBase.serializeThis(b, c.Token)
-	return b.String()
+func (general *GeneralComponent) Serialize(serialConfig *SerializationConfiguration) string {
+	s, _ := general.serialize(serialConfig)
+	return s
 }
 
-func (c *GeneralComponent) SerializeTo(w io.Writer) {
-	c.ComponentBase.serializeThis(w, c.Token)
+func (general *GeneralComponent) serialize(serialConfig *SerializationConfiguration) (string, error) {
+	b := &bytes.Buffer{}
+	err := general.ComponentBase.serializeThis(b, ComponentType(general.Token), serialConfig)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (general *GeneralComponent) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
+	return general.ComponentBase.serializeThis(w, ComponentType(general.Token), serialConfig)
 }
 
 func GeneralParseComponent(cs *CalendarStream, startLine *BaseProperty) (Component, error) {
 	var co Component
-	switch startLine.Value {
-	case "VCALENDAR":
+	var err error
+	switch ComponentType(startLine.Value) {
+	case ComponentVCalendar:
 		return nil, ErrMalformedCalendarVCalendarNotWhereExpected
-	case "VEVENT":
-		co = ParseVEvent(cs, startLine)
-	case "VTODO":
-		co = ParseVTodo(cs, startLine)
-	case "VJOURNAL":
-		co = ParseVJournal(cs, startLine)
-	case "VFREEBUSY":
-		co = ParseVBusy(cs, startLine)
-	case "VTIMEZONE":
-		co = ParseVTimezone(cs, startLine)
-	case "VALARM":
-		co = ParseVAlarm(cs, startLine)
-	case "STANDARD":
-		co = ParseStandard(cs, startLine)
-	case "DAYLIGHT":
-		co = ParseDaylight(cs, startLine)
+	case ComponentVEvent:
+		co, err = ParseVEventWithError(cs, startLine)
+	case ComponentVTodo:
+		co, err = ParseVTodoWithError(cs, startLine)
+	case ComponentVJournal:
+		co, err = ParseVJournalWithError(cs, startLine)
+	case ComponentVFreeBusy:
+		co, err = ParseVBusyWithError(cs, startLine)
+	case ComponentVTimezone:
+		co, err = ParseVTimezoneWithError(cs, startLine)
+	case ComponentVAlarm:
+		co, err = ParseVAlarmWithError(cs, startLine)
+	case ComponentStandard:
+		co, err = ParseStandardWithError(cs, startLine)
+	case ComponentDaylight:
+		co, err = ParseDaylightWithError(cs, startLine)
 	default:
-		co = ParseGeneralComponent(cs, startLine)
+		co, err = ParseGeneralComponentWithError(cs, startLine)
 	}
-	return co, nil
+	return co, err
 }
 
 func ParseVEvent(cs *CalendarStream, startLine *BaseProperty) *VEvent {
+	ev, _ := ParseVEventWithError(cs, startLine)
+	return ev
+}
+
+func ParseVEventWithError(cs *CalendarStream, startLine *BaseProperty) (*VEvent, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to parse event: %w", err)
 	}
 	rr := &VEvent{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseVTodo(cs *CalendarStream, startLine *BaseProperty) *VTodo {
+	c, _ := ParseVTodoWithError(cs, startLine)
+	return c
+}
+
+func ParseVTodoWithError(cs *CalendarStream, startLine *BaseProperty) (*VTodo, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &VTodo{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseVJournal(cs *CalendarStream, startLine *BaseProperty) *VJournal {
+	c, _ := ParseVJournalWithError(cs, startLine)
+	return c
+}
+
+func ParseVJournalWithError(cs *CalendarStream, startLine *BaseProperty) (*VJournal, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &VJournal{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseVBusy(cs *CalendarStream, startLine *BaseProperty) *VBusy {
+	c, _ := ParseVBusyWithError(cs, startLine)
+	return c
+}
+
+func ParseVBusyWithError(cs *CalendarStream, startLine *BaseProperty) (*VBusy, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &VBusy{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseVTimezone(cs *CalendarStream, startLine *BaseProperty) *VTimezone {
+	c, _ := ParseVTimezoneWithError(cs, startLine)
+	return c
+}
+
+func ParseVTimezoneWithError(cs *CalendarStream, startLine *BaseProperty) (*VTimezone, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &VTimezone{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseVAlarm(cs *CalendarStream, startLine *BaseProperty) *VAlarm {
+	c, _ := ParseVAlarmWithError(cs, startLine)
+	return c
+}
+
+func ParseVAlarmWithError(cs *CalendarStream, startLine *BaseProperty) (*VAlarm, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &VAlarm{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseStandard(cs *CalendarStream, startLine *BaseProperty) *Standard {
+	c, _ := ParseStandardWithError(cs, startLine)
+	return c
+}
+
+func ParseStandardWithError(cs *CalendarStream, startLine *BaseProperty) (*Standard, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &Standard{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseDaylight(cs *CalendarStream, startLine *BaseProperty) *Daylight {
+	c, _ := ParseDaylightWithError(cs, startLine)
+	return c
+}
+
+func ParseDaylightWithError(cs *CalendarStream, startLine *BaseProperty) (*Daylight, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &Daylight{
 		ComponentBase: r,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseGeneralComponent(cs *CalendarStream, startLine *BaseProperty) *GeneralComponent {
+	c, _ := ParseGeneralComponentWithError(cs, startLine)
+	return c
+}
+
+func ParseGeneralComponentWithError(cs *CalendarStream, startLine *BaseProperty) (*GeneralComponent, error) {
 	r, err := ParseComponent(cs, startLine)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rr := &GeneralComponent{
 		ComponentBase: r,
 		Token:         startLine.Value,
 	}
-	return rr
+	return rr, nil
 }
 
 func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase, error) {

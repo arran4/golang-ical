@@ -3,9 +3,13 @@ package ics
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"reflect"
+	"strings"
 	"time"
 )
 
@@ -61,7 +65,114 @@ const (
 	ComponentPropertyTzid            = ComponentProperty(PropertyTzid)
 	ComponentPropertyComment         = ComponentProperty(PropertyComment)
 	ComponentPropertyRelatedTo       = ComponentProperty(PropertyRelatedTo)
+	ComponentPropertyMethod          = ComponentProperty(PropertyMethod)
+	ComponentPropertyRecurrenceId    = ComponentProperty(PropertyRecurrenceId)
+	ComponentPropertyDuration        = ComponentProperty(PropertyDuration)
+	ComponentPropertyContact         = ComponentProperty(PropertyContact)
+	ComponentPropertyRequestStatus   = ComponentProperty(PropertyRequestStatus)
+	ComponentPropertyRDate           = ComponentProperty(PropertyRdate)
 )
+
+// Required returns the rules from the RFC as to if they are required or not for any particular component type
+// If unspecified or incomplete, it returns false. -- This list is incomplete verify source. Happy to take PRs with reference
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Required(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyDtstamp, ComponentPropertyUniqueId:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	case ComponentPropertyDtStart:
+		switch c := c.(type) {
+		case *VEvent:
+			return !c.HasProperty(ComponentPropertyMethod)
+		}
+	}
+	return false
+}
+
+// Exclusive returns the ComponentProperty's using the rules from the RFC as to if one or more existing properties are prohibiting this one
+// If unspecified or incomplete, it returns false. -- This list is incomplete verify source. Happy to take PRs with reference
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Exclusive(c Component) []ComponentProperty {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyDtEnd:
+		switch c := c.(type) {
+		case *VEvent:
+			if c.HasProperty(ComponentPropertyDuration) {
+				return []ComponentProperty{ComponentPropertyDuration}
+			}
+		}
+	case ComponentPropertyDuration:
+		switch c := c.(type) {
+		case *VEvent:
+			if c.HasProperty(ComponentPropertyDtEnd) {
+				return []ComponentProperty{ComponentPropertyDtEnd}
+			}
+		}
+	}
+	return nil
+}
+
+// Singular returns the rules from the RFC as to if the spec states that if "Must not occur more than once"
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Singular(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyClass, ComponentPropertyCreated, ComponentPropertyDescription, ComponentPropertyGeo,
+		ComponentPropertyLastModified, ComponentPropertyLocation, ComponentPropertyOrganizer, ComponentPropertyPriority,
+		ComponentPropertySequence, ComponentPropertyStatus, ComponentPropertySummary, ComponentPropertyTransp,
+		ComponentPropertyUrl, ComponentPropertyRecurrenceId:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	}
+	return false
+}
+
+// Optional returns the rules from the RFC as to if the spec states that if these are optional
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Optional(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyClass, ComponentPropertyCreated, ComponentPropertyDescription, ComponentPropertyGeo,
+		ComponentPropertyLastModified, ComponentPropertyLocation, ComponentPropertyOrganizer, ComponentPropertyPriority,
+		ComponentPropertySequence, ComponentPropertyStatus, ComponentPropertySummary, ComponentPropertyTransp,
+		ComponentPropertyUrl, ComponentPropertyRecurrenceId, ComponentPropertyRrule, ComponentPropertyAttach,
+		ComponentPropertyAttendee, ComponentPropertyCategories, ComponentPropertyComment,
+		ComponentPropertyContact, ComponentPropertyExdate, ComponentPropertyRequestStatus, ComponentPropertyRelatedTo,
+		ComponentPropertyResources, ComponentPropertyRDate:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	}
+	return false
+}
+
+// Multiple returns the rules from the RFC as to if the spec states explicitly if multiple are allowed
+// iana-prop and x-props are not covered as it would always be true and require an exhaustive list.
+func (cp ComponentProperty) Multiple(c Component) bool {
+	// https://www.rfc-editor.org/rfc/rfc5545#section-3.6.1
+	switch cp {
+	case ComponentPropertyAttach, ComponentPropertyAttendee, ComponentPropertyCategories, ComponentPropertyComment,
+		ComponentPropertyContact, ComponentPropertyExdate, ComponentPropertyRequestStatus, ComponentPropertyRelatedTo,
+		ComponentPropertyResources, ComponentPropertyRDate:
+		switch c.(type) {
+		case *VEvent:
+			return true
+		}
+	}
+	return false
+}
+
+func ComponentPropertyExtended(s string) ComponentProperty {
+	return ComponentProperty("X-" + strings.TrimPrefix("X-", s))
+}
 
 type Property string
 
@@ -126,6 +237,14 @@ const (
 
 type Parameter string
 
+func (p Parameter) IsQuoted() bool {
+	switch p {
+	case ParameterAltrep:
+		return true
+	}
+	return false
+}
+
 const (
 	ParameterAltrep              Parameter = "ALTREP"
 	ParameterCn                  Parameter = "CN"
@@ -178,7 +297,7 @@ const (
 	CalendarUserTypeUnknown    CalendarUserType = "UNKNOWN"
 )
 
-func (cut CalendarUserType) KeyValue(s ...interface{}) (string, []string) {
+func (cut CalendarUserType) KeyValue(_ ...interface{}) (string, []string) {
 	return string(ParameterCutype), []string{string(cut)}
 }
 
@@ -203,7 +322,7 @@ const (
 	ParticipationStatusInProcess   ParticipationStatus = "IN-PROCESS"
 )
 
-func (ps ParticipationStatus) KeyValue(s ...interface{}) (string, []string) {
+func (ps ParticipationStatus) KeyValue(_ ...interface{}) (string, []string) {
 	return string(ParameterParticipationStatus), []string{string(ps)}
 }
 
@@ -220,7 +339,7 @@ const (
 	ObjectStatusFinal       ObjectStatus = "FINAL"
 )
 
-func (ps ObjectStatus) KeyValue(s ...interface{}) (string, []string) {
+func (ps ObjectStatus) KeyValue(_ ...interface{}) (string, []string) {
 	return string(PropertyStatus), []string{string(ps)}
 }
 
@@ -241,7 +360,7 @@ const (
 	ParticipationRoleNonParticipant ParticipationRole = "NON-PARTICIPANT"
 )
 
-func (pr ParticipationRole) KeyValue(s ...interface{}) (string, []string) {
+func (pr ParticipationRole) KeyValue(_ ...interface{}) (string, []string) {
 	return string(ParameterRole), []string{string(pr)}
 }
 
@@ -298,102 +417,149 @@ func NewCalendarFor(service string) *Calendar {
 	return c
 }
 
-func (calendar *Calendar) Serialize() string {
+func (cal *Calendar) Serialize(ops ...any) string {
 	b := bytes.NewBufferString("")
 	// We are intentionally ignoring the return value. _ used to communicate this to lint.
-	_ = calendar.SerializeTo(b)
+	_ = cal.SerializeTo(b, ops...)
 	return b.String()
 }
 
-func (calendar *Calendar) SerializeTo(w io.Writer) error {
-	_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR", "\r\n")
-	for _, p := range calendar.CalendarProperties {
-		p.serialize(w)
+type WithLineLength int
+type WithNewLine string
+
+func (cal *Calendar) SerializeTo(w io.Writer, ops ...any) error {
+	serializeConfig, err := parseSerializeOps(ops)
+	if err != nil {
+		return err
 	}
-	for _, c := range calendar.Components {
-		c.SerializeTo(w)
+	_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR", serializeConfig.NewLine)
+	for _, p := range cal.CalendarProperties {
+		err := p.serialize(w, serializeConfig)
+		if err != nil {
+			return err
+		}
 	}
-	_, _ = fmt.Fprint(w, "END:VCALENDAR", "\r\n")
+	for _, c := range cal.Components {
+		err := c.SerializeTo(w, serializeConfig)
+		if err != nil {
+			return err
+		}
+	}
+	_, _ = fmt.Fprint(w, "END:VCALENDAR", serializeConfig.NewLine)
 	return nil
 }
 
-func (calendar *Calendar) SetMethod(method Method, props ...PropertyParameter) {
-	calendar.setProperty(PropertyMethod, string(method), props...)
+type SerializationConfiguration struct {
+	MaxLength         int
+	NewLine           string
+	PropertyMaxLength int
 }
 
-func (calendar *Calendar) SetXPublishedTTL(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXPublishedTTL, s, props...)
+func parseSerializeOps(ops []any) (*SerializationConfiguration, error) {
+	serializeConfig := defaultSerializationOptions()
+	for opi, op := range ops {
+		switch op := op.(type) {
+		case WithLineLength:
+			serializeConfig.MaxLength = int(op)
+		case WithNewLine:
+			serializeConfig.NewLine = string(op)
+		case *SerializationConfiguration:
+			return op, nil
+		case error:
+			return nil, op
+		default:
+			return nil, fmt.Errorf("unknown op %d of type %s", opi, reflect.TypeOf(op))
+		}
+	}
+	return serializeConfig, nil
 }
 
-func (calendar *Calendar) SetVersion(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyVersion, s, props...)
+func defaultSerializationOptions() *SerializationConfiguration {
+	serializeConfig := &SerializationConfiguration{
+		MaxLength:         75,
+		PropertyMaxLength: 75,
+		NewLine:           string(NewLine),
+	}
+	return serializeConfig
 }
 
-func (calendar *Calendar) SetProductId(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyProductId, s, props...)
+func (cal *Calendar) SetMethod(method Method, params ...PropertyParameter) {
+	cal.setProperty(PropertyMethod, string(method), params...)
 }
 
-func (calendar *Calendar) SetName(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyName, s, props...)
-	calendar.setProperty(PropertyXWRCalName, s, props...)
+func (cal *Calendar) SetXPublishedTTL(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXPublishedTTL, s, params...)
 }
 
-func (calendar *Calendar) SetColor(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyColor, s, props...)
+func (cal *Calendar) SetVersion(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyVersion, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalName(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalName, s, props...)
+func (cal *Calendar) SetProductId(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyProductId, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalDesc(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalDesc, s, props...)
+func (cal *Calendar) SetName(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyName, s, params...)
+	cal.setProperty(PropertyXWRCalName, s, params...)
 }
 
-func (calendar *Calendar) SetXWRTimezone(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRTimezone, s, props...)
+func (cal *Calendar) SetColor(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyColor, s, params...)
 }
 
-func (calendar *Calendar) SetXWRCalID(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyXWRCalID, s, props...)
+func (cal *Calendar) SetXWRCalName(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRCalName, s, params...)
 }
 
-func (calendar *Calendar) SetDescription(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyDescription, s, props...)
+func (cal *Calendar) SetXWRCalDesc(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRCalDesc, s, params...)
 }
 
-func (calendar *Calendar) SetLastModified(t time.Time, props ...PropertyParameter) {
-	calendar.setProperty(PropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
+func (cal *Calendar) SetXWRTimezone(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRTimezone, s, params...)
 }
 
-func (calendar *Calendar) SetRefreshInterval(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyRefreshInterval, s, props...)
+func (cal *Calendar) SetXWRCalID(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXWRCalID, s, params...)
 }
 
-func (calendar *Calendar) SetCalscale(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyCalscale, s, props...)
+func (cal *Calendar) SetDescription(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyDescription, s, params...)
 }
 
-func (calendar *Calendar) SetUrl(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyUrl, s, props...)
+func (cal *Calendar) SetLastModified(t time.Time, params ...PropertyParameter) {
+	cal.setProperty(PropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), params...)
 }
 
-func (calendar *Calendar) SetTzid(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyTzid, s, props...)
+func (cal *Calendar) SetRefreshInterval(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyRefreshInterval, s, params...)
 }
 
-func (calendar *Calendar) SetTimezoneId(s string, props ...PropertyParameter) {
-	calendar.setProperty(PropertyTimezoneId, s, props...)
+func (cal *Calendar) SetCalscale(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyCalscale, s, params...)
 }
 
-func (calendar *Calendar) setProperty(property Property, value string, props ...PropertyParameter) {
-	for i := range calendar.CalendarProperties {
-		if calendar.CalendarProperties[i].IANAToken == string(property) {
-			calendar.CalendarProperties[i].Value = value
-			calendar.CalendarProperties[i].ICalParameters = map[string][]string{}
-			for _, p := range props {
+func (cal *Calendar) SetUrl(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyUrl, s, params...)
+}
+
+func (cal *Calendar) SetTzid(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyTzid, s, params...)
+}
+
+func (cal *Calendar) SetTimezoneId(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyTimezoneId, s, params...)
+}
+
+func (cal *Calendar) setProperty(property Property, value string, params ...PropertyParameter) {
+	for i := range cal.CalendarProperties {
+		if cal.CalendarProperties[i].IANAToken == string(property) {
+			cal.CalendarProperties[i].Value = value
+			cal.CalendarProperties[i].ICalParameters = map[string][]string{}
+			for _, p := range params {
 				k, v := p.KeyValue()
-				calendar.CalendarProperties[i].ICalParameters[k] = v
+				cal.CalendarProperties[i].ICalParameters[k] = v
 			}
 			return
 		}
@@ -405,11 +571,113 @@ func (calendar *Calendar) setProperty(property Property, value string, props ...
 			ICalParameters: map[string][]string{},
 		},
 	}
-	for _, p := range props {
+	for _, p := range params {
 		k, v := p.KeyValue()
 		r.ICalParameters[k] = v
 	}
-	calendar.CalendarProperties = append(calendar.CalendarProperties, r)
+	cal.CalendarProperties = append(cal.CalendarProperties, r)
+}
+
+func (calendar *Calendar) AddEvent(id string) *VEvent {
+	e := NewEvent(id)
+	calendar.Components = append(calendar.Components, e)
+	return e
+}
+
+func (calendar *Calendar) AddVEvent(e *VEvent) {
+	calendar.Components = append(calendar.Components, e)
+}
+
+func (calendar *Calendar) Events() (r []*VEvent) {
+	r = []*VEvent{}
+	for i := range calendar.Components {
+		switch event := calendar.Components[i].(type) {
+		case *VEvent:
+			r = append(r, event)
+		}
+	}
+	return
+}
+
+func (calendar *Calendar) RemoveEvent(id string) {
+	for i := range calendar.Components {
+		switch event := calendar.Components[i].(type) {
+		case *VEvent:
+			if event.Id() == id {
+				if len(calendar.Components) > i+1 {
+					calendar.Components = append(calendar.Components[:i], calendar.Components[i+1:]...)
+				} else {
+					calendar.Components = calendar.Components[:i]
+				}
+				return
+			}
+		}
+	}
+}
+
+func WithCustomClient(client *http.Client) *http.Client {
+	return client
+}
+
+func WithCustomRequest(request *http.Request) *http.Request {
+	return request
+}
+
+func ParseCalendarFromUrl(url string, opts ...any) (*Calendar, error) {
+	var ctx context.Context
+	var req *http.Request
+	var client HttpClientLike = http.DefaultClient
+	for opti, opt := range opts {
+		switch opt := opt.(type) {
+		case *http.Client:
+			client = opt
+		case HttpClientLike:
+			client = opt
+		case func() *http.Client:
+			client = opt()
+		case *http.Request:
+			req = opt
+		case func() *http.Request:
+			req = opt()
+		case context.Context:
+			ctx = opt
+		case func() context.Context:
+			ctx = opt()
+		default:
+			return nil, fmt.Errorf("unknown optional argument %d on ParseCalendarFromUrl: %s", opti, reflect.TypeOf(opt))
+		}
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if req == nil {
+		var err error
+		req, err = http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("creating http request: %w", err)
+		}
+	}
+	return parseCalendarFromHttpRequest(client, req)
+}
+
+type HttpClientLike interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+func parseCalendarFromHttpRequest(client HttpClientLike, request *http.Request) (*Calendar, error) {
+	resp, err := client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %w", err)
+	}
+	defer func(closer io.ReadCloser) {
+		if derr := closer.Close(); derr != nil && err == nil {
+			err = fmt.Errorf("http request close: %w", derr)
+		}
+	}(resp.Body)
+	var cal *Calendar
+	cal, err = ParseCalendar(resp.Body)
+	// This allows the defer func to change the error
+	return cal, err
 }
 
 func ParseCalendar(r io.Reader) (*Calendar, error) {
@@ -516,13 +784,14 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 	for c {
 		var b []byte
 		b, err = cs.b.ReadBytes('\n')
-		if len(b) == 0 {
+		switch {
+		case len(b) == 0:
 			if err == nil {
 				continue
 			} else {
 				c = false
 			}
-		} else if b[len(b)-1] == '\n' {
+		case b[len(b)-1] == '\n':
 			o := 1
 			if len(b) > 1 && b[len(b)-2] == '\r' {
 				o = 2
@@ -532,14 +801,15 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			if errors.Is(err, io.EOF) {
 				c = false
 			}
-			if len(p) == 0 {
+			switch {
+			case len(p) == 0:
 				c = false
-			} else if p[0] == ' ' || p[0] == '\t' {
+			case p[0] == ' ' || p[0] == '\t':
 				_, _ = cs.b.Discard(1) // nolint:errcheck
-			} else {
+			default:
 				c = false
 			}
-		} else {
+		default:
 			r = append(r, b...)
 		}
 		switch {

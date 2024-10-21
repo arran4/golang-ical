@@ -3,8 +3,13 @@ package ics
 import (
 	"errors"
 	"github.com/stretchr/testify/assert"
+	"bytes"
+	"embed"
+	_ "embed"
+	"github.com/google/go-cmp/cmp"
 	"io"
-	"os"
+	"io/fs"
+	"net/http"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -13,8 +18,13 @@ import (
 	"unicode/utf8"
 )
 
+var (
+	//go:embed testdata/*
+	TestData embed.FS
+)
+
 func TestTimeParsing(t *testing.T) {
-	calFile, err := os.OpenFile("./testdata/timeparsing.ics", os.O_RDONLY, 0400)
+	calFile, err := TestData.Open("testdata/timeparsing.ics")
 	if err != nil {
 		t.Errorf("read file: %v", err)
 	}
@@ -162,12 +172,15 @@ CLASS:PUBLIC
 func TestRfc5545Sec4Examples(t *testing.T) {
 	rnReplace := regexp.MustCompile("\r?\n")
 
-	err := filepath.Walk("./testdata/rfc5545sec4/", func(path string, info os.FileInfo, _ error) error {
+	err := fs.WalkDir(TestData, "testdata/rfc5545sec4", func(path string, info fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if info.IsDir() {
 			return nil
 		}
 
-		inputBytes, err := os.ReadFile(path)
+		inputBytes, err := fs.ReadFile(TestData, path)
 		if err != nil {
 			return err
 		}
@@ -261,7 +274,7 @@ END:VCALENDAR
 			c := NewCalendar()
 			c.SetDescription(tc.input)
 			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
-			text := strings.Replace(c.Serialize(), "\r\n", "\n", -1)
+			text := strings.ReplaceAll(c.Serialize(), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
 			assert.True(t, utf8.ValidString(text), "Serialized .ics calendar isn't valid UTF-8 string")
@@ -378,7 +391,7 @@ END:VCALENDAR
 			}
 
 			// we're not testing for encoding here so lets make the actual output line breaks == expected line breaks
-			text := strings.Replace(c.Serialize(), "\r\n", "\n", -1)
+			text := strings.ReplaceAll(c.Serialize(), "\r\n", "\n")
 			if !assert.Equal(t, tc.output, text) {
 				return
 			}
@@ -387,13 +400,13 @@ END:VCALENDAR
 }
 
 func TestIssue52(t *testing.T) {
-	err := filepath.Walk("./testdata/issue52/", func(path string, info os.FileInfo, _ error) error {
+	err := fs.WalkDir(TestData, "testdata/issue52", func(path string, info fs.DirEntry, _ error) error {
 		if info.IsDir() {
 			return nil
 		}
 		_, fn := filepath.Split(path)
 		t.Run(fn, func(t *testing.T) {
-			f, err := os.Open(path)
+			f, err := TestData.Open(path)
 			if err != nil && errors.Is(err, io.EOF) {
 				t.Fatalf("Error reading file: %s", err)
 			}
@@ -409,5 +422,75 @@ func TestIssue52(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("cannot read test directory: %v", err)
+	}
+}
+
+func TestIssue97(t *testing.T) {
+	err := fs.WalkDir(TestData, "testdata/issue97", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".ics") && !strings.HasSuffix(d.Name(), ".ics_disabled") {
+			return nil
+		}
+		t.Run(path, func(t *testing.T) {
+			if strings.HasSuffix(d.Name(), ".ics_disabled") {
+				t.Skipf("Test disabled")
+			}
+			b, err := TestData.ReadFile(path)
+			if err != nil {
+				t.Fatalf("Error reading file: %s", err)
+			}
+			ics, err := ParseCalendar(bytes.NewReader(b))
+			if err != nil {
+				t.Fatalf("Error parsing file: %s", err)
+			}
+
+			got := ics.Serialize(WithLineLength(74))
+			if diff := cmp.Diff(string(b), got, cmp.Transformer("ToUnixText", func(a string) string {
+				return strings.ReplaceAll(a, "\r\n", "\n")
+			})); diff != "" {
+				t.Errorf("ParseCalendar() mismatch (-want +got):\n%s", diff)
+				t.Errorf("Complete got:\b%s", got)
+			}
+		})
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("cannot read test directory: %v", err)
+	}
+}
+
+type MockHttpClient struct {
+	Response *http.Response
+	Error    error
+}
+
+func (m *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
+	return m.Response, m.Error
+}
+
+var (
+	_ HttpClientLike = &MockHttpClient{}
+	//go:embed "testdata/rfc5545sec4/input1.ics"
+	input1TestData []byte
+)
+
+func TestIssue77(t *testing.T) {
+	url := "https://proseconsult.umontpellier.fr/jsp/custom/modules/plannings/direct_cal.jsp?data=58c99062bab31d256bee14356aca3f2423c0f022cb9660eba051b2653be722c4c7f281e4e3ad06b85d3374100ac416a4dc5c094f7d1a811b903031bde802c7f50e0bd1077f9461bed8f9a32b516a3c63525f110c026ed6da86f487dd451ca812c1c60bb40b1502b6511435cf9908feb2166c54e36382c1aa3eb0ff5cb8980cdb,1"
+
+	_, err := ParseCalendarFromUrl(url, &MockHttpClient{
+		Response: &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(bytes.NewReader(input1TestData)),
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("Error reading file: %s", err)
 	}
 }
