@@ -197,9 +197,9 @@ func dateFormatForTime(t time.Time, props []PropertyParameter) (string, []Proper
 	if l != nil {
 		ls = l.String()
 	}
-	if (l == time.UTC || ls == "MST") && tzid == nil {
+	if (l == time.UTC /* || ls == "MST"*/ || l == nil) && tzid == nil {
 		layout = icalDateFormatUTC
-	} else if tzid == nil && l != time.Local && ls != "MST" {
+	} else if tzid == nil && l != time.Local /* && ls != "MST"*/ {
 		props = append(props, WithTZID(ls))
 	}
 	return layout, props
@@ -213,9 +213,9 @@ func timestampFormatForTime(t time.Time, props []PropertyParameter) (string, []P
 	if l != nil {
 		ls = l.String()
 	}
-	if (l == time.UTC || ls == "MST" || l == nil) && tzid == nil {
+	if (l == time.UTC || /*ls == "MST" ||*/ l == nil) && tzid == nil {
 		layout = icalTimestampFormatUTC
-	} else if tzid == nil && l != time.Local && ls != "MST" {
+	} else if tzid == nil && l != time.Local /* && ls != "MST"*/ {
 		props = append(props, WithTZID(ls))
 	}
 	return layout, props
