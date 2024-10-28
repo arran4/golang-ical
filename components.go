@@ -182,24 +182,194 @@ func (cb *ComponentBase) RemovePropertyByFunc(removeProp ComponentProperty, remo
 }
 
 const (
-	icalTimestampFormatUtc   = "20060102T150405Z"
-	icalTimestampFormatLocal = "20060102T150405"
-	icalDateFormatUtc        = "20060102Z"
-	icalDateFormatLocal      = "20060102"
+	icalTimestampFormatUTC = "20060102T150405Z"
+	icalTimestampFormat    = "20060102T150405"
+	icalDateFormatUTC      = "20060102Z"
+	icalDateFormat         = "20060102"
 )
 
+func dateFormatForTime(t time.Time, props []PropertyParameter) (string, []PropertyParameter) {
+	// For implementation details see legacy + https://icalendar.org/iCalendar-RFC-5545/3-3-5-date-time.html
+	layout := icalDateFormat
+	tzid := PropertyParameters(props).GetProperty(ComponentPropertyTzid)
+	l := t.Location()
+	var ls string
+	if l != nil {
+		ls = l.String()
+	}
+	if (l == time.UTC || ls == "MST") && tzid == nil {
+		layout = icalDateFormatUTC
+	} else if tzid == nil && l != time.Local && ls != "MST" {
+		props = append(props, WithTZID(ls))
+	}
+	return layout, props
+}
+
+func timestampFormatForTime(t time.Time, props []PropertyParameter) (string, []PropertyParameter) {
+	layout := icalTimestampFormat
+	tzid := PropertyParameters(props).GetProperty(ComponentPropertyTzid)
+	l := t.Location()
+	var ls string
+	if l != nil {
+		ls = l.String()
+	}
+	if (l == time.UTC || ls == "MST" || l == nil) && tzid == nil {
+		layout = icalTimestampFormatUTC
+	} else if tzid == nil && l != time.Local && ls != "MST" {
+		props = append(props, WithTZID(ls))
+	}
+	return layout, props
+}
+
+/*
+ * RFC 2445                       iCalendar                   November 1998
+ *
+ * 4.3.4 Date
+ *
+ * Value Name: DATE
+ *
+ * Purpose: This value type is used to identify values that contain a
+ * calendar date.
+ *
+ * Formal Definition: The value type is defined by the following
+ * notation:
+ *
+ *   date               = date-value
+ *
+ *   date-value         = date-fullyear date-month date-mday
+ *   date-fullyear      = 4DIGIT
+ *
+ *  date-month         = 2DIGIT        ;01-12
+ *  date-mday          = 2DIGIT        ;01-28, 01-29, 01-30, 01-31
+ * 									;based on month/year
+ *
+ * Description: If the property permits, multiple "date" values are
+ * specified as a COMMA character (US-ASCII decimal 44) separated list
+ * of values. The format for the value type is expressed as the [ISO
+ * 8601] complete representation, basic format for a calendar date. The
+ * textual format specifies a four-digit year, two-digit month, and
+ * two-digit day of the month. There are no separator characters between
+ * the year, month and day component text.
+ *
+ * No additional content value encoding (i.e., BACKSLASH character
+ * encoding) is defined for this value type.
+ *
+ * Example: The following represents July 14, 1997:
+ *
+ *  19970714
+ *
+ * Value Name: DATE-TIME
+ *
+ * Purpose: This value type is used to identify values that specify a
+ * precise calendar date and time of day.
+ *
+ * Formal Definition: The value type is defined by the following
+ * notation:
+ *
+ *  date-time  = date "T" time ;As specified in the date and time
+ * 							;value definitions
+ *
+ * Description: If the property permits, multiple "date-time" values are
+ * specified as a COMMA character (US-ASCII decimal 44) separated list
+ * of values. No additional content value encoding (i.e., BACKSLASH
+ * character encoding) is defined for this value type.
+ *
+ * The "DATE-TIME" data type is used to identify values that contain a
+ * precise calendar date and time of day. The format is based on the
+ * [ISO 8601] complete representation, basic format for a calendar date
+ * and time of day. The text format is a concatenation of the "date",
+ * followed by the LATIN CAPITAL LETTER T character (US-ASCII decimal
+ * 84) time designator, followed by the "time" format.
+ *
+ * The "DATE-TIME" data type expresses time values in three forms:
+ *
+ * The form of date and time with UTC offset MUST NOT be used. For
+ * example, the following is not valid for a date-time value:
+ *
+ *  DTSTART:19980119T230000-0800       ;Invalid time format
+ *
+ * FORM #1: DATE WITH LOCAL TIME
+ *
+ * The date with local time form is simply a date-time value that does
+ * not contain the UTC designator nor does it reference a time zone. For
+ * example, the following represents Janurary 18, 1998, at 11 PM:
+ *
+ *  DTSTART:19980118T230000
+ *
+ * Date-time values of this type are said to be "floating" and are not
+ * bound to any time zone in particular. They are used to represent the
+ * same hour, minute, and second value regardless of which time zone is
+ * currently being observed. For example, an event can be defined that
+ * indicates that an individual will be busy from 11:00 AM to 1:00 PM
+ * every day, no matter which time zone the person is in. In these
+ * cases, a local time can be specified. The recipient of an iCalendar
+ * object with a property value consisting of a local time, without any
+ * relative time zone information, SHOULD interpret the value as being
+ * fixed to whatever time zone the ATTENDEE is in at any given moment.
+ * This means that two ATTENDEEs, in different time zones, receiving the
+ * same event definition as a floating time, may be participating in the
+ * event at different actual times. Floating time SHOULD only be used
+ * where that is the reasonable behavior.
+ *
+ * In most cases, a fixed time is desired. To properly communicate a
+ * fixed time in a property value, either UTC time or local time with
+ * time zone reference MUST be specified.
+ *
+ * The use of local time in a DATE-TIME value without the TZID property
+ * parameter is to be interpreted as floating time, regardless of the
+ * existence of "VTIMEZONE" calendar components in the iCalendar object.
+ *
+ * FORM #2: DATE WITH UTC TIME
+ *
+ * The date with UTC time, or absolute time, is identified by a LATIN
+ * CAPITAL LETTER Z suffix character (US-ASCII decimal 90), the UTC
+ * designator, appended to the time value. For example, the following
+ * represents January 19, 1998, at 0700 UTC:
+ *
+ *  DTSTART:19980119T070000Z
+ *
+ * The TZID property parameter MUST NOT be applied to DATE-TIME
+ * properties whose time values are specified in UTC.
+ *
+ * FORM #3: DATE WITH LOCAL TIME AND TIME ZONE REFERENCE
+ *
+ * The date and local time with reference to time zone information is
+ * identified by the use the TZID property parameter to reference the
+ * appropriate time zone definition. TZID is discussed in detail in the
+ * section on Time Zone. For example, the following represents 2 AM in
+ * New York on Janurary 19, 1998:
+ *
+ * 	  DTSTART;TZID=US-Eastern:19980119T020000
+ *
+ * Example: The following represents July 14, 1997, at 1:30 PM in New
+ * York City in each of the three time formats, using the "DTSTART"
+ * property.
+ *
+ *  DTSTART:19970714T133000            ;Local time
+ *  DTSTART:19970714T173000Z           ;UTC time
+ *  DTSTART;TZID=US-Eastern:19970714T133000    ;Local time and time
+ * 					; zone reference
+ *
+ * A time value MUST ONLY specify 60 seconds when specifying the
+ * periodic "leap second" in the time value. For example:
+ *
+ *  COMPLETED:19970630T235960Z
+ */
 var timeStampVariations = regexp.MustCompile("^([0-9]{8})?([TZ])?([0-9]{6})?(Z)?$")
 
 func (cb *ComponentBase) SetCreatedTime(t time.Time, params ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyCreated, t.UTC().Format(icalTimestampFormatUtc), params...)
+	layout, params := timestampFormatForTime(t, params)
+	cb.SetProperty(ComponentPropertyCreated, t.Format(layout), params...)
 }
 
 func (cb *ComponentBase) SetDtStampTime(t time.Time, params ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDtstamp, t.UTC().Format(icalTimestampFormatUtc), params...)
+	layout, params := timestampFormatForTime(t, params)
+	cb.SetProperty(ComponentPropertyDtstamp, t.Format(layout), params...)
 }
 
 func (cb *ComponentBase) SetModifiedAt(t time.Time, params ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), params...)
+	layout, params := timestampFormatForTime(t, params)
+	cb.SetProperty(ComponentPropertyLastModified, t.Format(layout), params...)
 }
 
 func (cb *ComponentBase) SetSequence(seq int, params ...PropertyParameter) {
@@ -207,25 +377,29 @@ func (cb *ComponentBase) SetSequence(seq int, params ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) SetStartAt(t time.Time, params ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDtStart, t.UTC().Format(icalTimestampFormatUtc), params...)
+	layout, params := timestampFormatForTime(t, params)
+	cb.SetProperty(ComponentPropertyDtStart, t.Format(layout), params...)
 }
 
 func (cb *ComponentBase) SetAllDayStartAt(t time.Time, params ...PropertyParameter) {
+	layout, params := dateFormatForTime(t, params)
 	cb.SetProperty(
 		ComponentPropertyDtStart,
-		t.Format(icalDateFormatLocal),
+		t.Format(layout),
 		append(params, WithValue(string(ValueDataTypeDate)))...,
 	)
 }
 
 func (cb *ComponentBase) SetEndAt(t time.Time, params ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), params...)
+	layout, params := timestampFormatForTime(t, params)
+	cb.SetProperty(ComponentPropertyDtEnd, t.Format(layout), params...)
 }
 
 func (cb *ComponentBase) SetAllDayEndAt(t time.Time, params ...PropertyParameter) {
+	layout, params := dateFormatForTime(t, params)
 	cb.SetProperty(
 		ComponentPropertyDtEnd,
-		t.Format(icalDateFormatLocal),
+		t.Format(layout),
 		append(params, WithValue(string(ValueDataTypeDate)))...,
 	)
 }
@@ -234,17 +408,23 @@ func (cb *ComponentBase) SetAllDayEndAt(t time.Time, params ...PropertyParameter
 // This function will set either the end or start time of an event depending on what is already given.
 // The duration defines the length of an event relative to start or end time.
 //
-// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
+// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected. See SetDurationStr for
+// setting the actual property.
 func (cb *ComponentBase) SetDuration(d time.Duration) error {
+	return cb.SetDurationWithParameters(d)
+}
+
+// SetDurationWithParameters is the same as SetDuration but with parameters which as passed to the appropriate 'set'
+func (cb *ComponentBase) SetDurationWithParameters(d time.Duration, params ...PropertyParameter) error {
 	startProp := cb.GetProperty(ComponentPropertyDtStart)
 	if startProp != nil {
 		t, allDay, err := startProp.ParseTime(false)
 		if t != nil && err == nil {
 			v, _ := startProp.parameterValue(ParameterValue)
 			if v == string(ValueDataTypeDate) || allDay {
-				cb.SetAllDayEndAt(t.Add(d))
+				cb.SetAllDayEndAt(t.Add(d), params...)
 			} else {
-				cb.SetEndAt(t.Add(d))
+				cb.SetEndAt(t.Add(d), params...)
 			}
 			return nil
 		}
@@ -255,9 +435,9 @@ func (cb *ComponentBase) SetDuration(d time.Duration) error {
 		if t != nil && err == nil {
 			v, _ := endProp.parameterValue(ParameterValue)
 			if v == string(ValueDataTypeDate) || allDay {
-				cb.SetAllDayStartAt(t.Add(-d))
+				cb.SetAllDayStartAt(t.Add(-d), params...)
 			} else {
-				cb.SetStartAt(t.Add(-d))
+				cb.SetStartAt(t.Add(-d), params...)
 			}
 			return nil
 		}
@@ -265,7 +445,7 @@ func (cb *ComponentBase) SetDuration(d time.Duration) error {
 	return errors.New("start or end not yet defined")
 }
 
-func (cb *ComponentBase) IsDuring(point time.Time) (bool, error) {
+func (cb *ComponentBase) IsDuring(point time.Time, ops ...any) (bool, error) {
 	var effectiveStartTime *time.Time
 	var effectiveEndTime *time.Time
 	var durations []Duration
@@ -312,17 +492,23 @@ func (cb *ComponentBase) IsDuring(point time.Time) (bool, error) {
 			d = -d
 			days = -days
 		}
-		t := effectiveStartTime.Add(d).AddDate(0, 0, days+1).Truncate(24 * time.Hour).Add(-1)
+		t := effectiveStartTime.Add(d).AddDate(0, 0, days)
 		effectiveEndTime = &t
 	case effectiveStartTime == nil && effectiveEndTime == nil:
 		return false, ErrStartAndEndDateNotDefined
 	}
+	if effectiveStartTime != nil && effectiveEndTime != nil {
+		// If it starts and ends on the same day and at least one of the "allDays" is set, then it is an all day
+		if effectiveStartTime.Truncate(24*time.Hour-1).Equal(effectiveEndTime.Truncate(24*time.Hour-1)) && (startAllDay || endAllDay) {
+			startAllDay, endAllDay = true, true
+		}
+	}
 	if startAllDay && effectiveStartTime != nil {
-		t := effectiveStartTime.Truncate(24 * time.Hour)
+		t := effectiveStartTime.Truncate(24*time.Hour + 1)
 		effectiveStartTime = &t
 	}
 	if endAllDay && effectiveEndTime != nil {
-		t := effectiveEndTime.AddDate(0, 0, 1).Truncate(24 * time.Hour).Add(-1)
+		t := effectiveEndTime.AddDate(0, 0, 1).Truncate(24*time.Hour - 1).Add(-1)
 		effectiveEndTime = &t
 	}
 	switch {
@@ -571,11 +757,13 @@ func NewEvent(uniqueId string) *VEvent {
 }
 
 func (event *VEvent) SetEndAt(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyDtEnd, t.UTC().Format(icalTimestampFormatUtc), props...)
+	layout, props := timestampFormatForTime(t, props)
+	event.SetProperty(ComponentPropertyDtEnd, t.Format(layout), props...)
 }
 
 func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) {
-	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
+	layout, props := timestampFormatForTime(t, props)
+	event.SetProperty(ComponentPropertyLastModified, t.Format(layout), props...)
 }
 
 // TODO use generics
@@ -669,21 +857,23 @@ func (cal *Calendar) Todos() []*VTodo {
 }
 
 func (todo *VTodo) SetCompletedAt(t time.Time, params ...PropertyParameter) {
-	todo.SetProperty(ComponentPropertyCompleted, t.UTC().Format(icalTimestampFormatUtc), params...)
+	layout, params := timestampFormatForTime(t, params)
+	todo.SetProperty(ComponentPropertyCompleted, t.Format(layout), params...)
 }
 
 func (todo *VTodo) SetAllDayCompletedAt(t time.Time, params ...PropertyParameter) {
-	params = append(params, WithValue(string(ValueDataTypeDate)))
-	todo.SetProperty(ComponentPropertyCompleted, t.Format(icalDateFormatLocal), params...)
+	layout, params := dateFormatForTime(t, params)
+	todo.SetProperty(ComponentPropertyCompleted, t.Format(layout), params...)
 }
 
 func (todo *VTodo) SetDueAt(t time.Time, params ...PropertyParameter) {
-	todo.SetProperty(ComponentPropertyDue, t.UTC().Format(icalTimestampFormatUtc), params...)
+	layout, params := timestampFormatForTime(t, params)
+	todo.SetProperty(ComponentPropertyDue, t.Format(layout), params...)
 }
 
 func (todo *VTodo) SetAllDayDueAt(t time.Time, params ...PropertyParameter) {
-	params = append(params, WithValue(string(ValueDataTypeDate)))
-	todo.SetProperty(ComponentPropertyDue, t.Format(icalDateFormatLocal), params...)
+	layout, params := dateFormatForTime(t, params)
+	todo.SetProperty(ComponentPropertyDue, t.Format(layout), params...)
 }
 
 func (todo *VTodo) SetPercentComplete(p int, params ...PropertyParameter) {

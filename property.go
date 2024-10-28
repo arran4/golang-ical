@@ -278,7 +278,7 @@ type IANAProperty struct {
 }
 
 // ParseTime Parses the time, all day is if we should treat the value as an all day event.
-// Returns the time if parsable, if it is an all day time, and an error if there is one
+// Returns the time if parsable; if it is an all day time, and an error if there is one
 func (p IANAProperty) ParseTime(expectAllDay bool) (*time.Time, bool, error) {
 	timeVal := p.BaseProperty.Value
 	matched := timeStampVariations.FindStringSubmatch(timeVal)
@@ -306,48 +306,66 @@ func (p IANAProperty) ParseTime(expectAllDay bool) (*time.Time, bool, error) {
 
 	if expectAllDay {
 		if grp1len > 0 {
+			var t time.Time
+			var err error
+			var path string
 			if tOrZGrp == "Z" || zGrp == "Z" {
-				t, err := time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
-				return &t, true, err
+				path = "UTC forced"
+				t, err = time.ParseInLocation(icalDateFormatUTC, dateStr+"Z", time.UTC)
 			} else {
 				if propLoc == nil {
-					t, err := time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
-					return &t, true, err
+					path = "local"
+					t, err = time.ParseInLocation(icalDateFormat, dateStr, time.Local)
 				} else {
-					t, err := time.ParseInLocation(icalDateFormatLocal, dateStr, propLoc)
-					return &t, true, err
+					path = "TZ prop proved local"
+					t, err = time.ParseInLocation(icalDateFormat, dateStr, propLoc)
 				}
 			}
+			if err != nil {
+				return nil, false, fmt.Errorf("time value not matched in %s, got '%s': %w", path, dateStr, err)
+			}
+			return &t, true, nil
 		}
 		return nil, false, fmt.Errorf("time value matched but unsupported all-day timestamp, got '%s'", timeVal)
 	}
 
+	var t time.Time
+	var err error
+	var path string
+	var allDay = false
 	switch {
 	case grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "Z":
-		t, err := time.ParseInLocation(icalTimestampFormatUtc, timeVal, time.UTC)
-		return &t, false, err
+		path = "full time UTC"
+		t, err = time.ParseInLocation(icalTimestampFormatUTC, timeVal, time.UTC)
 	case grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "":
 		if propLoc == nil {
-			t, err := time.ParseInLocation(icalTimestampFormatLocal, timeVal, time.Local)
-			return &t, false, err
+			path = "unspecified zone full time local"
+			t, err = time.ParseInLocation(icalTimestampFormat, timeVal, time.Local)
 		} else {
-			t, err := time.ParseInLocation(icalTimestampFormatLocal, timeVal, propLoc)
-			return &t, false, err
+			path = "unspecified zone full time prop provided"
+			t, err = time.ParseInLocation(icalTimestampFormat, timeVal, propLoc)
 		}
 	case grp1len > 0 && grp3len == 0 && tOrZGrp == "Z" && zGrp == "":
-		t, err := time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
-		return &t, true, err
+		allDay = true
+		path = "date only UTC"
+		t, err = time.ParseInLocation(icalDateFormatUTC, dateStr+"Z", time.UTC)
 	case grp1len > 0 && grp3len == 0 && tOrZGrp == "" && zGrp == "":
+		allDay = true
 		if propLoc == nil {
-			t, err := time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
-			return &t, true, err
+			path = "date only locale"
+			t, err = time.ParseInLocation(icalDateFormat, dateStr, time.Local)
 		} else {
-			t, err := time.ParseInLocation(icalDateFormatLocal, dateStr, propLoc)
-			return &t, true, err
+			path = "date only prop local"
+			t, err = time.ParseInLocation(icalDateFormat, dateStr, propLoc)
 		}
+	default:
+		return nil, false, fmt.Errorf("time value matched but not supported, got '%s'", timeVal)
 	}
 
-	return nil, false, fmt.Errorf("time value matched but not supported, got '%s'", timeVal)
+	if err != nil {
+		return nil, false, fmt.Errorf("time value not matched in %s, got '%s': %w", path, dateStr, err)
+	}
+	return &t, allDay, nil
 }
 
 // ParseDurations assumes the value is a duration and tries to parse it

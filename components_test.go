@@ -2,6 +2,7 @@ package ics
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -62,7 +63,24 @@ END:VEVENT
 }
 
 func TestSetAllDay(t *testing.T) {
-	date, _ := time.Parse(time.RFC822, time.RFC822)
+	dateUTC, err := time.ParseInLocation(time.DateTime, time.DateTime, time.UTC)
+	if err != nil {
+		t.Fatalf("Error parsing date: %v", err)
+	}
+	dateLocal := time.Date(dateUTC.Year(), dateUTC.Month(), dateUTC.Day(), 0, 0, 0, 0, time.Local)
+	loc := "Australia/Perth"
+	specificLocationNotLocal, err := time.LoadLocation(loc)
+	if err != nil {
+		t.Fatalf("Error parsing date local: %v", err)
+	}
+	if specificLocationNotLocal.String() == time.Local.String() {
+		loc = "Australia/Melbourne"
+		specificLocationNotLocal, err = time.LoadLocation(loc)
+		if err != nil {
+			t.Fatalf("Error parsing date local: %v", err)
+		}
+	}
+	dateSpecificLocationNotLocal, err := time.ParseInLocation(time.RFC822, time.RFC822, specificLocationNotLocal)
 
 	testCases := []struct {
 		name     string
@@ -72,8 +90,8 @@ func TestSetAllDay(t *testing.T) {
 		output   string
 	}{
 		{
-			name:  "test set all day - start",
-			start: date,
+			name:  "test set all day - start - local",
+			start: dateLocal,
 			output: `BEGIN:VEVENT
 UID:test-allday
 DTSTART;VALUE=DATE:20060102
@@ -81,8 +99,8 @@ END:VEVENT
 `,
 		},
 		{
-			name: "test set all day - end",
-			end:  date,
+			name: "test set all day - end - local",
+			end:  dateLocal,
 			output: `BEGIN:VEVENT
 UID:test-allday
 DTEND;VALUE=DATE:20060102
@@ -90,8 +108,8 @@ END:VEVENT
 `,
 		},
 		{
-			name:     "test set all day - duration",
-			start:    date,
+			name:     "test set all day - duration - local",
+			start:    dateLocal,
 			duration: time.Hour * 24,
 			output: `BEGIN:VEVENT
 UID:test-allday
@@ -100,10 +118,73 @@ DTEND;VALUE=DATE:20060103
 END:VEVENT
 `,
 		},
+		{
+			name:  "test set all day - start - UTC",
+			start: dateUTC,
+			output: `BEGIN:VEVENT
+UID:test-allday
+DTSTART;VALUE=DATE:20060102Z
+END:VEVENT
+`,
+		},
+		{
+			name: "test set all day - end - UTC",
+			end:  dateUTC,
+			output: `BEGIN:VEVENT
+UID:test-allday
+DTEND;VALUE=DATE:20060102Z
+END:VEVENT
+`,
+		},
+		{
+			name:     "test set all day - duration - UTC",
+			start:    dateUTC,
+			duration: time.Hour * 24,
+			output: `BEGIN:VEVENT
+UID:test-allday
+DTSTART;VALUE=DATE:20060102Z
+DTEND;VALUE=DATE:20060103Z
+END:VEVENT
+`,
+		},
+		{
+			name:  "test set all day - start - Specific location",
+			start: dateSpecificLocationNotLocal,
+			output: fmt.Sprintf(`BEGIN:VEVENT
+UID:test-allday
+DTSTART;TZID=%s;VALUE=DATE:20060102
+END:VEVENT
+`, loc),
+		},
+		{
+			name: "test set all day - end - Specific location",
+			end:  dateSpecificLocationNotLocal,
+			output: fmt.Sprintf(`BEGIN:VEVENT
+UID:test-allday
+DTEND;TZID=%s;VALUE=DATE:20060102
+END:VEVENT
+`, loc),
+		},
+		{
+			name:     "test set all day - duration - Specific location",
+			start:    dateSpecificLocationNotLocal,
+			duration: time.Hour * 24,
+			output: fmt.Sprintf(`BEGIN:VEVENT
+UID:test-allday
+DTSTART;TZID=%s;VALUE=DATE:20060102
+DTEND;TZID=%s;VALUE=DATE:20060103
+END:VEVENT
+`, loc, loc),
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+
+			if dateSpecificLocationNotLocal.Location().String() == "MST" {
+				//t.Skipf("No idea why we are getting MST -- Help?")
+			}
+
 			e := NewEvent("test-allday")
 			if !tc.start.IsZero() {
 				e.SetAllDayStartAt(tc.start)
@@ -254,15 +335,6 @@ func TestIsDuring(t *testing.T) {
 			expectedError:  nil,
 		},
 		{
-			name:           "All-day start with valid end time",
-			startTime:      MustNewTime("2024-10-15T00:00:00Z"),
-			endTime:        MustNewTime("2024-10-15T17:00:00Z"),
-			pointInTime:    time.Date(2024, 10, 15, 12, 0, 0, 0, time.UTC),
-			expectedResult: true,
-			expectedError:  nil,
-			allDayStart:    true,
-		},
-		{
 			name:           "All-day end with valid start time",
 			startTime:      MustNewTime("2024-10-15T09:00:00Z"),
 			endTime:        MustNewTime("2024-10-15T23:59:59Z"),
@@ -272,11 +344,37 @@ func TestIsDuring(t *testing.T) {
 			allDayEnd:      true,
 		},
 		{
-			name:           "Duration 1 day, point within event",
+			name:           "All-day start with valid but early end time",
+			startTime:      MustNewTime("2024-10-15T00:00:00Z"),
+			endTime:        MustNewTime("2024-10-15T17:00:00Z"),
+			pointInTime:    time.Date(2024, 10, 15, 12, 0, 0, 0, time.UTC),
+			expectedResult: true,
+			expectedError:  nil,
+			allDayStart:    true,
+		},
+		{
+			name:           "All-day end with valid but late start time",
+			startTime:      MustNewTime("2024-10-15T23:59:59Z"),
+			endTime:        MustNewTime("2024-10-15T23:59:59Z"),
+			pointInTime:    time.Date(2024, 10, 15, 22, 0, 0, 0, time.UTC),
+			expectedResult: true,
+			expectedError:  nil,
+			allDayEnd:      true,
+		},
+		{
+			name:           "Duration 1 day, point within event (becomes an all day event)",
 			startTime:      MustNewTime("2024-10-15T09:00:00Z"),
 			duration:       "P1D",
-			pointInTime:    time.Date(2024, 10, 16, 10, 0, 0, 0, time.UTC),
+			pointInTime:    time.Date(2024, 10, 15, 10, 0, 0, 0, time.UTC),
 			expectedResult: true,
+			expectedError:  nil,
+		},
+		{
+			name:           "Duration 1 day, point before event",
+			startTime:      MustNewTime("2024-10-15T09:00:00Z"),
+			duration:       "P2H",
+			pointInTime:    time.Date(2024, 10, 15, 8, 0, 0, 0, time.UTC),
+			expectedResult: false,
 			expectedError:  nil,
 		},
 		{
