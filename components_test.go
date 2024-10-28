@@ -81,6 +81,9 @@ func TestSetAllDay(t *testing.T) {
 		}
 	}
 	dateSpecificLocationNotLocal, err := time.ParseInLocation(time.RFC822, time.RFC822, specificLocationNotLocal)
+	if err != nil {
+		t.Fatalf("Error parsing date RFC822: %v", err)
+	}
 
 	testCases := []struct {
 		name     string
