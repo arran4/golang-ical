@@ -11,7 +11,7 @@ import (
 )
 
 func TestSetDuration(t *testing.T) {
-	date, _ := time.Parse(time.RFC822, time.RFC822)
+	date, _ := time.Parse(time.RFC822Z, time.RFC822Z)
 	duration := time.Duration(float64(time.Hour) * 2)
 
 	testCases := []struct {
@@ -181,7 +181,7 @@ END:VEVENT
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			if dateSpecificLocationNotLocal.Location().String() == "MST" {
+			if tc.start.Location().String() == "MST" || tc.end.Location().String() == "MST" {
 				t.Skipf("No idea why we are getting MST -- Help?")
 			}
 
