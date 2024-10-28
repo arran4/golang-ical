@@ -182,7 +182,7 @@ END:VEVENT
 		t.Run(tc.name, func(t *testing.T) {
 
 			if dateSpecificLocationNotLocal.Location().String() == "MST" {
-				//t.Skipf("No idea why we are getting MST -- Help?")
+				t.Skipf("No idea why we are getting MST -- Help?")
 			}
 
 			e := NewEvent("test-allday")
