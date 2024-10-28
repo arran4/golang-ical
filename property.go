@@ -85,6 +85,18 @@ func WithRSVP(b bool) PropertyParameter {
 	}
 }
 
+type PropertyParameters []PropertyParameter
+
+func (propertyParameters PropertyParameters) GetProperty(parameter ComponentProperty) []string {
+	for i := range propertyParameters {
+		v, k := propertyParameters[i].KeyValue()
+		if v == string(parameter) {
+			return k
+		}
+	}
+	return nil
+}
+
 func trimUT8StringUpTo(maxLength int, s string) string {
 	length := 0
 	lastWordBoundary := -1
@@ -410,6 +422,17 @@ func (p IANAProperty) ParseDurations() ([]Duration, error) {
 			return result, nil
 		}
 	}
+}
+
+type IANAProperties []IANAProperty
+
+func (properties IANAProperties) GetProperty(componentProperty ComponentProperty) *IANAProperty {
+	for i := range properties {
+		if properties[i].IANAToken == string(componentProperty) {
+			return &properties[i]
+		}
+	}
+	return nil
 }
 
 type DurationOrder struct {

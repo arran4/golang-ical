@@ -72,12 +72,7 @@ func NewComponent(uniqueId string) ComponentBase {
 // GetProperty returns the first match for the particular property you're after. Please consider using:
 // ComponentProperty.Required to determine if GetProperty or GetProperties is more appropriate.
 func (cb *ComponentBase) GetProperty(componentProperty ComponentProperty) *IANAProperty {
-	for i := range cb.Properties {
-		if cb.Properties[i].IANAToken == string(componentProperty) {
-			return &cb.Properties[i]
-		}
-	}
-	return nil
+	return IANAProperties(cb.Properties).GetProperty(componentProperty)
 }
 
 // GetProperties returns all matches for the particular property you're after. Please consider using:
