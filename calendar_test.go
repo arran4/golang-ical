@@ -493,3 +493,33 @@ func TestIssue77(t *testing.T) {
 		t.Fatalf("Error reading file: %s", err)
 	}
 }
+
+func TestIssue111(t *testing.T) {
+	type Test struct {
+		name string
+		fn   string
+	}
+	for _, test := range []Test{
+		{name: "Just the basis", fn: "base-structure.ics"},
+		{name: "vtimezone1 section", fn: "vtimezone1.ics"},
+		{name: "vevent1 section", fn: "vevent1.ics"},
+		{name: "vevent2 section", fn: "vevent2.ics"},
+		{name: "scheduleversion section", fn: "scheduleversion.ics"},
+		{name: "Just the basis", fn: "base-structure.ics"},
+		{name: "vevent2 without description section", fn: "vevent2-no-desc.ics"},
+		{name: "vevent2 fixed section", fn: "vevent2-fixed.ics"},
+		{name: "Full file", fn: "file1.ics"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			calFile, err := TestData.Open("testdata/issue111/" + test.fn)
+			if err != nil {
+				t.Errorf("read file: %v", err)
+			}
+			_, err = ParseCalendar(calFile)
+			if err != nil {
+				t.Errorf("parse calendar: %v", err)
+			}
+		})
+	}
+
+}

@@ -1,0 +1,21 @@
+BEGIN:VCALENDAR
+PRODID:-//github.com/rianjs/ical.net//NONSGML ical.net 4.0//EN
+VERSION:2.0
+X-WR-CALNAME:БСБО-01-21
+BEGIN:VEVENT
+CATEGORIES:ЛК
+DESCRIPTION:Преподаватель: Корягин Сергей Викторович\n\nГруппы:\nБСБО-01-2
+ 1\nБСБО-02-21\nБСБО-04-21\n
+DTEND;TZID=Europe/Moscow:20240902T121000
+DTSTAMP:00010101T000000
+DTSTART;TZID=Europe/Moscow:20240902T104000
+LOCATION:455 (С-20)
+RRULE:FREQ=WEEKLY;INTERVAL=2;UNTIL=20241230T210000Z
+SEQUENCE:0
+SUMMARY:ЛК Создание инструментальных средств разработки программного обесп
+ ечения
+TRANSP:OPAQUE
+UID:f9de3adf-37f2-5710-abaf-27bd64443c70
+X-SCHEDULE-VERSION-ID:8
+END:VEVENT
+END:VCALENDAR
