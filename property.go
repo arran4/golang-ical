@@ -200,7 +200,7 @@ func (bp *BaseProperty) serialize(w io.Writer, serialConfig *SerializationConfig
 	r := b.String()
 	if len(r) > serialConfig.MaxLength {
 		l := trimUT8StringUpTo(serialConfig.MaxLength, r)
-		_, err := fmt.Fprint(w, l, serialConfig.NewLine)
+		_, err := io.WriteString(w, l+serialConfig.NewLine)
 		if err != nil {
 			return fmt.Errorf("property %s serialization: %w", bp.IANAToken, err)
 		}
@@ -208,18 +208,18 @@ func (bp *BaseProperty) serialize(w io.Writer, serialConfig *SerializationConfig
 
 		for len(r) > serialConfig.MaxLength-1 {
 			l := trimUT8StringUpTo(serialConfig.MaxLength-1, r)
-			_, err = fmt.Fprint(w, " ", l, serialConfig.NewLine)
+			_, err = io.WriteString(w, " "+l+serialConfig.NewLine)
 			if err != nil {
 				return fmt.Errorf("property %s serialization: %w", bp.IANAToken, err)
 			}
 			r = r[len(l):]
 		}
-		_, err = fmt.Fprint(w, " ")
+		_, err = io.WriteString(w, " ")
 		if err != nil {
 			return fmt.Errorf("property %s serialization: %w", bp.IANAToken, err)
 		}
 	}
-	_, err := fmt.Fprint(w, r, serialConfig.NewLine)
+	_, err := io.WriteString(w, r+serialConfig.NewLine)
 	if err != nil {
 		return fmt.Errorf("property %s serialization: %w", bp.IANAToken, err)
 	}

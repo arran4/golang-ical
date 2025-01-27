@@ -43,7 +43,7 @@ func (cb *ComponentBase) SubComponents() []Component {
 }
 
 func (cb *ComponentBase) serializeThis(writer io.Writer, componentType ComponentType, serialConfig *SerializationConfiguration) error {
-	_, _ = fmt.Fprint(writer, "BEGIN:"+componentType, serialConfig.NewLine)
+	_, _ = io.WriteString(writer, "BEGIN:"+string(componentType)+serialConfig.NewLine)
 	for _, p := range cb.Properties {
 		err := p.serialize(writer, serialConfig)
 		if err != nil {
@@ -56,7 +56,7 @@ func (cb *ComponentBase) serializeThis(writer io.Writer, componentType Component
 			return err
 		}
 	}
-	_, err := fmt.Fprint(writer, "END:"+componentType, serialConfig.NewLine)
+	_, err := io.WriteString(writer, "END:"+string(componentType)+serialConfig.NewLine)
 	return err
 }
 
