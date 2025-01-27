@@ -1,7 +1,6 @@
 package ics
 
 import (
-	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -541,7 +540,7 @@ func (event *VEvent) Serialize(serialConfig *SerializationConfiguration) string 
 }
 
 func (event *VEvent) serialize(serialConfig *SerializationConfiguration) (string, error) {
-	b := &bytes.Buffer{}
+	b := &strings.Builder{}
 	err := event.ComponentBase.serializeThis(b, ComponentVEvent, serialConfig)
 	return b.String(), err
 }
@@ -615,7 +614,7 @@ func (todo *VTodo) Serialize(serialConfig *SerializationConfiguration) string {
 }
 
 func (todo *VTodo) serialize(serialConfig *SerializationConfiguration) (string, error) {
-	b := &bytes.Buffer{}
+	b := &strings.Builder{}
 	err := todo.ComponentBase.serializeThis(b, ComponentVTodo, serialConfig)
 	if err != nil {
 		return "", err
@@ -739,7 +738,7 @@ func (journal *VJournal) Serialize(serialConfig *SerializationConfiguration) str
 }
 
 func (journal *VJournal) serialize(serialConfig *SerializationConfiguration) (string, error) {
-	b := &bytes.Buffer{}
+	b := &strings.Builder{}
 	err := journal.ComponentBase.serializeThis(b, ComponentVJournal, serialConfig)
 	if err != nil {
 		return "", err
@@ -785,7 +784,7 @@ func (busy *VBusy) Serialize(serialConfig *SerializationConfiguration) string {
 }
 
 func (busy *VBusy) serialize(serialConfig *SerializationConfiguration) (string, error) {
-	b := &bytes.Buffer{}
+	b := &strings.Builder{}
 	err := busy.ComponentBase.serializeThis(b, ComponentVFreeBusy, serialConfig)
 	if err != nil {
 		return "", err
@@ -835,7 +834,7 @@ func (timezone *VTimezone) Serialize(serialConfig *SerializationConfiguration) s
 }
 
 func (timezone *VTimezone) serialize(serialConfig *SerializationConfiguration) (string, error) {
-	b := &bytes.Buffer{}
+	b := &strings.Builder{}
 	err := timezone.ComponentBase.serializeThis(b, ComponentVTimezone, serialConfig)
 	if err != nil {
 		return "", err
@@ -895,7 +894,7 @@ func (c *VAlarm) Serialize(serialConfig *SerializationConfiguration) string {
 }
 
 func (c *VAlarm) serialize(serialConfig *SerializationConfiguration) (string, error) {
-	b := &bytes.Buffer{}
+	b := &strings.Builder{}
 	err := c.ComponentBase.serializeThis(b, ComponentVAlarm, serialConfig)
 	if err != nil {
 		return "", err
@@ -953,7 +952,7 @@ func (standard *Standard) Serialize(serialConfig *SerializationConfiguration) st
 }
 
 func (standard *Standard) serialize(serialConfig *SerializationConfiguration) (string, error) {
-	b := &bytes.Buffer{}
+	b := &strings.Builder{}
 	err := standard.ComponentBase.serializeThis(b, ComponentStandard, serialConfig)
 	if err != nil {
 		return "", err
@@ -975,7 +974,7 @@ func (daylight *Daylight) Serialize(serialConfig *SerializationConfiguration) st
 }
 
 func (daylight *Daylight) serialize(serialConfig *SerializationConfiguration) (string, error) {
-	b := &bytes.Buffer{}
+	b := &strings.Builder{}
 	err := daylight.ComponentBase.serializeThis(b, ComponentDaylight, serialConfig)
 	if err != nil {
 		return "", err
@@ -998,7 +997,7 @@ func (general *GeneralComponent) Serialize(serialConfig *SerializationConfigurat
 }
 
 func (general *GeneralComponent) serialize(serialConfig *SerializationConfiguration) (string, error) {
-	b := &bytes.Buffer{}
+	b := &strings.Builder{}
 	err := general.ComponentBase.serializeThis(b, ComponentType(general.Token), serialConfig)
 	if err != nil {
 		return "", err

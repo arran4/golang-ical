@@ -1,7 +1,6 @@
 package ics
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -166,8 +165,8 @@ func (bp *BaseProperty) GetValueType() ValueDataType {
 }
 
 func (bp *BaseProperty) serialize(w io.Writer, serialConfig *SerializationConfiguration) error {
-	b := bytes.NewBufferString("")
-	_, _ = fmt.Fprint(b, bp.IANAToken)
+	var b strings.Builder
+	b.WriteString(bp.IANAToken)
 
 	var keys []string
 	for k := range bp.ICalParameters {
@@ -176,28 +175,28 @@ func (bp *BaseProperty) serialize(w io.Writer, serialConfig *SerializationConfig
 	sort.Strings(keys)
 	for _, k := range keys {
 		vs := bp.ICalParameters[k]
-		_, _ = fmt.Fprint(b, ";")
-		_, _ = fmt.Fprint(b, k)
-		_, _ = fmt.Fprint(b, "=")
+		b.WriteByte(';')
+		b.WriteString(k)
+		b.WriteByte('=')
 		for vi, v := range vs {
 			if vi > 0 {
-				_, _ = fmt.Fprint(b, ",")
+				b.WriteByte(',')
 			}
 			if Parameter(k).IsQuoted() {
 				v = quotedValueString(v)
-				_, _ = fmt.Fprint(b, v)
+				b.WriteString(v)
 			} else {
 				v = escapeValueString(v)
-				_, _ = fmt.Fprint(b, v)
+				b.WriteString(v)
 			}
 		}
 	}
-	_, _ = fmt.Fprint(b, ":")
+	b.WriteByte(':')
 	propertyValue := bp.Value
 	if bp.GetValueType() == ValueDataTypeText {
 		propertyValue = ToText(propertyValue)
 	}
-	_, _ = fmt.Fprint(b, propertyValue)
+	b.WriteString(propertyValue)
 	r := b.String()
 	if len(r) > serialConfig.MaxLength {
 		l := trimUT8StringUpTo(serialConfig.MaxLength, r)

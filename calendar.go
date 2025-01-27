@@ -2,7 +2,6 @@ package ics
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -418,7 +417,7 @@ func NewCalendarFor(service string) *Calendar {
 }
 
 func (cal *Calendar) Serialize(ops ...any) string {
-	b := bytes.NewBufferString("")
+	b := &strings.Builder{}
 	// We are intentionally ignoring the return value. _ used to communicate this to lint.
 	_ = cal.SerializeTo(b, ops...)
 	return b.String()
