@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"embed"
 	_ "embed"
-	"github.com/google/go-cmp/cmp"
 	"io"
 	"io/fs"
 	"net/http"
@@ -15,7 +14,9 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -491,5 +492,18 @@ func TestIssue77(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("Error reading file: %s", err)
+	}
+}
+
+func BenchmarkSerialize(b *testing.B) {
+	calFile, err := TestData.Open("testdata/serialization/input2.ics")
+	require.NoError(b, err)
+
+	cal, err := ParseCalendar(calFile)
+	require.NoError(b, err)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cal.Serialize()
 	}
 }
