@@ -11,9 +11,9 @@ Usage, parsing:
 
 ```
 
-Usage, parsing from a URL :
+Usage, parsing from a URL:
 ```golang
-    cal, err := ParseCalendar("an-ics-url")
+    cal, err := ParseCalendarFromUrl("https://your-ics-url")
 ```
 
 Creating:
