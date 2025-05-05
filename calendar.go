@@ -528,7 +528,8 @@ func (cal *Calendar) SetDescription(s string, params ...PropertyParameter) {
 }
 
 func (cal *Calendar) SetLastModified(t time.Time, params ...PropertyParameter) {
-	cal.setProperty(PropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), params...)
+	layout, params := timestampFormatForTime(t, params)
+	cal.setProperty(PropertyLastModified, t.Format(layout), params...)
 }
 
 func (cal *Calendar) SetRefreshInterval(s string, params ...PropertyParameter) {
