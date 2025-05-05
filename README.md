@@ -5,6 +5,8 @@ A  ICS / ICal parser and serialiser for Golang.
 
 Because the other libraries didn't quite do what I needed.
 
+![icon.png](docs/icon.png)
+
 Usage, parsing:
 ```golang
     cal, err := ParseCalendar(strings.NewReader(input))
