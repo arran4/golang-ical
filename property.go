@@ -13,16 +13,33 @@ import (
 	"unicode/utf8"
 )
 
+// BaseProperty represents a single property as described in RFC 5545
+// section 3.1 "Content Lines".
+//
+// Each property is encoded on one content line consisting of an IANA token
+// (property name), optional parameters, a colon, and the property value.  For
+// example:
+//
+//	SUMMARY:Department Party
+//
+// In this case the token is "SUMMARY" and the value is "Department Party".
+// See https://www.rfc-editor.org/rfc/rfc5545#section-3.1 for the full
+// definition.
 type BaseProperty struct {
 	IANAToken      string
 	ICalParameters map[string][]string
 	Value          string
 }
 
+// PropertyParameter describes a parameter that may be attached to a property
+// when serializing.  Each implementation returns the parameter name and values
+// to include in the output.
 type PropertyParameter interface {
 	KeyValue(s ...interface{}) (string, []string)
 }
 
+// KeyValues implements PropertyParameter for arbitrary key/value pairs.
+// It is primarily used by helper constructors such as WithCN.
 type KeyValues struct {
 	Key   string
 	Value []string
@@ -32,6 +49,8 @@ func (kv *KeyValues) KeyValue(_ ...interface{}) (string, []string) {
 	return kv.Key, kv.Value
 }
 
+// WithCN returns a ParameterCn value holding the common name of a calendar
+// user as defined in RFC 5545 section 3.2.2.
 func WithCN(cn string) PropertyParameter {
 	return &KeyValues{
 		Key:   string(ParameterCn),
@@ -39,6 +58,8 @@ func WithCN(cn string) PropertyParameter {
 	}
 }
 
+// WithTZID sets the TZID parameter referencing a time zone identifier as
+// described in RFC 5545 section 3.2.19.
 func WithTZID(tzid string) PropertyParameter {
 	return &KeyValues{
 		Key:   string(ParameterTzid),
@@ -46,7 +67,10 @@ func WithTZID(tzid string) PropertyParameter {
 	}
 }
 
-// WithAlternativeRepresentation takes what must be a valid URI in quotation marks
+// WithAlternativeRepresentation constructs an ALTREP parameter pointing at an
+// alternate text representation.  RFC 5545 section 3.2.1 says:
+// "The ALTREP property parameter specifies an alternate text representation
+// for the property value."  The value MUST be a URI.
 func WithAlternativeRepresentation(uri *url.URL) PropertyParameter {
 	return &KeyValues{
 		Key:   string(ParameterAltrep),
@@ -54,6 +78,9 @@ func WithAlternativeRepresentation(uri *url.URL) PropertyParameter {
 	}
 }
 
+// WithEncoding sets the ENCODING parameter for an inline ATTACH property as
+// outlined in RFC 5545 section 3.2.7.  The value describes the content transfer
+// encoding used for the attachment.
 func WithEncoding(encType string) PropertyParameter {
 	return &KeyValues{
 		Key:   string(ParameterEncoding),
@@ -61,6 +88,8 @@ func WithEncoding(encType string) PropertyParameter {
 	}
 }
 
+// WithFmtType sets the FMTTYPE parameter which conveys the MIME type of an
+// inline attachment (RFC 5545 section 3.2.8).
 func WithFmtType(contentType string) PropertyParameter {
 	return &KeyValues{
 		Key:   string(ParameterFmttype),
@@ -68,6 +97,8 @@ func WithFmtType(contentType string) PropertyParameter {
 	}
 }
 
+// WithValue sets the VALUE parameter defining the data type for the property
+// (RFC 5545 section 3.2.20).
 func WithValue(kind string) PropertyParameter {
 	return &KeyValues{
 		Key:   string(ParameterValue),
@@ -75,6 +106,8 @@ func WithValue(kind string) PropertyParameter {
 	}
 }
 
+// WithRSVP sets the RSVP parameter which indicates whether a response is
+// requested (RFC 5545 section 3.2.17).
 func WithRSVP(b bool) PropertyParameter {
 	return &KeyValues{
 		Key:   string(ParameterRsvp),
@@ -281,8 +314,21 @@ func init() {
 	}
 }
 
+// ContentLine is a single iCalendar line including any parameters and value.
+// See RFC 5545 section 3.1 for the formal definition of "content lines".
+// Each line is terminated by CRLF and may be folded as described in the
+// specification.
 type ContentLine string
 
+// ParseProperty interprets a single content line according to RFC 5545
+// section 3.1.  A content line has the form:
+//
+//	name *(";" param) ":" value CRLF
+//
+// This function extracts the property name, its parameters and the value
+// component.  The implementation performs minimal validation so unknown
+// properties and parameters are preserved.  It returns a BaseProperty holding
+// the parsed results.
 func ParseProperty(contentLine ContentLine) (*BaseProperty, error) {
 	r := &BaseProperty{
 		ICalParameters: map[string][]string{},
@@ -358,6 +404,12 @@ func parsePropertyParam(r *BaseProperty, contentLine string, p int) (*BaseProper
 	}
 }
 
+// parsePropertyParamValue parses a single parameter value starting at position
+// p according to the quoting rules defined in RFC 5545 section 3.2.  Parameter
+// values may be surrounded by double quotes and use backslash escapes for
+// special characters.  The quoted-string grammar from the specification is
+// included below for reference.
+// See https://www.rfc-editor.org/rfc/rfc5545#section-3.2
 func parsePropertyParamValue(s string, p int) (string, int, error) {
 	/*
 	   quoted-string = DQUOTE *QSAFE-CHAR DQUOTE
@@ -444,9 +496,13 @@ var textEscaper = strings.NewReplacer(
 	`,`, `\,`,
 )
 
+// ToText escapes a string for use as a TEXT property value.  The escaping rules
+// follow RFC 5545 section 3.3.11 which states:
+// "The BACKSLASH character ("\\"), the SEMICOLON character (";"), the COMMA
+// character (","), and the NEWLINE character (either CRLF or LF) need to be
+// escaped with a preceding BACKSLASH character."  This helper performs that
+// transformation.
 func ToText(s string) string {
-	// Some special characters for iCalendar format should be escaped while
-	// setting a value of a property with a TEXT type.
 	return textEscaper.Replace(s)
 }
 
@@ -458,8 +514,8 @@ var textUnescaper = strings.NewReplacer(
 	`\,`, `,`,
 )
 
+// FromText reverses the escaping described in RFC 5545 section 3.3.11,
+// converting the encoded sequences back to their original characters.
 func FromText(s string) string {
-	// Some special characters for iCalendar format should be escaped while
-	// setting a value of a property with a TEXT type.
 	return textUnescaper.Replace(s)
 }
