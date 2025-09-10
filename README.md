@@ -1,43 +1,129 @@
 # golang-ical
-A  ICS / ICal parser and serialiser for Golang.
+A  ICS / iCalendar parser and serialiser for Golang.
 
 [![GoDoc](https://godoc.org/github.com/arran4/golang-ical?status.svg)](https://godoc.org/github.com/arran4/golang-ical)
 
 Because the other libraries didn't quite do what I needed.
 
-Usage, parsing:
-```golang
-    cal, err := ParseCalendar(strings.NewReader(input))
+## How to parse an iCalendar file
 
+```go
+f, err := os.Open("calendar.ics")
+if err != nil {
+    log.Fatal(err)
+}
+cal, err := ics.ParseCalendar(f)
+if err != nil {
+    log.Fatal(err)
+}
 ```
 
-Usage, parsing from a URL:
-```golang
-    cal, err := ParseCalendarFromUrl("https://your-ics-url")
+## How to parse from a URL
+
+```go
+cal, err := ics.ParseCalendarFromUrl("https://example.com/calendar.ics")
 ```
 
-Creating:
-```golang
-  cal := ics.NewCalendar()
-  cal.SetMethod(ics.MethodRequest)
-  event := cal.AddEvent(fmt.Sprintf("id@domain", p.SessionKey.IntID()))
-  event.SetCreatedTime(time.Now())
-  event.SetDtStampTime(time.Now())
-  event.SetModifiedAt(time.Now())
-  event.SetStartAt(time.Now())
-  event.SetEndAt(time.Now())
-  event.SetSummary("Summary")
-  event.SetLocation("Address")
-  event.SetDescription("Description")
-  event.SetURL("https://URL/")
-  event.AddRrule(fmt.Sprintf("FREQ=YEARLY;BYMONTH=%d;BYMONTHDAY=%d", time.Now().Month(), time.Now().Day()))
-  event.SetOrganizer("sender@domain", ics.WithCN("This Machine"))
-  event.AddAttendee("reciever or participant", ics.CalendarUserTypeIndividual, ics.ParticipationStatusNeedsAction, ics.ParticipationRoleReqParticipant, ics.WithRSVP(true))
-  return cal.Serialize()
+## How to read event details
+
+```go
+f, err := os.Open("calendar.ics")
+if err != nil {
+    log.Fatal(err)
+}
+cal, err := ics.ParseCalendar(f)
+if err != nil {
+    log.Fatal(err)
+}
+for _, evt := range cal.Events() {
+    sum := evt.GetProperty(ics.ComponentPropertySummary)
+    start, _ := evt.GetStartAt()
+    if sum != nil {
+        fmt.Printf("%s starts %s\n", sum.Value, start.Format(time.RFC3339))
+    }
+}
 ```
 
-Helper methods created as needed feel free to send a P.R. with more.
+## How to create a simple event
 
-# Notice
+```go
+cal := ics.NewCalendar()
+cal.SetProductId("-//My App//EN")
+event := cal.AddEvent("1234@example.com")
+event.SetDtStampTime(time.Now())
+event.SetSummary("Dinner")
+event.SetStartAt(time.Date(2024, 6, 1, 19, 0, 0, 0, time.UTC))
+event.SetEndAt(time.Date(2024, 6, 1, 20, 0, 0, 0, time.UTC))
+fmt.Print(cal.Serialize())
+```
 
-Looking for a co-maintainer.
+## How to add attendees and attachments
+
+```go
+event.SetOrganizer("organizer@example.com")
+event.AddAttendee("guest@example.com",
+    ics.CalendarUserTypeIndividual,
+    ics.ParticipationStatusAccepted,
+    ics.ParticipationRoleReqParticipant,
+)
+event.AddAttachmentURL("https://example.com/menu.pdf", "application/pdf")
+```
+
+## How to create a recurring event
+
+```go
+e := cal.AddEvent("weekly-meeting@example.com")
+e.SetSummary("Weekly Meeting")
+e.SetStartAt(time.Date(2024, 6, 3, 9, 0, 0, 0, time.UTC))
+e.SetEndAt(time.Date(2024, 6, 3, 10, 0, 0, 0, time.UTC))
+e.AddRrule("FREQ=WEEKLY;BYDAY=MO")
+e.AddExdate("20240701T090000Z")
+```
+## How to create a to-do item
+
+```go
+cal := ics.NewCalendar()
+cal.SetProductId("-//My App//EN")
+
+todo := cal.AddTodo("finish-report@example.com")
+todo.SetSummary("Finish quarterly report")
+todo.SetDueAt(time.Date(2024, 6, 5, 17, 0, 0, 0, time.UTC))
+todo.SetPercentComplete(50)
+todo.SetPriority(1)
+fmt.Print(cal.Serialize())
+```
+
+## How to add an alarm to an event
+
+```go
+e := cal.AddEvent("dentist@example.com")
+e.SetSummary("Dentist Appointment")
+e.SetStartAt(time.Date(2024, 6, 10, 15, 30, 0, 0, time.UTC))
+e.SetEndAt(time.Date(2024, 6, 10, 16, 0, 0, 0, time.UTC))
+
+alarm := e.AddAlarm()
+alarm.SetAction(ics.ActionDisplay)
+alarm.SetDescription("Time for your appointment")
+alarm.SetTrigger("-PT15M")
+```
+
+## How to specify timezone information
+
+```go
+tz := cal.AddTimezone("America/New_York")
+std := tz.AddStandard()
+std.AddProperty(ics.ComponentProperty(ics.PropertyTzoffsetto), "-0500")
+std.AddProperty(ics.ComponentProperty(ics.PropertyTzoffsetfrom), "-0400")
+std.AddProperty(ics.ComponentProperty(ics.PropertyDtstart), "19701101T020000")
+
+dst := &ics.Daylight{}
+dst.AddProperty(ics.ComponentProperty(ics.PropertyTzoffsetto), "-0400")
+dst.AddProperty(ics.ComponentProperty(ics.PropertyTzoffsetfrom), "-0500")
+dst.AddProperty(ics.ComponentProperty(ics.PropertyDtstart), "19700308T020000")
+tz.Components = append(tz.Components, dst)
+```
+
+
+## Example programs
+
+More complete programs can be found in the `examples` directory.
