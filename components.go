@@ -430,6 +430,17 @@ func (cb *ComponentBase) AddRrule(s string, params ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) AddAttachment(s string, params ...PropertyParameter) {
+	hasValue := false
+	for _, p := range params {
+		k, _ := p.KeyValue()
+		if k == string(ParameterValue) {
+			hasValue = true
+			break
+		}
+	}
+	if !hasValue {
+		params = append(params, WithValue(string(ValueDataTypeUri)))
+	}
 	cb.AddProperty(ComponentPropertyAttach, s, params...)
 }
 
