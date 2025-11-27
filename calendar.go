@@ -753,7 +753,7 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 					c.Components = append(c.Components, co)
 				}
 			default:
-				return nil, errors.New("malformed calendar; expected begin or end")
+				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
 			}
 		case "end":
 			return nil, errors.New("malformed calendar; unexpected end")
