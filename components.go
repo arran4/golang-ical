@@ -377,6 +377,18 @@ func (cb *ComponentBase) setGeo(lat interface{}, lng interface{}, params ...Prop
 	cb.SetProperty(ComponentPropertyGeo, fmt.Sprintf("%v;%v", lat, lng), params...)
 }
 
+type GeoType interface {
+	~float32 | ~float64 | ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~string
+}
+
+type SetPropertyOwner interface {
+	SetProperty(property ComponentProperty, value string, params ...PropertyParameter)
+}
+
+func SetGeo[T GeoType](c SetPropertyOwner, lat T, lng T, params ...PropertyParameter) {
+	c.SetProperty(ComponentPropertyGeo, fmt.Sprintf("%v;%v", lat, lng), params...)
+}
+
 func (cb *ComponentBase) SetURL(s string, params ...PropertyParameter) {
 	cb.SetProperty(ComponentPropertyUrl, s, params...)
 }
@@ -560,7 +572,8 @@ func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) 
 	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
-// TODO use generics
+// SetGeo sets the geo property
+// Deprecated: use ics.SetGeo instead
 func (event *VEvent) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
 	event.setGeo(lat, lng, params...)
 }
@@ -672,6 +685,8 @@ func (todo *VTodo) SetPercentComplete(p int, params ...PropertyParameter) {
 	todo.SetProperty(ComponentPropertyPercentComplete, strconv.Itoa(p), params...)
 }
 
+// SetGeo sets the geo property
+// Deprecated: use ics.SetGeo instead
 func (todo *VTodo) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
 	todo.setGeo(lat, lng, params...)
 }
