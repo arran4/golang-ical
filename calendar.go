@@ -728,7 +728,9 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 				}
 			case "BEGIN":
 				state = "components"
-			default: // TODO put in all the supported types for type switching etc.
+			case "CALSCALE", "METHOD", "PRODID", "VERSION", "NAME", "X-WR-CALNAME", "X-WR-CALDESC", "X-WR-TIMEZONE", "X-WR-RELCALID", "X-PUBLISHED-TTL", "REFRESH-INTERVAL", "COLOR", "DESCRIPTION", "LAST-MODIFIED", "URL", "TZID", "TIMEZONE-ID", "SOURCE":
+				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
+			default:
 				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
 			}
 			if state != "components" {
