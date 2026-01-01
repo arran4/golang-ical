@@ -377,18 +377,6 @@ func (cb *ComponentBase) setGeo(lat interface{}, lng interface{}, params ...Prop
 	cb.SetProperty(ComponentPropertyGeo, fmt.Sprintf("%v;%v", lat, lng), params...)
 }
 
-type GeoType interface {
-	~float32 | ~float64 | ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~string
-}
-
-type SetPropertyOwner interface {
-	SetProperty(property ComponentProperty, value string, params ...PropertyParameter)
-}
-
-func SetGeo[T GeoType](c SetPropertyOwner, lat T, lng T, params ...PropertyParameter) {
-	c.SetProperty(ComponentPropertyGeo, fmt.Sprintf("%v;%v", lat, lng), params...)
-}
-
 func (cb *ComponentBase) SetURL(s string, params ...PropertyParameter) {
 	cb.SetProperty(ComponentPropertyUrl, s, params...)
 }
@@ -572,7 +560,7 @@ func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) 
 	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
-// SetGeo sets the geo property
+// TODO use generics
 func (event *VEvent) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
 	event.setGeo(lat, lng, params...)
 }
@@ -684,7 +672,6 @@ func (todo *VTodo) SetPercentComplete(p int, params ...PropertyParameter) {
 	todo.SetProperty(ComponentPropertyPercentComplete, strconv.Itoa(p), params...)
 }
 
-// SetGeo sets the geo property
 func (todo *VTodo) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
 	todo.setGeo(lat, lng, params...)
 }
@@ -1234,22 +1221,7 @@ func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase,
 			if co != nil {
 				cb.Components = append(cb.Components, co)
 			}
-		case string(ComponentPropertyUniqueId), string(ComponentPropertyDtstamp), string(ComponentPropertyOrganizer),
-			string(ComponentPropertyAttendee), string(ComponentPropertyAttach), string(ComponentPropertyDescription),
-			string(ComponentPropertyCategories), string(ComponentPropertyClass), string(ComponentPropertyColor),
-			string(ComponentPropertyCreated), string(ComponentPropertySummary), string(ComponentPropertyDtStart),
-			string(ComponentPropertyDtEnd), string(ComponentPropertyLocation), string(ComponentPropertyStatus),
-			string(ComponentPropertyFreebusy), string(ComponentPropertyLastModified), string(ComponentPropertyUrl),
-			string(ComponentPropertyGeo), string(ComponentPropertyTransp), string(ComponentPropertySequence),
-			string(ComponentPropertyExdate), string(ComponentPropertyExrule), string(ComponentPropertyRdate),
-			string(ComponentPropertyRrule), string(ComponentPropertyAction), string(ComponentPropertyTrigger),
-			string(ComponentPropertyPriority), string(ComponentPropertyResources), string(ComponentPropertyCompleted),
-			string(ComponentPropertyDue), string(ComponentPropertyPercentComplete), string(ComponentPropertyTzid),
-			string(ComponentPropertyComment), string(ComponentPropertyRelatedTo), string(ComponentPropertyMethod),
-			string(ComponentPropertyRecurrenceId), string(ComponentPropertyDuration), string(ComponentPropertyContact),
-			string(ComponentPropertyRequestStatus):
-			cb.Properties = append(cb.Properties, IANAProperty{*line})
-		default:
+		default: // TODO put in all the supported types for type switching etc.
 			cb.Properties = append(cb.Properties, IANAProperty{*line})
 		}
 	}

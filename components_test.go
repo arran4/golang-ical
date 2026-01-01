@@ -60,61 +60,6 @@ END:VEVENT
 	}
 }
 
-func TestSetGeo(t *testing.T) {
-	testCases := []struct {
-		name     string
-		lat      interface{}
-		lng      interface{}
-		expected string
-	}{
-		{
-			name:     "float",
-			lat:      1.23,
-			lng:      4.56,
-			expected: "1.23;4.56",
-		},
-		{
-			name:     "int",
-			lat:      1,
-			lng:      2,
-			expected: "1;2",
-		},
-		{
-			name:     "string",
-			lat:      "1.234",
-			lng:      "4.567",
-			expected: "1.234;4.567",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			e := NewEvent("test-geo")
-
-			switch lat := tc.lat.(type) {
-			case float64:
-				SetGeo(e, lat, tc.lng.(float64))
-			case int:
-				SetGeo(e, lat, tc.lng.(int))
-			case string:
-				SetGeo(e, lat, tc.lng.(string))
-			}
-
-			prop := e.GetProperty(ComponentPropertyGeo)
-			assert.NotNil(t, prop)
-			assert.Equal(t, tc.expected, prop.Value)
-		})
-	}
-
-	t.Run("legacy", func(t *testing.T) {
-		e := NewEvent("test-geo-legacy")
-		e.SetGeo(1.23, 4.56)
-		prop := e.GetProperty(ComponentPropertyGeo)
-		assert.NotNil(t, prop)
-		assert.Equal(t, "1.23;4.56", prop.Value)
-	})
-}
-
 func TestSetAllDay(t *testing.T) {
 	date, _ := time.Parse(time.RFC822, time.RFC822)
 
