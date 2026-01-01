@@ -1234,7 +1234,22 @@ func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase,
 			if co != nil {
 				cb.Components = append(cb.Components, co)
 			}
-		default: // TODO put in all the supported types for type switching etc.
+		case string(ComponentPropertyUniqueId), string(ComponentPropertyDtstamp), string(ComponentPropertyOrganizer),
+			string(ComponentPropertyAttendee), string(ComponentPropertyAttach), string(ComponentPropertyDescription),
+			string(ComponentPropertyCategories), string(ComponentPropertyClass), string(ComponentPropertyColor),
+			string(ComponentPropertyCreated), string(ComponentPropertySummary), string(ComponentPropertyDtStart),
+			string(ComponentPropertyDtEnd), string(ComponentPropertyLocation), string(ComponentPropertyStatus),
+			string(ComponentPropertyFreebusy), string(ComponentPropertyLastModified), string(ComponentPropertyUrl),
+			string(ComponentPropertyGeo), string(ComponentPropertyTransp), string(ComponentPropertySequence),
+			string(ComponentPropertyExdate), string(ComponentPropertyExrule), string(ComponentPropertyRdate),
+			string(ComponentPropertyRrule), string(ComponentPropertyAction), string(ComponentPropertyTrigger),
+			string(ComponentPropertyPriority), string(ComponentPropertyResources), string(ComponentPropertyCompleted),
+			string(ComponentPropertyDue), string(ComponentPropertyPercentComplete), string(ComponentPropertyTzid),
+			string(ComponentPropertyComment), string(ComponentPropertyRelatedTo), string(ComponentPropertyMethod),
+			string(ComponentPropertyRecurrenceId), string(ComponentPropertyDuration), string(ComponentPropertyContact),
+			string(ComponentPropertyRequestStatus):
+			cb.Properties = append(cb.Properties, IANAProperty{*line})
+		default:
 			cb.Properties = append(cb.Properties, IANAProperty{*line})
 		}
 	}
