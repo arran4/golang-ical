@@ -679,7 +679,42 @@ func parseCalendarFromHttpRequest(client HttpClientLike, request *http.Request) 
 	return cal, err
 }
 
+// ParseOption provides functional options for ParseCalendar
+type ParseOption func(*parseConfig) error
+
+type parseConfig struct {
+	allowPropertiesAfterComponents bool
+}
+
+// WithRelaxedParsing allows properties to appear after components have started,
+// which is technically non-compliant with RFC 5545 but occurs in real-world files
+func WithRelaxedParsing() ParseOption {
+	return func(cfg *parseConfig) error {
+		cfg.allowPropertiesAfterComponents = true
+		return nil
+	}
+}
+
 func ParseCalendar(r io.Reader) (*Calendar, error) {
+	// Default behavior maintains backward compatibility (strict mode)
+	return ParseCalendarWithOptions(r)
+}
+
+func ParseCalendarWithOptions(r io.Reader, options ...ParseOption) (*Calendar, error) {
+	cfg := &parseConfig{
+		allowPropertiesAfterComponents: false, // default to strict RFC compliance
+	}
+
+	for _, opt := range options {
+		if err := opt(cfg); err != nil {
+			return nil, fmt.Errorf("invalid parse option: %w", err)
+		}
+	}
+
+	return parseCalendarInternal(r, cfg)
+}
+
+func parseCalendarInternal(r io.Reader, cfg *parseConfig) (*Calendar, error) {
 	state := "begin"
 	c := &Calendar{}
 	cs := NewCalendarStream(r)
@@ -753,7 +788,13 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 					c.Components = append(c.Components, co)
 				}
 			default:
-				return nil, errors.New("malformed calendar; expected begin or end")
+				if cfg.allowPropertiesAfterComponents {
+					// Allow properties between components (non-standard but occurs in real-world ICS files)
+					// These properties are added to the calendar properties list
+					c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
+				} else {
+					return nil, errors.New("malformed calendar; expected begin or end")
+				}
 			}
 		case "end":
 			return nil, errors.New("malformed calendar; unexpected end")

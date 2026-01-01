@@ -284,9 +284,10 @@ END:VCALENDAR
 
 func TestParseCalendar(t *testing.T) {
 	testCases := []struct {
-		name   string
-		input  string
-		output string
+		name        string
+		input       string
+		output      string
+		parseOptions []ParseOption // Add options field
 	}{
 		{
 			name: "test custom fields in calendar",
@@ -381,11 +382,57 @@ END:VEVENT
 END:VCALENDAR
 `,
 		},
+		{
+			name: "test properties after components",
+			input: `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTIMEZONE
+TZID:Europe/London
+BEGIN:STANDARD
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0000
+DTSTART:19701025T020000
+END:STANDARD
+END:VTIMEZONE
+TIMEZONE-ID:VT
+X-WR-TIMEZONE:VT
+BEGIN:VEVENT
+DTSTART:20230101T120000Z
+SUMMARY:Test Event
+END:VEVENT
+END:VCALENDAR
+`,
+			parseOptions: []ParseOption{WithRelaxedParsing()}, // Use relaxed parsing for this test
+			output: `BEGIN:VCALENDAR
+VERSION:2.0
+TIMEZONE-ID:VT
+X-WR-TIMEZONE:VT
+BEGIN:VTIMEZONE
+TZID:Europe/London
+BEGIN:STANDARD
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0000
+DTSTART:19701025T020000
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART:20230101T120000Z
+SUMMARY:Test Event
+END:VEVENT
+END:VCALENDAR
+`,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			c, err := ParseCalendar(strings.NewReader(tc.input))
+			var c *Calendar
+			var err error
+			if len(tc.parseOptions) > 0 {
+				c, err = ParseCalendarWithOptions(strings.NewReader(tc.input), tc.parseOptions...)
+			} else {
+				c, err = ParseCalendar(strings.NewReader(tc.input))
+			}
 			if !assert.NoError(t, err) {
 				return
 			}
