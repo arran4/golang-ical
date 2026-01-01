@@ -232,6 +232,7 @@ const (
 	PropertySequence        Property = "SEQUENCE"
 	PropertyXWRCalID        Property = "X-WR-RELCALID"
 	PropertyTimezoneId      Property = "TIMEZONE-ID"
+	PropertySource          Property = "SOURCE"
 )
 
 type Parameter string
@@ -728,7 +729,9 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 				}
 			case "BEGIN":
 				state = "components"
-			default: // TODO put in all the supported types for type switching etc.
+			case string(PropertyCalscale), string(PropertyMethod), string(PropertyProductId), string(PropertyVersion), string(PropertyName), string(PropertyXWRCalName), string(PropertyXWRCalDesc), string(PropertyXWRTimezone), string(PropertyXWRCalID), string(PropertyXPublishedTTL), string(PropertyRefreshInterval), string(PropertyColor), string(PropertyDescription), string(PropertyLastModified), string(PropertyUrl), string(PropertyTzid), string(PropertyTimezoneId), string(PropertySource):
+				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
+			default:
 				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
 			}
 			if state != "components" {
