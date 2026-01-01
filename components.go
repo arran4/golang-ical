@@ -573,7 +573,6 @@ func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) 
 }
 
 // SetGeo sets the geo property
-// Deprecated: use ics.SetGeo instead
 func (event *VEvent) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
 	event.setGeo(lat, lng, params...)
 }
@@ -686,7 +685,6 @@ func (todo *VTodo) SetPercentComplete(p int, params ...PropertyParameter) {
 }
 
 // SetGeo sets the geo property
-// Deprecated: use ics.SetGeo instead
 func (todo *VTodo) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
 	todo.setGeo(lat, lng, params...)
 }
