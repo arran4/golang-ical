@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -269,11 +270,28 @@ func (cb *ComponentBase) SetDuration(d time.Duration) error {
 	return errors.New("start or end not yet defined")
 }
 
-func (cb *ComponentBase) GetEndAt() (time.Time, error) {
-	return cb.getTimeProp(ComponentPropertyDtEnd, false)
+// GetEndAt gets the date and time that the component finishes at, must not be an all day event.
+// Warning: by default uses "Local" timezone -- To overwrite it, supply the desired timezone as one of the optional arguments. Ie, GetEndAt(time.UTC)
+// If you have a property that specifies a timezone then that is used instead.
+func (cb *ComponentBase) GetEndAt(ops ...any) (time.Time, error) {
+	return cb.getTimeProp(ComponentPropertyDtEnd, false, ops...)
 }
 
-func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
+// getTimeProp extracts a date and (optionally if not expectAllDay) time from the specified property.
+// Warning: by default uses "Local" timezone -- To overwrite it, supply the desired timezone as one of the optional arguments. Ie, getTimeProp(..., time.UTC)
+// If you have a property that specifies a timezone then that is used instead.
+func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expectAllDay bool, ops ...any) (time.Time, error) {
+	fallBackTimezone := time.Local
+	for opi, op := range ops {
+		switch op := op.(type) {
+		case time.Location:
+			fallBackTimezone = &op
+		case *time.Location:
+			fallBackTimezone = op
+		default:
+			return time.Time{}, fmt.Errorf("%w: option %d: %s", ErrorUnsupportedOptionalArgument, opi, reflect.TypeOf(op))
+		}
+	}
 	timeProp := cb.GetProperty(componentProperty)
 	if timeProp == nil {
 		return time.Time{}, fmt.Errorf("%w: %s", ErrorPropertyNotFound, componentProperty)
@@ -309,7 +327,7 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 				return time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
 			} else {
 				if propLoc == nil {
-					return time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
+					return time.ParseInLocation(icalDateFormatLocal, dateStr, fallBackTimezone)
 				} else {
 					return time.ParseInLocation(icalDateFormatLocal, dateStr, propLoc)
 				}
@@ -324,7 +342,7 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 		return time.ParseInLocation(icalTimestampFormatUtc, timeVal, time.UTC)
 	case grp1len > 0 && grp3len > 0 && tOrZGrp == "T" && zGrp == "":
 		if propLoc == nil {
-			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, time.Local)
+			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, fallBackTimezone)
 		} else {
 			return time.ParseInLocation(icalTimestampFormatLocal, timeVal, propLoc)
 		}
@@ -332,7 +350,7 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 		return time.ParseInLocation(icalDateFormatUtc, dateStr+"Z", time.UTC)
 	case grp1len > 0 && grp3len == 0 && tOrZGrp == "" && zGrp == "":
 		if propLoc == nil {
-			return time.ParseInLocation(icalDateFormatLocal, dateStr, time.Local)
+			return time.ParseInLocation(icalDateFormatLocal, dateStr, fallBackTimezone)
 		} else {
 			return time.ParseInLocation(icalDateFormatLocal, dateStr, propLoc)
 		}
@@ -341,20 +359,32 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 	return time.Time{}, fmt.Errorf("time value matched but not supported, got '%s'", timeVal)
 }
 
-func (cb *ComponentBase) GetStartAt() (time.Time, error) {
-	return cb.getTimeProp(ComponentPropertyDtStart, false)
+// GetStartAt Gets the time an event starts at, must not be an all day event
+// Warning: by default uses "Local" timezone -- To overwrite it, supply the desired timezone as one of the optional arguments. Ie, GetStartAt(time.UTC)
+// If you have a property that specifies a timezone then that is used instead.
+func (cb *ComponentBase) GetStartAt(ops ...any) (time.Time, error) {
+	return cb.getTimeProp(ComponentPropertyDtStart, false, ops...)
 }
 
-func (cb *ComponentBase) GetAllDayStartAt() (time.Time, error) {
-	return cb.getTimeProp(ComponentPropertyDtStart, true)
+// GetAllDayStartAt gets the start date (in time.Time) of an all day event. Must not have a "time" associated with it.
+// Warning: by default uses "Local" timezone -- To overwrite it, supply the desired timezone as one of the optional arguments. Ie, GetAllDayStartAt(time.UTC)
+// If you have a property that specifies a timezone then that is used instead.
+func (cb *ComponentBase) GetAllDayStartAt(ops ...any) (time.Time, error) {
+	return cb.getTimeProp(ComponentPropertyDtStart, true, ops...)
 }
 
-func (cb *ComponentBase) GetLastModifiedAt() (time.Time, error) {
-	return cb.getTimeProp(ComponentPropertyLastModified, false)
+// GetLastModifiedAt parses and returns the last modified date and time in time.Time format.
+// Warning: by default uses "Local" timezone -- To overwrite it, supply the desired timezone as one of the optional arguments. Ie, GetLastModifiedAt(time.UTC)
+// If you have a property that specifies a timezone then that is used instead.
+func (cb *ComponentBase) GetLastModifiedAt(ops ...any) (time.Time, error) {
+	return cb.getTimeProp(ComponentPropertyLastModified, false, ops...)
 }
 
-func (cb *ComponentBase) GetDtStampTime() (time.Time, error) {
-	return cb.getTimeProp(ComponentPropertyDtstamp, false)
+// GetDtStampTime gets the Dtstamp time date in time.Time format for a property
+// Warning: by default uses "Local" timezone -- To overwrite it, supply the desired timezone as one of the optional arguments. Ie, GetDtStampTime(time.UTC)
+// If you have a property that specifies a timezone then that is used instead.
+func (cb *ComponentBase) GetDtStampTime(ops ...any) (time.Time, error) {
+	return cb.getTimeProp(ComponentPropertyDtstamp, false, ops...)
 }
 
 func (cb *ComponentBase) SetSummary(s string, params ...PropertyParameter) {
@@ -597,8 +627,11 @@ func (event *VEvent) Alarms() []*VAlarm {
 	return event.alarms()
 }
 
-func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
-	return event.getTimeProp(ComponentPropertyDtEnd, true)
+// GetAllDayEndAt gets the end date (in time.Time) of an all day event. Must not have a "time" associated with it.
+// Warning: by default uses "Local" timezone -- To overwrite it, supply the desired timezone as one of the optional arguments. Ie, GetAllDayEndAt(time.UTC)
+// If you have a property that specifies a timezone then that is used instead.
+func (event *VEvent) GetAllDayEndAt(ops ...any) (time.Time, error) {
+	return event.getTimeProp(ComponentPropertyDtEnd, true, ops...)
 }
 
 type TimeTransparency string
@@ -729,12 +762,18 @@ func (todo *VTodo) Alarms() []*VAlarm {
 	return todo.alarms()
 }
 
-func (todo *VTodo) GetDueAt() (time.Time, error) {
-	return todo.getTimeProp(ComponentPropertyDue, false)
+// GetDueAt parses and returns the date and time of a due date for a todo
+// Warning: by default uses "Local" timezone -- To overwrite it, supply the desired timezone as one of the optional arguments. Ie, GetDueAt(time.UTC)
+// If you have a property that specifies a timezone then that is used instead.
+func (todo *VTodo) GetDueAt(ops ...any) (time.Time, error) {
+	return todo.getTimeProp(ComponentPropertyDue, false, ops...)
 }
 
-func (todo *VTodo) GetAllDayDueAt() (time.Time, error) {
-	return todo.getTimeProp(ComponentPropertyDue, true)
+// GetAllDayDueAt gets the due date (in time.Time) of an vtodo. Must not have a "time" associated with it.
+// Warning: by default uses "Local" timezone -- To overwrite it, supply the desired timezone as one of the optional arguments. Ie, GetAllDayDueAt(time.UTC)
+// If you have a property that specifies a timezone then that is used instead.
+func (todo *VTodo) GetAllDayDueAt(ops ...any) (time.Time, error) {
+	return todo.getTimeProp(ComponentPropertyDue, true, ops...)
 }
 
 type VJournal struct {

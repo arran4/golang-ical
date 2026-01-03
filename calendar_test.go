@@ -89,7 +89,7 @@ func TestTimeParsing(t *testing.T) {
 		},
 	}
 
-	assertTime := func(evtUid string, exp time.Time, timeFunc func() (given time.Time, err error)) {
+	assertTime := func(evtUid string, exp time.Time, timeFunc func(ops ...any) (given time.Time, err error)) {
 		given, err := timeFunc()
 		if err == nil {
 			if !exp.Equal(given) {
