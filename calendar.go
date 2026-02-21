@@ -398,8 +398,9 @@ type CalendarProperty struct {
 }
 
 type Calendar struct {
-	Components         []Component
-	CalendarProperties []CalendarProperty
+	Components                     []Component
+	CalendarProperties             []CalendarProperty
+	unknownCalendarPropertyHandler func(cal *Calendar, state string, cl *BaseProperty) error
 }
 
 func NewCalendar() *Calendar {
@@ -680,17 +681,12 @@ func parseCalendarFromHttpRequest(client HttpClientLike, request *http.Request) 
 }
 
 // ParseOption provides functional options for ParseCalendar
-type ParseOption func(*parseConfig) error
+type ParseOption func(*Calendar) error
 
-type parseConfig struct {
-	allowPropertiesAfterComponents bool
-}
-
-// WithRelaxedParsing allows properties to appear after components have started,
-// which is technically non-compliant with RFC 5545 but occurs in real-world files
-func WithRelaxedParsing() ParseOption {
-	return func(cfg *parseConfig) error {
-		cfg.allowPropertiesAfterComponents = true
+// WithUnknownPropertyHandler allows custom handling of unknown properties
+func WithUnknownPropertyHandler(f func(*Calendar, string, *BaseProperty) error) ParseOption {
+	return func(c *Calendar) error {
+		c.unknownCalendarPropertyHandler = f
 		return nil
 	}
 }
@@ -700,23 +696,21 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 	return ParseCalendarWithOptions(r)
 }
 
-func ParseCalendarWithOptions(r io.Reader, options ...ParseOption) (*Calendar, error) {
-	cfg := &parseConfig{
-		allowPropertiesAfterComponents: false, // default to strict RFC compliance
+func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
+	state := "begin"
+	c := &Calendar{
+		unknownCalendarPropertyHandler: DefaultUnknownCalendarPropertyHandler,
 	}
-
 	for _, opt := range options {
-		if err := opt(cfg); err != nil {
-			return nil, fmt.Errorf("invalid parse option: %w", err)
+		switch opt := opt.(type) {
+		case ParseOption:
+			if err := opt(c); err != nil {
+				return nil, fmt.Errorf("invalid parse option: %w", err)
+			}
+		default:
+			return nil, fmt.Errorf("invalid parse option type: %T", opt)
 		}
 	}
-
-	return parseCalendarInternal(r, cfg)
-}
-
-func parseCalendarInternal(r io.Reader, cfg *parseConfig) (*Calendar, error) {
-	state := "begin"
-	c := &Calendar{}
 	cs := NewCalendarStream(r)
 	cont := true
 	for ln := 0; cont; ln++ {
@@ -788,12 +782,8 @@ func parseCalendarInternal(r io.Reader, cfg *parseConfig) (*Calendar, error) {
 					c.Components = append(c.Components, co)
 				}
 			default:
-				if cfg.allowPropertiesAfterComponents {
-					// Allow properties between components (non-standard but occurs in real-world ICS files)
-					// These properties are added to the calendar properties list
-					c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
-				} else {
-					return nil, errors.New("malformed calendar; expected begin or end")
+				if err := c.unknownCalendarPropertyHandler(c, state, line); err != nil {
+					return nil, err
 				}
 			}
 		case "end":
@@ -803,6 +793,22 @@ func parseCalendarInternal(r io.Reader, cfg *parseConfig) (*Calendar, error) {
 		}
 	}
 	return c, nil
+}
+
+// AcceptUnknownPropertyHandler allows properties between components (non-standard but occurs in real-world ICS files)
+// These properties are added to the calendar properties list
+func AcceptUnknownPropertyHandler(cal *Calendar, state string, cl *BaseProperty) error {
+	switch state {
+	case "components":
+		cal.CalendarProperties = append(cal.CalendarProperties, CalendarProperty{*cl})
+		return nil
+	default:
+		return DefaultUnknownCalendarPropertyHandler(cal, state, cl)
+	}
+}
+
+func DefaultUnknownCalendarPropertyHandler(cal *Calendar, state string, cl *BaseProperty) error {
+	return errors.New("malformed calendar; expected begin or end")
 }
 
 type CalendarStream struct {
