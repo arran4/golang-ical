@@ -398,8 +398,9 @@ type CalendarProperty struct {
 }
 
 type Calendar struct {
-	Components         []Component
-	CalendarProperties []CalendarProperty
+	Components                     []Component
+	CalendarProperties             []CalendarProperty
+	unknownCalendarPropertyHandler func(cal *Calendar, state string, cl *BaseProperty) error
 }
 
 func NewCalendar() *Calendar {
@@ -679,9 +680,37 @@ func parseCalendarFromHttpRequest(client HttpClientLike, request *http.Request) 
 	return cal, err
 }
 
+// ParseOption provides functional options for ParseCalendar
+type ParseOption func(*Calendar) error
+
+// WithUnknownPropertyHandler allows custom handling of unknown properties
+func WithUnknownPropertyHandler(f func(*Calendar, string, *BaseProperty) error) ParseOption {
+	return func(c *Calendar) error {
+		c.unknownCalendarPropertyHandler = f
+		return nil
+	}
+}
+
 func ParseCalendar(r io.Reader) (*Calendar, error) {
+	// Default behavior maintains backward compatibility (strict mode)
+	return ParseCalendarWithOptions(r)
+}
+
+func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 	state := "begin"
-	c := &Calendar{}
+	c := &Calendar{
+		unknownCalendarPropertyHandler: DefaultUnknownCalendarPropertyHandler,
+	}
+	for _, opt := range options {
+		switch opt := opt.(type) {
+		case ParseOption:
+			if err := opt(c); err != nil {
+				return nil, fmt.Errorf("invalid parse option: %w", err)
+			}
+		default:
+			return nil, fmt.Errorf("invalid parse option type: %T", opt)
+		}
+	}
 	cs := NewCalendarStream(r)
 	cont := true
 	for ln := 0; cont; ln++ {
@@ -753,7 +782,9 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 					c.Components = append(c.Components, co)
 				}
 			default:
-				return nil, errors.New("malformed calendar; expected begin or end")
+				if err := c.unknownCalendarPropertyHandler(c, state, line); err != nil {
+					return nil, err
+				}
 			}
 		case "end":
 			return nil, errors.New("malformed calendar; unexpected end")
@@ -762,6 +793,22 @@ func ParseCalendar(r io.Reader) (*Calendar, error) {
 		}
 	}
 	return c, nil
+}
+
+// AcceptUnknownPropertyHandler allows properties between components (non-standard but occurs in real-world ICS files)
+// These properties are added to the calendar properties list
+func AcceptUnknownPropertyHandler(cal *Calendar, state string, cl *BaseProperty) error {
+	switch state {
+	case "components":
+		cal.CalendarProperties = append(cal.CalendarProperties, CalendarProperty{*cl})
+		return nil
+	default:
+		return DefaultUnknownCalendarPropertyHandler(cal, state, cl)
+	}
+}
+
+func DefaultUnknownCalendarPropertyHandler(cal *Calendar, state string, cl *BaseProperty) error {
+	return errors.New("malformed calendar; expected begin or end")
 }
 
 type CalendarStream struct {
