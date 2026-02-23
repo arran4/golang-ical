@@ -89,7 +89,7 @@ func TestTimeParsing(t *testing.T) {
 		},
 	}
 
-	assertTime := func(evtUid string, exp time.Time, timeFunc func() (given time.Time, err error)) {
+	assertTime := func(t *testing.T, evtUid string, exp time.Time, timeFunc func() (given time.Time, err error)) {
 		given, err := timeFunc()
 		if err == nil {
 			if !exp.Equal(given) {
@@ -105,17 +105,17 @@ func TestTimeParsing(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.uid, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			evt, ok := eventMap[tt.uid]
 			if !ok {
 				t.Errorf("Test %#v, event UID not found, %s", tt.name, tt.uid)
 				return
 			}
 
-			assertTime(tt.uid, tt.start, evt.GetStartAt)
-			assertTime(tt.uid, tt.end, evt.GetEndAt)
-			assertTime(tt.uid, tt.allDayStart, evt.GetAllDayStartAt)
-			assertTime(tt.uid, tt.allDayEnd, evt.GetAllDayEndAt)
+			assertTime(t, tt.uid, tt.start, evt.GetStartAt)
+			assertTime(t, tt.uid, tt.end, evt.GetEndAt)
+			assertTime(t, tt.uid, tt.allDayStart, evt.GetAllDayStartAt)
+			assertTime(t, tt.uid, tt.allDayEnd, evt.GetAllDayEndAt)
 		})
 	}
 }
