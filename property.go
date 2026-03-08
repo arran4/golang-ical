@@ -164,7 +164,7 @@ func (bp *BaseProperty) GetValueType() ValueDataType {
 	}
 }
 
-func (bp *BaseProperty) serialize(w io.Writer, serialConfig *SerializationConfiguration) error {
+func (bp *BaseProperty) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
 	var b strings.Builder
 	b.WriteString(bp.IANAToken)
 
