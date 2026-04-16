@@ -430,12 +430,12 @@ func (cb *ComponentBase) getMultiTimeProp(prop ComponentProperty) ([]time.Time, 
 			}
 			// RFC 5545 §3.3.9: RDATE (and EXDATE) may use PERIOD values of the
 			// form "start/end" or "start/duration". Extract the start time.
-			if idx := strings.Index(v, "/"); idx != -1 {
-				v = v[:idx]
-			}
+			token := v
+			v, _, _ = strings.Cut(v, "/")
+			v = strings.TrimSpace(v)
 			t, err := parseTimeValue(v, p.ICalParameters, isDateOnly)
 			if err != nil {
-				return nil, fmt.Errorf("parsing %s value %q: %w", prop, v, err)
+				return nil, fmt.Errorf("parsing %s value %q: %w", prop, token, err)
 			}
 			times = append(times, t)
 		}

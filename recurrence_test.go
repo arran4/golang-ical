@@ -437,6 +437,32 @@ END:VCALENDAR`
 		"want 2023-01-19T16:30:00Z, got %v", dates[0])
 }
 
+// TestGetRDatesPeriodSpacesAroundSlash verifies that malformed PERIOD values with
+// spaces around the "/" separator (e.g. "start / end") are handled correctly.
+func TestGetRDatesPeriodSpacesAroundSlash(t *testing.T) {
+	ical := `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:test-rdate-period-spaces
+DTSTART:20230119T163000Z
+DTEND:20230119T180000Z
+RDATE;VALUE=PERIOD:20230119T163000Z / 20230119T180000Z
+SUMMARY:Period RDATE event with spaces
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ParseCalendar(strings.NewReader(ical))
+	require.NoError(t, err)
+
+	events := cal.Events()
+	require.Len(t, events, 1)
+
+	dates, err := events[0].GetRDates()
+	require.NoError(t, err)
+	require.Len(t, dates, 1)
+	assert.True(t, dates[0].Equal(time.Date(2023, 1, 19, 16, 30, 0, 0, time.UTC)),
+		"want 2023-01-19T16:30:00Z, got %v", dates[0])
+}
+
 // TestGetRDatesPeriodStartDuration verifies that RDATE period values of the form
 // "start/duration" (RFC 5545 §3.3.9) are accepted and the start time is returned.
 func TestGetRDatesPeriodStartDuration(t *testing.T) {
