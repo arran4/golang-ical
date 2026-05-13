@@ -357,6 +357,67 @@ func TestGetRDatesCommaSeparated(t *testing.T) {
 	require.Len(t, dates, 2)
 }
 
+func TestGetRDatesRFC5545Examples(t *testing.T) {
+	ical := `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:test-rdate-rfc-examples
+DTSTART:19970714T123000Z
+RDATE:19970714T123000Z
+RDATE;TZID=America/New_York:19970714T083000
+RDATE;VALUE=PERIOD:19960403T020000Z/19960403T040000Z,19960404T010000Z/PT3H
+RDATE;VALUE=DATE:19970101,19970120,19970217,19970421,
+ 19970526,19970704,19970901,19971014,19971128,19971129,19971225
+SUMMARY:RDATE RFC examples
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ParseCalendar(strings.NewReader(ical))
+	require.NoError(t, err)
+
+	events := cal.Events()
+	require.Len(t, events, 1)
+
+	dates, err := events[0].GetRDates()
+	require.NoError(t, err)
+	require.Len(t, dates, 15)
+
+	assert.True(t, dates[0].Equal(time.Date(1997, 7, 14, 12, 30, 0, 0, time.UTC)))
+
+	ny, err := time.LoadLocation("America/New_York")
+	require.NoError(t, err)
+	assert.True(t, dates[1].Equal(time.Date(1997, 7, 14, 8, 30, 0, 0, ny)))
+
+	assert.True(t, dates[2].Equal(time.Date(1996, 4, 3, 2, 0, 0, 0, time.UTC)))
+	assert.True(t, dates[3].Equal(time.Date(1996, 4, 4, 1, 0, 0, 0, time.UTC)))
+
+	wantDateOnly := []struct {
+		y int
+		m time.Month
+		d int
+	}{
+		{1997, time.January, 1},
+		{1997, time.January, 20},
+		{1997, time.February, 17},
+		{1997, time.April, 21},
+		{1997, time.May, 26},
+		{1997, time.July, 4},
+		{1997, time.September, 1},
+		{1997, time.October, 14},
+		{1997, time.November, 28},
+		{1997, time.November, 29},
+		{1997, time.December, 25},
+	}
+	for i, want := range wantDateOnly {
+		got := dates[i+4]
+		assert.Equal(t, want.y, got.Year())
+		assert.Equal(t, want.m, got.Month())
+		assert.Equal(t, want.d, got.Day())
+		assert.Equal(t, 0, got.Hour())
+		assert.Equal(t, 0, got.Minute())
+		assert.Equal(t, 0, got.Second())
+	}
+}
+
 func TestGetRecurrenceID(t *testing.T) {
 	ical := `BEGIN:VCALENDAR
 BEGIN:VEVENT
