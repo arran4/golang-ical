@@ -389,13 +389,15 @@ func (cb *ComponentBase) getRecurrenceRules(prop ComponentProperty) ([]*Recurren
 }
 
 // GetRDates returns all RDATE times, handling both comma-separated values
-// within a single property and multiple RDATE properties.
+// within a single property and multiple RDATE properties. In the case of a
+// duration returns the start time
 func (cb *ComponentBase) GetRDates() ([]time.Time, error) {
 	return cb.getMultiTimeProp(ComponentPropertyRdate)
 }
 
 // GetExDates returns all EXDATE times, handling both comma-separated values
-// within a single property and multiple EXDATE properties.
+// within a single property and multiple EXDATE properties. In the case of a
+// duration returns the start time
 func (cb *ComponentBase) GetExDates() ([]time.Time, error) {
 	return cb.getMultiTimeProp(ComponentPropertyExdate)
 }
@@ -413,34 +415,42 @@ func (cb *ComponentBase) getMultiTimeProp(prop ComponentProperty) ([]time.Time, 
 	var times []time.Time
 	for _, p := range props {
 		values := strings.Split(p.Value, ",")
-		// Check if VALUE=DATE is explicitly set in parameters
-		isDateOnly := false
-		if vals, ok := p.ICalParameters["VALUE"]; ok {
-			for _, val := range vals {
-				if val == "DATE" {
-					isDateOnly = true
-					break
-				}
-			}
-		}
+		isDateOnly := propertyIsDateOnly(p.ICalParameters)
 		for _, v := range values {
-			v = strings.TrimSpace(v)
-			if v == "" {
+			value := strings.TrimSpace(v)
+			if value == "" {
 				continue
 			}
-			// RFC 5545 §3.3.9: RDATE (and EXDATE) may use PERIOD values of the
-			// form "start/end" or "start/duration". Extract the start time.
-			token := v
-			v, _, _ = strings.Cut(v, "/")
-			v = strings.TrimSpace(v)
-			t, err := parseTimeValue(v, p.ICalParameters, isDateOnly)
+			t, err := parseMultiTimeValue(value, p.ICalParameters, isDateOnly)
 			if err != nil {
-				return nil, fmt.Errorf("parsing %s value %q: %w", prop, token, err)
+				return nil, fmt.Errorf("parsing %s value %q: %w", prop, value, err)
 			}
 			times = append(times, t)
 		}
 	}
 	return times, nil
+}
+
+func propertyIsDateOnly(params map[string][]string) bool {
+	vals, ok := params["VALUE"]
+	if !ok {
+		return false
+	}
+	for _, val := range vals {
+		if val == "DATE" {
+			return true
+		}
+	}
+	return false
+}
+
+func parseMultiTimeValue(value string, params map[string][]string, expectAllDay bool) (time.Time, error) {
+	// RFC 5545 §3.3.9: RDATE (and EXDATE) may use PERIOD values of the
+	// form "start/end" or "start/duration". Extract the start time.
+	if start, _, ok := strings.Cut(value, "/"); ok {
+		value = strings.TrimSpace(start)
+	}
+	return parseTimeValue(value, params, expectAllDay)
 }
 
 func (cb *ComponentBase) SetSummary(s string, params ...PropertyParameter) {
