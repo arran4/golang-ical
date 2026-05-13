@@ -117,6 +117,25 @@ func (bp *BaseProperty) parameterValue(param Parameter) (string, error) {
 	return v[0], nil
 }
 
+func (bp *BaseProperty) parameterHasValue(param Parameter, want string) bool {
+	return parameterHasValue(bp.ICalParameters, param, want)
+}
+
+func parameterHasValue(params map[string][]string, param Parameter, want string) bool {
+	switch vals := params[string(param)]; {
+	case len(vals) == 0:
+		return false
+	case len(vals) == 1 && vals[0] == want:
+		return true
+	}
+	for _, val := range params[string(param)] {
+		if val == want {
+			return true
+		}
+	}
+	return false
+}
+
 func (bp *BaseProperty) GetValueType() ValueDataType {
 	for k, v := range bp.ICalParameters {
 		if Parameter(k) == ParameterValue && len(v) == 1 {
