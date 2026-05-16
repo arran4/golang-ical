@@ -462,7 +462,7 @@ func (cb *ComponentBase) IsDuring(point time.Time, ops ...any) (bool, error) {
 	if endProp != nil {
 		effectiveEndTime, endAllDay, err = endProp.ParseTime(false)
 		if err != nil {
-			return false, fmt.Errorf("start time: %w", err)
+			return false, fmt.Errorf("end time: %w", err)
 		}
 	}
 	durationProp := cb.GetProperty(ComponentPropertyDuration)
