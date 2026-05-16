@@ -57,9 +57,9 @@ const (
 	// ComponentPropertyUniqueId maps to the UID property (RFC 5545 section 3.8.4.7).
 	// Every VEVENT or VTODO must include exactly one UID so calendar clients can
 	// track the item across updates.
-	// Example:
+	// There is no dedicated helper for this property.
+	// Example without the helper:
 	//
-	//     e := NewEvent("19960901T130000Z-123401@example.com")
 	//     e.SetProperty(ComponentPropertyUniqueId, "19960901T130000Z-123401@example.com")
 	ComponentPropertyUniqueId = ComponentProperty(PropertyUid) // TEXT
 	// ComponentPropertyDtstamp maps to the DTSTAMP property (section 3.8.7.2).
@@ -67,6 +67,10 @@ const (
 	// Example using the helper:
 	//
 	//     e.SetDtStampTime(time.Now())
+	//
+	// Example using the getter helper:
+	//
+	//     stamp, err := e.GetDtStampTime()
 	//
 	// Example without the helper:
 	//
@@ -87,20 +91,20 @@ const (
 	// It lists participants invited to the event.
 	// Example using the helper:
 	//
-	//     e.AddAttendee("dev@example.com", WithRole("REQ-PARTICIPANT"))
+	//     e.AddAttendee("dev@example.com", CalendarUserTypeIndividual, ParticipationStatusNeedsAction, ParticipationRoleReqParticipant, WithRSVP(true))
 	//
 	// Example without the helper:
 	//
-	//     e.AddProperty(ComponentPropertyAttendee, "mailto:dev@example.com", WithRole("REQ-PARTICIPANT"))
+	//     e.AddProperty(ComponentPropertyAttendee, "mailto:dev@example.com", CalendarUserTypeIndividual, ParticipationStatusNeedsAction, ParticipationRoleReqParticipant, WithRSVP(true))
 	ComponentPropertyAttendee = ComponentProperty(PropertyAttendee)
 	// ComponentPropertyAttach maps to the ATTACH property (section 3.8.1.1).
 	// Example using the helper:
 	//
-	//     e.AddAttachmentURL("https://example.com/manual.pdf", "application/pdf")
+	//     e.AddAttachmentURL("https://example.com/menu.pdf", "application/pdf")
 	//
 	// Example without the helper:
 	//
-	//     e.AddProperty(ComponentPropertyAttach, "https://example.com/manual.pdf", WithFmtType("application/pdf"))
+	//     e.AddProperty(ComponentPropertyAttach, "https://example.com/menu.pdf", WithFmtType("application/pdf"))
 	ComponentPropertyAttach = ComponentProperty(PropertyAttach)
 	// ComponentPropertyDescription maps to DESCRIPTION (section 3.8.1.5).
 	// This text is presented to users as the event body or notes.
@@ -162,6 +166,10 @@ const (
 	//
 	//     e.SetStartAt(time.Now())
 	//
+	// Example using the getter helper:
+	//
+	//     start, err := e.GetStartAt()
+	//
 	// Example without the helper:
 	//
 	//     e.SetProperty(ComponentPropertyDtStart, time.Now().UTC().Format("20060102T150405Z"))
@@ -170,6 +178,10 @@ const (
 	// Example using the helper:
 	//
 	//     e.SetEndAt(time.Now().Add(1 * time.Hour))
+	//
+	// Example using the getter helper:
+	//
+	//     end, err := e.GetEndAt()
 	//
 	// Example without the helper:
 	//
@@ -203,6 +215,10 @@ const (
 	// Example using the helper:
 	//
 	//     e.SetLastModifiedAt(time.Now())
+	//
+	// Example using the getter helper:
+	//
+	//     modified, err := e.GetLastModifiedAt()
 	//
 	// Example without the helper:
 	//
@@ -249,6 +265,10 @@ const (
 	//
 	//     e.AddExdate("20240608T120000Z")
 	//
+	// Example using the getter helper:
+	//
+	//     exDates, err := e.GetExDates()
+	//
 	// Example without the helper:
 	//
 	//     e.AddProperty(ComponentPropertyExdate, "20240608T120000Z")
@@ -259,6 +279,10 @@ const (
 	//
 	//     e.AddExrule("FREQ=DAILY")
 	//
+	// Example using the getter helper:
+	//
+	//     exRules, err := e.GetExRules()
+	//
 	// Example without the helper:
 	//
 	//     e.AddProperty(ComponentPropertyExrule, "FREQ=DAILY")
@@ -268,6 +292,10 @@ const (
 	//
 	//     e.AddRdate("20240615T120000Z")
 	//
+	// Example using the getter helper:
+	//
+	//     rDates, err := e.GetRDates()
+	//
 	// Example without the helper:
 	//
 	//     e.AddProperty(ComponentPropertyRdate, "20240615T120000Z")
@@ -276,6 +304,10 @@ const (
 	// Example using the helper:
 	//
 	//     e.AddRrule("FREQ=WEEKLY;BYDAY=MO")
+	//
+	// Example using the getter helper:
+	//
+	//     rRules, err := e.GetRRules()
 	//
 	// Example without the helper:
 	//
@@ -288,7 +320,7 @@ const (
 	//
 	// Example without the helper:
 	//
-	//     alarm.SetProperty(ComponentPropertyAction, "DISPLAY")
+	//     alarm.SetProperty(ComponentPropertyAction, string(ActionDisplay))
 	ComponentPropertyAction = ComponentProperty(PropertyAction)
 	// ComponentPropertyTrigger maps to TRIGGER (section 3.8.6.3).
 	// Example using the helper:
@@ -376,6 +408,10 @@ const (
 	ComponentPropertyMethod = ComponentProperty(PropertyMethod)
 	// ComponentPropertyRecurrenceId maps to RECURRENCE-ID (section 3.8.4.4).
 	// There is no dedicated helper for this property.
+	// Example using the getter helper:
+	//
+	//     recID, err := e.GetRecurrenceID()
+	//
 	// Example without the helper:
 	//
 	//     e.SetProperty(ComponentPropertyRecurrenceId, "20240608T120000Z")
@@ -403,7 +439,7 @@ const (
 	ComponentPropertyRequestStatus = ComponentProperty(PropertyRequestStatus)
 	// ComponentPropertyRDate is kept for backward compatibility and is
 	// equivalent to ComponentPropertyRdate.
-	// There is no helper for this property.
+	// There is no dedicated helper for this alias.
 	// Example without the helper:
 	//
 	//     e.SetProperty(ComponentPropertyRDate, "20240615T120000Z")
@@ -591,7 +627,7 @@ const (
 	// Example:
 	//
 	//     e := NewEvent("id")
-	//     e.SetClass(ClassPublic)
+	//     e.SetClass(ClassificationPublic)
 	//
 	PropertyClass Property = "CLASS" // TEXT
 	// PropertyColor is a common extension for calendar color.
@@ -686,6 +722,10 @@ const (
 	//     e := NewEvent("id")
 	//     e.SetEndAt(time.Now().Add(1*time.Hour))
 	//
+	// Example using the getter helper:
+	//
+	//     end, err := e.GetEndAt()
+	//
 	PropertyDtend Property = "DTEND"
 	// PropertyDue sets the due date of a VTODO (section 3.8.2.3).
 	// Example:
@@ -693,12 +733,20 @@ const (
 	//     todo := NewTodo("id")
 	//     todo.SetDueAt(time.Now().Add(24 * time.Hour))
 	//
+	// Example using the getter helper:
+	//
+	//     due, err := todo.GetDueAt()
+	//
 	PropertyDue Property = "DUE"
 	// PropertyDtstart defines the start time of the component (section 3.8.2.4).
 	// Example:
 	//
 	//     e := NewEvent("id")
 	//     e.SetStartAt(time.Now())
+	//
+	// Example using the getter helper:
+	//
+	//     start, err := e.GetStartAt()
 	//
 	PropertyDtstart Property = "DTSTART"
 	// PropertyDuration specifies the duration of the event (section 3.8.2.5).
@@ -712,28 +760,28 @@ const (
 	// Example:
 	//
 	//     fb := NewFreeBusy("id")
-	//     fb.SetProperty(ComponentPropertyFreebusy, "20240601T120000Z/20240601T130000Z")
+	//     fb.SetProperty(PropertyFreebusy, "20240601T120000Z/20240601T130000Z")
 	//
 	PropertyFreebusy Property = "FREEBUSY"
 	// PropertyTransp corresponds to TRANSP (section 3.8.2.7).
 	// Example:
 	//
 	//     e := NewEvent("id")
-	//     e.SetTimeTransparency(Transparent)
+	//     e.SetTimeTransparency(TransparencyTransparent)
 	//
 	PropertyTransp Property = "TRANSP" // TEXT
 	// PropertyTzid identifies the timezone of a VTIMEZONE (section 3.8.3.1).
 	// Example:
 	//
 	//     tz := NewTimezone("America/New_York")
-	//     tz.SetProperty(ComponentPropertyTzid, "America/New_York")
+	//     tz.SetProperty(PropertyTzid, "America/New_York")
 	//
 	PropertyTzid Property = "TZID" // TEXT
 	// PropertyTzname gives the customary name for a timezone (section 3.8.3.2).
 	// Example:
 	//
 	//     tz := NewTimezone("America/New_York")
-	//     tz.SetProperty(ComponentPropertyTzname, "EST")
+	//     tz.SetProperty(PropertyTzname, "EST")
 	//
 	PropertyTzname Property = "TZNAME" // TEXT
 	// PropertyTzoffsetfrom specifies the offset before a transition
@@ -746,7 +794,7 @@ const (
 	// Example:
 	//
 	//     tz := NewTimezone("America/New_York")
-	//     tz.SetProperty(ComponentPropertyTzurl, "https://tz.example.com/nyc")
+	//     tz.SetProperty(PropertyTzurl, "https://tz.example.com/nyc")
 	//
 	PropertyTzurl Property = "TZURL"
 	// PropertyAttendee lists a participant (section 3.8.4.1).
@@ -760,14 +808,14 @@ const (
 	// Example:
 	//
 	//     e := NewEvent("id")
-	//     e.SetProperty(ComponentPropertyContact, "mailto:hr@example.com")
+	//     e.SetProperty(PropertyContact, "mailto:hr@example.com")
 	//
 	PropertyContact Property = "CONTACT" // TEXT
 	// PropertyOrganizer gives the organizer's address (section 3.8.4.3).
 	// Example without helper:
 	//
 	//     e := NewEvent("id")
-	//     e.SetProperty(ComponentPropertyOrganizer, "mailto:boss@example.com")
+	//     e.SetProperty(PropertyOrganizer, "mailto:boss@example.com")
 	//
 	// The SetOrganizer helper automatically prefixes the value with "mailto:"
 	// when needed:
@@ -778,14 +826,18 @@ const (
 	// Example:
 	//
 	//     e := NewEvent("id")
-	//     e.SetProperty(ComponentPropertyRecurrenceId, "20240608T120000Z")
+	//     e.SetProperty(PropertyRecurrenceId, "20240608T120000Z")
+	//
+	// Example using the getter helper:
+	//
+	//     recID, err := e.GetRecurrenceID()
 	//
 	PropertyRecurrenceId Property = "RECURRENCE-ID"
 	// PropertyRelatedTo corresponds to RELATED-TO (section 3.8.4.5).
 	// Example:
 	//
 	//     e := NewEvent("id")
-	//     e.SetProperty(ComponentPropertyRelatedTo, "19960901T130000Z-123401@example.com")
+	//     e.SetProperty(PropertyRelatedTo, "19960901T130000Z-123401@example.com")
 	//
 	PropertyRelatedTo Property = "RELATED-TO" // TEXT
 	// PropertyUrl provides a link to additional information (section 3.8.4.6).
@@ -799,7 +851,7 @@ const (
 	// Example:
 	//
 	//     e := NewEvent("19960901T130000Z-123401@example.com")
-	//     e.SetProperty(ComponentPropertyUniqueId, "19960901T130000Z-123401@example.com")
+	//     e.SetProperty(PropertyUid, "19960901T130000Z-123401@example.com")
 	//
 	PropertyUid Property = "UID" // TEXT
 	// PropertyExdate excludes a recurrence date (section 3.8.5.1).
@@ -807,6 +859,10 @@ const (
 	//
 	//     e := NewEvent("id")
 	//     e.AddExdate("20240608T120000Z")
+	//
+	// Example using the getter helper:
+	//
+	//     exDates, err := e.GetExDates()
 	//
 	PropertyExdate Property = "EXDATE"
 	// PropertyExrule is deprecated but represents exception rules for
@@ -816,12 +872,20 @@ const (
 	//     e := NewEvent("id")
 	//     e.AddExrule("FREQ=WEEKLY;BYDAY=MO")
 	//
+	// Example using the getter helper:
+	//
+	//     exRules, err := e.GetExRules()
+	//
 	PropertyExrule Property = "EXRULE"
 	// PropertyRdate specifies additional recurrence dates (section 3.8.5.2).
 	// Example:
 	//
 	//     e := NewEvent("id")
 	//     e.AddRdate("20240615T120000Z")
+	//
+	// Example using the getter helper:
+	//
+	//     rDates, err := e.GetRDates()
 	//
 	PropertyRdate Property = "RDATE"
 	// PropertyRrule defines a recurrence rule (section 3.8.5.3).
@@ -830,12 +894,20 @@ const (
 	//     e := NewEvent("id")
 	//     e.AddRrule("FREQ=DAILY")
 	//
+	// Example using the getter helper:
+	//
+	//     rRules, err := e.GetRRules()
+	//
 	PropertyRrule Property = "RRULE"
 	// PropertyAction corresponds to ACTION (section 3.8.6.1).
 	// Example:
 	//
 	//     alarm := NewAlarm()
-	//     alarm.SetProperty(ComponentPropertyAction, "DISPLAY")
+	//     alarm.SetAction(ActionDisplay)
+	//
+	// Example without the helper:
+	//
+	//     alarm.SetProperty(PropertyAction, string(ActionDisplay))
 	//
 	PropertyAction Property = "ACTION" // TEXT
 	// PropertyRepeat indicates how often to repeat an alarm (section 3.8.6.2).
@@ -844,7 +916,11 @@ const (
 	// Example:
 	//
 	//     alarm := NewAlarm()
-	//     alarm.SetProperty(ComponentPropertyTrigger, "-PT15M")
+	//     alarm.SetTrigger("-PT15M")
+	//
+	// Example without the helper:
+	//
+	//     alarm.SetProperty(PropertyTrigger, "-PT15M")
 	//
 	PropertyTrigger Property = "TRIGGER"
 	// PropertyCreated records the creation time (section 3.8.7.1).
@@ -860,6 +936,10 @@ const (
 	//     e := NewEvent("id")
 	//     e.SetDtStampTime(time.Now())
 	//
+	// Example using the getter helper:
+	//
+	//     stamp, err := e.GetDtStampTime()
+	//
 	PropertyDtstamp Property = "DTSTAMP"
 	// PropertyLastModified records the last modification time (section 3.8.7.3).
 	// Example:
@@ -867,13 +947,17 @@ const (
 	//     e := NewEvent("id")
 	//     e.SetModifiedAt(time.Now())
 	//
+	// Example using the getter helper:
+	//
+	//     modified, err := e.GetLastModifiedAt()
+	//
 	PropertyLastModified Property = "LAST-MODIFIED"
 	// PropertyRequestStatus conveys the status of a scheduling request
 	// (section 3.8.8.3).
 	// Example:
 	//
 	//     e := NewEvent("id")
-	//     e.SetProperty(ComponentPropertyRequestStatus, "2.0;Success")
+	//     e.SetProperty(PropertyRequestStatus, "2.0;Success")
 	//
 	PropertyRequestStatus Property = "REQUEST-STATUS" // TEXT
 	// PropertyName is an extension naming the calendar.
@@ -935,44 +1019,154 @@ func (p Parameter) IsQuoted() bool {
 
 const (
 	// ParameterAltrep references an alternate text representation (section 3.2.1).
+	// Example using the helper:
+	//
+	//     e.SetDescription("Agenda", WithAlternativeRepresentation(u))
+	//
+	// Example without the helper:
+	//
+	//     e.SetDescription("Agenda", &KeyValues{Key: string(ParameterAltrep), Value: []string{"https://example.com/agenda"}})
 	ParameterAltrep Parameter = "ALTREP"
 	// ParameterCn provides a common name (section 3.2.2).
+	// Example using the helper:
+	//
+	//     e.SetOrganizer("boss@example.com", WithCN("Boss"))
+	//
+	// Example without the helper:
+	//
+	//     e.SetOrganizer("boss@example.com", &KeyValues{Key: string(ParameterCn), Value: []string{"Boss"}})
 	ParameterCn Parameter = "CN"
 	// ParameterCutype defines the calendar user type (section 3.2.3).
+	// Example using the helper:
+	//
+	//     e.AddAttendee("dev@example.com", CalendarUserTypeIndividual)
+	//
+	// Example without the helper:
+	//
+	//     e.AddAttendee("dev@example.com", &KeyValues{Key: string(ParameterCutype), Value: []string{string(CalendarUserTypeIndividual)}})
 	ParameterCutype Parameter = "CUTYPE"
 	// ParameterDelegatedFrom lists participants the request was delegated from (section 3.2.4).
+	// There is no dedicated helper for this parameter.
+	// Example without the helper:
+	//
+	//     e.AddAttendee("dev@example.com", &KeyValues{Key: string(ParameterDelegatedFrom), Value: []string{"mailto:manager@example.com"}})
 	ParameterDelegatedFrom Parameter = "DELEGATED-FROM"
 	// ParameterDelegatedTo lists participants the request was delegated to (section 3.2.5).
+	// There is no dedicated helper for this parameter.
+	// Example without the helper:
+	//
+	//     e.AddAttendee("dev@example.com", &KeyValues{Key: string(ParameterDelegatedTo), Value: []string{"mailto:backup@example.com"}})
 	ParameterDelegatedTo Parameter = "DELEGATED-TO"
 	// ParameterDir gives a reference to directory information (section 3.2.6).
+	// There is no dedicated helper for this parameter.
+	// Example without the helper:
+	//
+	//     e.AddAttendee("dev@example.com", &KeyValues{Key: string(ParameterDir), Value: []string{"https://example.com/directory/alice"}})
 	ParameterDir Parameter = "DIR"
 	// ParameterEncoding defines inline attachment encoding (section 3.2.7).
+	// Example using the helper:
+	//
+	//     e.AddAttachment("...base64...", WithEncoding("base64"))
+	//
+	// Example without the helper:
+	//
+	//     e.AddAttachment("...", &KeyValues{Key: string(ParameterEncoding), Value: []string{"BASE64"}})
 	ParameterEncoding Parameter = "ENCODING"
 	// ParameterFmttype is the content type for a binary attachment (section 3.2.8).
+	// Example using the helper:
+	//
+	//     e.AddAttachmentURL("https://example.com/menu.pdf", "application/pdf")
+	//
+	// Example without the helper:
+	//
+	//     e.AddAttachment("https://example.com/menu.pdf", WithFmtType("application/pdf"))
 	ParameterFmttype Parameter = "FMTTYPE"
 	// ParameterFbtype specifies free/busy time type (section 3.2.9).
+	// There is no dedicated helper for this parameter.
+	// Example without the helper:
+	//
+	//     fb.SetProperty(PropertyFreebusy, "20240601T120000Z/20240601T130000Z", &KeyValues{Key: string(ParameterFbtype), Value: []string{"BUSY"}})
 	ParameterFbtype Parameter = "FBTYPE"
 	// ParameterLanguage indicates the language for text values (section 3.2.10).
+	// There is no dedicated helper for this parameter.
+	// Example without the helper:
+	//
+	//     e.SetDescription("Agenda", &KeyValues{Key: string(ParameterLanguage), Value: []string{"en-AU"}})
 	ParameterLanguage Parameter = "LANGUAGE"
 	// ParameterMember identifies group membership (section 3.2.11).
+	// There is no dedicated helper for this parameter.
+	// Example without the helper:
+	//
+	//     e.AddAttendee("dev@example.com", &KeyValues{Key: string(ParameterMember), Value: []string{"mailto:team@example.com"}})
 	ParameterMember Parameter = "MEMBER"
 	// ParameterParticipationStatus holds participation status (section 3.2.12).
+	// Example using the helper:
+	//
+	//     e.AddAttendee("dev@example.com", ParticipationStatusNeedsAction)
+	//
+	// Example without the helper:
+	//
+	//     e.AddAttendee("dev@example.com", &KeyValues{Key: string(ParameterParticipationStatus), Value: []string{string(ParticipationStatusNeedsAction)}})
 	ParameterParticipationStatus Parameter = "PARTSTAT"
 	// ParameterRange is used with RECURRENCE-ID (section 3.2.13).
+	// There is no dedicated helper for this parameter.
+	// Example without the helper:
+	//
+	//     e.SetProperty(PropertyRecurrenceId, "20240608T120000Z", &KeyValues{Key: string(ParameterRange), Value: []string{"THISANDFUTURE"}})
 	ParameterRange Parameter = "RANGE"
 	// ParameterRelated indicates the relationship type for FREEBUSY (section 3.2.14).
+	// There is no dedicated helper for this parameter.
+	// Example without the helper:
+	//
+	//     fb.SetProperty(PropertyFreebusy, "20240601T120000Z/20240601T130000Z", &KeyValues{Key: string(ParameterRelated), Value: []string{"START"}})
 	ParameterRelated Parameter = "RELATED"
 	// ParameterReltype specifies relationship type for RELATED-TO (section 3.2.15).
+	// There is no dedicated helper for this parameter.
+	// Example without the helper:
+	//
+	//     e.SetProperty(PropertyRelatedTo, "uid@example.com", &KeyValues{Key: string(ParameterReltype), Value: []string{"PARENT"}})
 	ParameterReltype Parameter = "RELTYPE"
 	// ParameterRole indicates participant role (section 3.2.16).
+	// Example using the helper:
+	//
+	//     e.AddAttendee("dev@example.com", ParticipationRoleReqParticipant)
+	//
+	// Example without the helper:
+	//
+	//     e.AddAttendee("dev@example.com", &KeyValues{Key: string(ParameterRole), Value: []string{string(ParticipationRoleReqParticipant)}})
 	ParameterRole Parameter = "ROLE"
 	// ParameterRsvp indicates whether a response is requested (section 3.2.17).
+	// Example using the helper:
+	//
+	//     e.AddAttendee("dev@example.com", WithRSVP(true))
+	//
+	// Example without the helper:
+	//
+	//     e.AddAttendee("dev@example.com", &KeyValues{Key: string(ParameterRsvp), Value: []string{"true"}})
 	ParameterRsvp Parameter = "RSVP"
 	// ParameterSentBy gives the address responsible for sending a request (section 3.2.18).
+	// There is no dedicated helper for this parameter.
+	// Example without the helper:
+	//
+	//     e.AddAttendee("dev@example.com", &KeyValues{Key: string(ParameterSentBy), Value: []string{"mailto:assistant@example.com"}})
 	ParameterSentBy Parameter = "SENT-BY"
 	// ParameterTzid references a time zone identifier (section 3.2.19).
+	// Example using the helper:
+	//
+	//     e.SetStartAt(time.Now(), WithTZID("America/New_York"))
+	//
+	// Example without the helper:
+	//
+	//     e.SetStartAt(time.Now(), &KeyValues{Key: string(ParameterTzid), Value: []string{"America/New_York"}})
 	ParameterTzid Parameter = "TZID"
 	// ParameterValue sets the value data type of the property (section 3.2.20).
+	// Example using the helper:
+	//
+	//     todo.SetAllDayDueAt(time.Now(), WithValue(string(ValueDataTypeDate)))
+	//
+	// Example without the helper:
+	//
+	//     todo.SetAllDayDueAt(time.Now(), &KeyValues{Key: string(ParameterValue), Value: []string{string(ValueDataTypeDate)}})
 	ParameterValue Parameter = "VALUE"
 )
 
