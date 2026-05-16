@@ -1,5 +1,9 @@
 # golang-ical
 
+<p align="center">
+  <img src="docs/icon.png" alt="golang-ical logo" width="160" />
+</p>
+
 An ICS / ICal parser and serialiser for Golang.
 
 [![GoDoc](https://godoc.org/github.com/arran4/golang-ical?status.svg)](https://godoc.org/github.com/arran4/golang-ical)
@@ -12,7 +16,7 @@ Usage, parsing:
 ```golang
 import (
     "strings"
-    
+
     ics "github.com/arran4/golang-ical"
 )
 cal, err := ics.ParseCalendar(strings.NewReader(input))
