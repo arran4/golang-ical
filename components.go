@@ -1524,7 +1524,7 @@ func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts
 				if errors.Is(err, ErrPropertySkipped) {
 					continue
 				}
-				return cb, fmt.Errorf("parsing component property %d: %w", ln, err)
+				return cb, fmt.Errorf("parsing component property %d: %w", lineNo, err)
 			}
 		}
 	}
