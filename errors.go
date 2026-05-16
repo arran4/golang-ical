@@ -24,4 +24,9 @@ var (
 	ErrorInvalidICalDurationDuplicateOrOutOfOrderMinutesComponent = errors.New("invalid iCal duration: duplicate or out-of-order minutes component")
 	ErrorInvalidICalDurationDuplicateOrOutOfOrderSecondsComponent = errors.New("invalid iCal duration: duplicate or out-of-order seconds component")
 	ErrorInvalidICalDurationUnknownUnit                           = errors.New("invalid iCal duration: unknown unit")
+	// ErrInvalidOpArg marks an invalid variadic option argument.
+	ErrInvalidOpArg = errors.New("invalid option argument")
+
+	// ErrPropertySkipped marks a parser decision to skip a malformed line and continue.
+	ErrPropertySkipped = errors.New("property skipped")
 )

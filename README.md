@@ -1,49 +1,144 @@
 # golang-ical
-A  ICS / ICal parser and serialiser for Golang.
+
+An ICS / ICal parser and serialiser for Golang.
 
 [![GoDoc](https://godoc.org/github.com/arran4/golang-ical?status.svg)](https://godoc.org/github.com/arran4/golang-ical)
 
 Because the other libraries didn't quite do what I needed.
 
+## Parsing Calendars
+
 Usage, parsing:
 ```golang
-    cal, err := ParseCalendar(strings.NewReader(input))
-
+import (
+    "strings"
+    
+    ics "github.com/arran4/golang-ical"
+)
+cal, err := ics.ParseCalendar(strings.NewReader(input))
 ```
 
 Usage, parsing from a URL:
 ```golang
-    cal, err := ParseCalendarFromUrl("https://your-ics-url")
+cal, err := ics.ParseCalendarFromUrl("https://your-ics-url")
 ```
 
-Creating:
+## Creating Calendars
+
+Usage, creating a calendar:
 ```golang
-  cal := ics.NewCalendar()
-  cal.SetMethod(ics.MethodRequest)
-  event := cal.AddEvent(fmt.Sprintf("id@domain", p.SessionKey.IntID()))
-  event.SetCreatedTime(time.Now())
-  event.SetDtStampTime(time.Now())
-  event.SetModifiedAt(time.Now())
-  event.SetStartAt(time.Now())
-  event.SetEndAt(time.Now())
-  event.SetSummary("Summary")
-  event.SetLocation("Address")
-  event.SetDescription("Description")
-  event.SetURL("https://URL/")
-  event.AddRrule(fmt.Sprintf("FREQ=YEARLY;BYMONTH=%d;BYMONTHDAY=%d", time.Now().Month(), time.Now().Day()))
-  event.SetOrganizer("sender@domain", ics.WithCN("This Machine"))
-  event.AddAttendee("reciever or participant", ics.CalendarUserTypeIndividual, ics.ParticipationStatusNeedsAction, ics.ParticipationRoleReqParticipant, ics.WithRSVP(true))
-  return cal.Serialize()
+cal := ics.NewCalendar()
+cal.SetMethod(ics.MethodRequest)
+event := cal.AddEvent(fmt.Sprintf("id@domain", p.SessionKey.IntID()))
+event.SetCreatedTime(time.Now())
+event.SetDtStampTime(time.Now())
+event.SetModifiedAt(time.Now())
+event.SetStartAt(time.Now())
+event.SetEndAt(time.Now())
+event.SetSummary("Summary")
+event.SetLocation("Address")
+event.SetDescription("Description")
+event.SetURL("https://URL/")
+event.AddRrule(fmt.Sprintf("FREQ=YEARLY;BYMONTH=%d;BYMONTHDAY=%d", time.Now().Month(), time.Now().Day()))
+event.SetOrganizer("sender@domain", ics.WithCN("This Machine"))
+event.AddAttendee("receiver or participant", ics.CalendarUserTypeIndividual, ics.ParticipationStatusNeedsAction, ics.ParticipationRoleReqParticipant, ics.WithRSVP(true))
+return cal.Serialize()
+```
+*Helper methods created as needed feel free to send a P.R. with more.*
+
+You can also construct a calendar with options:
+
+```golang
+cal, err := ics.NewCalendarWithOptions(
+    ics.WithVersion("2.0"),
+    ics.WithProductId("-//my-service//Golang ICS Library"),
+)
 ```
 
-Helper methods created as needed feel free to send a P.R. with more.
+When to use which constructor:
+- Use `NewCalendar()` for the default metadata:
+  - `VERSION:2.0`
+  - `PRODID:-//arran4//Golang ICS Library`
+- Use `NewCalendarFor(service)` when you want the same defaults but a service-specific `PRODID` without building options manually.
+  - It sets `VERSION:2.0`.
+  - It sets `PRODID:-//<service>//Golang ICS Library`.
+  - Example: `ics.NewCalendarFor("my-team")` yields `PRODID:-//my-team//Golang ICS Library`.
+- Use `NewCalendarWithOptions(...)` when you need full control at construction time (for example custom `WithVersion(...)` or custom `WithProductId(...)`).
 
-# Working with Recurring Events
+Use `NewCalendarFor(service)` when you publish ICS from multiple applications/tenants and want each feed to identify its producer via `PRODID` while still using library defaults.
+
+## Parsing malformed properties (strict/skip/recover)
+
+By default, parsing is strict and returns an error for malformed content lines.
+
+```golang
+cal, err := ics.ParseCalendar(reader)
+```
+
+For real-world feeds with malformed properties, use `ParseCalendarWithOptions` and provide a custom property parser.
+
+Pre-built parser helpers are included:
+- `SkipPropertyParser`: ignore malformed lines.
+- `FallbackParser(LooseParser)`: try strict parsing first, then recover by keeping token/value.
+
+Skip malformed properties:
+
+```golang
+cal, err := ics.ParseCalendarWithOptions(reader,
+    ics.WithPropertyParser(ics.SkipPropertyParser),
+)
+```
+
+Recover malformed properties by keeping token + value (dropping malformed params):
+
+```golang
+cal, err := ics.ParseCalendarWithOptions(reader,
+    ics.WithPropertyParser(ics.FallbackParser(ics.LooseParser)),
+)
+```
+
+Custom parser behavior:
+
+```golang
+import (
+    "fmt"
+    "strings"
+
+    ics "github.com/arran4/golang-ical"
+)
+
+parser := func(rawLine ics.ContentLine) (*ics.BaseProperty, error) {
+    // Try strict parsing first.
+    line, err := ics.ParseProperty(rawLine)
+    if err == nil {
+        return line, nil
+    }
+
+    // Skip specific lines and continue.
+    if strings.Contains(string(rawLine), "X-TKF-") {
+        return nil, fmt.Errorf("%w: skipping Tockify extension", ics.ErrPropertySkipped)
+    }
+
+    // Abort for everything else.
+    return nil, err
+}
+
+cal, err := ics.ParseCalendarWithOptions(reader, parser)
+```
+
+Notes:
+- `ErrPropertySkipped` means "ignore this line and continue".
+- Returning `(nil, nil)` from a parser also skips the line.
+- `WithPropertyParser(...)` and passing a parser directly to `ParseCalendarWithOptions(...)` are equivalent.
+- The same parser is used for nested components (for example, malformed properties inside `VALARM`).
+- Invalid option types return an error wrapped with `ErrInvalidOpArg`.
+
+## Working with Recurring Events
 
 This library parses and provides typed access to recurrence properties (`RRULE`, `RDATE`, `EXDATE`, `EXRULE`, `RECURRENCE-ID`) but does not expand them into concrete occurrence dates.
 This keeps the library dependency-free and lets callers choose their own expansion strategy.
 
-## Accessing recurrence properties
+### Accessing recurrence properties
 
 ```golang
   // Parse RRULE into a structured type
@@ -68,13 +163,13 @@ This keeps the library dependency-free and lets callers choose their own expansi
   fmt.Println(rule.String()) // "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR"
 ```
 
-## Expanding occurrences with rrule-go
+### Expanding occurrences with rrule-go
 
 To expand recurring events into concrete dates, use a library like [rrule-go](https://github.com/teambition/rrule-go):
 
 ```golang
   import (
-      "github.com/arran4/golang-ical"
+      ics "github.com/arran4/golang-ical"
       "github.com/teambition/rrule-go"
   )
 
@@ -146,6 +241,6 @@ These appear as separate VEVENTs with the same UID but a `RECURRENCE-ID` propert
   // override represents a cancellation).
 ```
 
-# Notice
+## Notice
 
 Looking for a co-maintainer.

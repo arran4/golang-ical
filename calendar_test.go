@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"embed"
 	_ "embed"
+	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -23,6 +25,22 @@ var (
 	//go:embed testdata/*
 	TestData embed.FS
 )
+
+func captureMalformedPropertyParser(lines *[]string, next PropertyParser) PropertyParser {
+	return func(rawLine ContentLine) (*BaseProperty, error) {
+		line, err := parseProperty(rawLine)
+		if err == nil {
+			return line, nil
+		}
+		if lines != nil {
+			*lines = append(*lines, string(rawLine))
+		}
+		if next == nil {
+			return nil, nil
+		}
+		return next(rawLine)
+	}
+}
 
 func TestTimeParsing(t *testing.T) {
 	calFile, err := TestData.Open("testdata/timeparsing.ics")
@@ -540,6 +558,390 @@ func TestIssue77(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error reading file: %s", err)
 	}
+}
+
+func TestWithPropertyParser_Skip(t *testing.T) {
+	// Tockify-style property with underscore in parameter name.
+	// Without the parser override, this aborts the entire calendar parse.
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+DTSTART:20240101T120000Z
+SUMMARY:Test Event
+X-TKF-PROMOTION-BUTTON;skip_details=false;button_text=Buy Tickets:https://example.com
+END:VEVENT
+END:VCALENDAR
+`
+	// Verify it fails without the parser override.
+	_, err := ParseCalendar(strings.NewReader(input))
+	assert.Error(t, err, "should fail without handler")
+	assert.Contains(t, err.Error(), "missing property value for skip")
+
+	// With the parser override set to skip, parsing succeeds.
+	var skippedLines []string
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input),
+		captureMalformedPropertyParser(&skippedLines, SkipPropertyParser),
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.NotNil(t, cal)
+	assert.Len(t, cal.Events(), 1)
+	assert.Equal(t, "Test Event", cal.Events()[0].GetProperty(ComponentPropertySummary).Value)
+	assert.Len(t, skippedLines, 1)
+	assert.Contains(t, skippedLines[0], "X-TKF-PROMOTION-BUTTON")
+}
+
+func TestWithPropertyParser_Abort(t *testing.T) {
+	// Parser override that returns an error aborts parsing with that error.
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+DTSTART:20240101T120000Z
+SUMMARY:Test Event
+X-BAD;under_score=val:value
+END:VEVENT
+END:VCALENDAR
+`
+	customErr := errors.New("custom abort")
+	_, err := ParseCalendarWithOptions(strings.NewReader(input),
+		func(rawLine ContentLine) (*BaseProperty, error) {
+			_, parseErr := parseProperty(rawLine)
+			if parseErr != nil {
+				return nil, customErr
+			}
+			return nil, nil
+		},
+	)
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, customErr)
+}
+
+func TestWithPropertyParser_Recover(t *testing.T) {
+	// Parser override that returns a replacement property.
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+DTSTART:20240101T120000Z
+SUMMARY:Test Event
+X-BAD;under_score=val:the-value
+END:VEVENT
+END:VCALENDAR
+`
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input),
+		FallbackParser(LooseParser),
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.NotNil(t, cal)
+	events := cal.Events()
+	assert.Len(t, events, 1)
+	// The recovered property should be present.
+	badProp := events[0].GetProperty("X-BAD")
+	if assert.NotNil(t, badProp) {
+		assert.Equal(t, "the-value", badProp.Value)
+	}
+}
+
+func TestWithPropertyParser_FallbackChain(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+DTSTART:20240101T120000Z
+SUMMARY:Test Event
+X-BAD;under_score=val:the-value
+END:VEVENT
+END:VCALENDAR
+`
+	var firstFallbackCalls int
+	parser := FallbackParser(
+		func(rawLine ContentLine) (*BaseProperty, error) {
+			firstFallbackCalls++
+			return nil, nil
+		},
+		LooseParser,
+	)
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input), parser)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, 1, firstFallbackCalls)
+	badProp := cal.Events()[0].GetProperty("X-BAD")
+	if assert.NotNil(t, badProp) {
+		assert.Equal(t, "the-value", badProp.Value)
+	}
+}
+
+func TestWithPropertyParser_CalendarLevel(t *testing.T) {
+	// Malformed property at the calendar level (outside any component).
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+X-BAD-CAL;under_score=val:cal-value
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+DTSTART:20240101T120000Z
+SUMMARY:Test Event
+END:VEVENT
+END:VCALENDAR
+`
+	var skippedLines []string
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input),
+		captureMalformedPropertyParser(&skippedLines, SkipPropertyParser),
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.NotNil(t, cal)
+	assert.Len(t, skippedLines, 1)
+	assert.Contains(t, skippedLines[0], "X-BAD-CAL")
+	// Valid properties should still be parsed.
+	assert.Len(t, cal.Events(), 1)
+}
+
+func TestWithPropertyParser_NoHandler(t *testing.T) {
+	// Without the parser override, malformed properties still cause errors (backward compat).
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+DTSTART:20240101T120000Z
+SUMMARY:Test Event
+X-BAD;under_score=val:value
+END:VEVENT
+END:VCALENDAR
+`
+	_, err := ParseCalendar(strings.NewReader(input))
+	assert.Error(t, err)
+}
+
+func TestWithPropertyParser_NestedComponent(t *testing.T) {
+	// Parser override should propagate into nested components (e.g. VALARM inside VEVENT).
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+DTSTART:20240101T120000Z
+SUMMARY:Test Event
+BEGIN:VALARM
+TRIGGER:-PT15M
+ACTION:DISPLAY
+X-ALARM-BAD;under_score=val:alarm-value
+DESCRIPTION:Reminder
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+`
+	var skippedLines []string
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input),
+		captureMalformedPropertyParser(&skippedLines, SkipPropertyParser),
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.NotNil(t, cal)
+	assert.Len(t, skippedLines, 1)
+	assert.Contains(t, skippedLines[0], "X-ALARM-BAD")
+	events := cal.Events()
+	assert.Len(t, events, 1)
+	alarms := events[0].Alarms()
+	assert.Len(t, alarms, 1)
+	// The valid alarm properties should still be there.
+	assert.NotNil(t, alarms[0].GetProperty(ComponentPropertyTrigger))
+	assert.NotNil(t, alarms[0].GetProperty(ComponentPropertyAction))
+}
+
+func TestWithPropertyParser_CalendarLevelRecover(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+X-BAD-CAL;under_score=val:cal-value
+PRODID:-//Test//Test//EN
+END:VCALENDAR
+`
+
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input),
+		FallbackParser(LooseParser),
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	found := false
+	for _, p := range cal.CalendarProperties {
+		if p.IANAToken == "X-BAD-CAL" {
+			found = true
+			assert.Equal(t, "cal-value", p.Value)
+		}
+	}
+	assert.True(t, found, "expected recovered calendar-level property")
+}
+
+func TestWithPropertyParser_NestedComponentRecover(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+DTSTART:20240101T120000Z
+SUMMARY:Test Event
+BEGIN:VALARM
+TRIGGER:-PT15M
+ACTION:DISPLAY
+X-ALARM-BAD;under_score=val:alarm-value
+DESCRIPTION:Reminder
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+`
+
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input),
+		FallbackParser(LooseParser),
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	events := cal.Events()
+	assert.Len(t, events, 1)
+	alarms := events[0].Alarms()
+	assert.Len(t, alarms, 1)
+	recovered := alarms[0].GetProperty("X-ALARM-BAD")
+	if assert.NotNil(t, recovered) {
+		assert.Equal(t, "alarm-value", recovered.Value)
+	}
+}
+
+func TestWithPropertyParser_MultipleConsecutive(t *testing.T) {
+	// Multiple malformed properties in the same component should all be
+	// passed to the parser override individually.
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+DTSTART:20240101T120000Z
+X-BAD-ONE;under_score=val:value1
+SUMMARY:Test Event
+X-BAD-TWO;another_bad=yes:value2
+X-BAD-THREE;yet_another=no:value3
+DTEND:20240101T130000Z
+END:VEVENT
+END:VCALENDAR
+`
+	var skippedLines []string
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input),
+		captureMalformedPropertyParser(&skippedLines, SkipPropertyParser),
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.NotNil(t, cal)
+	assert.Len(t, cal.Events(), 1)
+	// All three malformed properties should have been skipped.
+	assert.Len(t, skippedLines, 3)
+	assert.Contains(t, skippedLines[0], "X-BAD-ONE")
+	assert.Contains(t, skippedLines[1], "X-BAD-TWO")
+	assert.Contains(t, skippedLines[2], "X-BAD-THREE")
+	// Valid properties should still be present.
+	ev := cal.Events()[0]
+	assert.Equal(t, "Test Event", ev.GetProperty(ComponentPropertySummary).Value)
+	assert.NotNil(t, ev.GetProperty(ComponentPropertyDtStart))
+	assert.NotNil(t, ev.GetProperty(ComponentPropertyDtEnd))
+}
+
+func TestParseCalendarWithOptions_InvalidOptionType(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+END:VCALENDAR
+`
+
+	_, err := ParseCalendarWithOptions(strings.NewReader(input), 42)
+	if assert.Error(t, err) {
+		assert.ErrorIs(t, err, ErrInvalidOpArg)
+		assert.Contains(t, err.Error(), "0")
+	}
+}
+
+func TestNewCalendarWithOptions_InvalidOptionType(t *testing.T) {
+	_, err := NewCalendarWithOptions(42)
+	if assert.Error(t, err) {
+		assert.ErrorIs(t, err, ErrInvalidOpArg)
+		assert.Contains(t, err.Error(), "0")
+	}
+}
+
+func TestParseCalendarFromUrl_InvalidOptionType(t *testing.T) {
+	_, err := ParseCalendarFromUrl("https://example.com", 42)
+	if assert.Error(t, err) {
+		assert.ErrorIs(t, err, ErrInvalidOpArg)
+		assert.Contains(t, err.Error(), "0")
+	}
+}
+
+func TestComponentParseWithOptions_InvalidOptionType(t *testing.T) {
+	_, err := ParseComponentWithOptions(nil, nil, 42)
+	if assert.Error(t, err) {
+		assert.ErrorIs(t, err, ErrInvalidOpArg)
+		assert.Contains(t, err.Error(), "0")
+	}
+
+	_, err = GeneralParseComponentWithOptions(nil, nil, 42)
+	if assert.Error(t, err) {
+		assert.ErrorIs(t, err, ErrInvalidOpArg)
+		assert.Contains(t, err.Error(), "0")
+	}
+}
+
+func TestSerialize_InvalidOptionType(t *testing.T) {
+	_, err := parseSerializeOps([]any{42})
+	if assert.Error(t, err) {
+		assert.ErrorIs(t, err, ErrInvalidOpArg)
+		assert.Contains(t, err.Error(), "0")
+	}
+}
+
+func TestParseProperty_ExportedStrict(t *testing.T) {
+	line, err := ParseProperty(ContentLine("SUMMARY:ok"))
+	if !assert.NoError(t, err) {
+		return
+	}
+	if assert.NotNil(t, line) {
+		assert.Equal(t, "SUMMARY", line.IANAToken)
+		assert.Equal(t, "ok", line.Value)
+	}
+
+	_, err = ParseProperty(ContentLine("X-BAD;under_score=val:value"))
+	assert.Error(t, err)
+}
+
+func TestErrPropertySkippedBehavior(t *testing.T) {
+	parser := func(rawLine ContentLine) (*BaseProperty, error) {
+		if strings.Contains(string(rawLine), "X-SKIP") {
+			return nil, fmt.Errorf("%w: intentional", ErrPropertySkipped)
+		}
+		return parseProperty(rawLine)
+	}
+
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+X-SKIP:1
+BEGIN:VEVENT
+SUMMARY:ok
+X-SKIP:2
+END:VEVENT
+END:VCALENDAR
+`
+
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input), parser)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Len(t, cal.Events(), 1)
+	assert.Equal(t, "ok", cal.Events()[0].GetProperty(ComponentPropertySummary).Value)
 }
 
 func BenchmarkSerialize(b *testing.B) {
