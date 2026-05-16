@@ -31,8 +31,9 @@ var (
 )
 
 type ComponentBase struct {
-	Properties []IANAProperty
-	Components []Component
+	Properties     []IANAProperty
+	Components     []Component
+	timezoneMapper TimezoneMapper
 }
 
 func (cb *ComponentBase) UnknownPropertiesIANAProperties() []IANAProperty {
@@ -41,6 +42,44 @@ func (cb *ComponentBase) UnknownPropertiesIANAProperties() []IANAProperty {
 
 func (cb *ComponentBase) SubComponents() []Component {
 	return cb.Components
+}
+
+type timezoneMapperSetter interface {
+	setTimezoneMapper(TimezoneMapper)
+}
+
+type timezoneMapperGetter interface {
+	getTimezoneMapper() TimezoneMapper
+}
+
+func (cb *ComponentBase) setTimezoneMapper(mapper TimezoneMapper) {
+	cb.timezoneMapper = mapper
+	if mapper == nil {
+		return
+	}
+	for _, child := range cb.Components {
+		if setter, ok := child.(timezoneMapperSetter); ok {
+			setter.setTimezoneMapper(mapper)
+		}
+	}
+}
+
+func (cb *ComponentBase) getTimezoneMapper() TimezoneMapper {
+	return cb.timezoneMapper
+}
+
+func (cb *ComponentBase) addComponent(c Component) {
+	if c == nil {
+		return
+	}
+	if cb.timezoneMapper != nil {
+		if setter, ok := c.(timezoneMapperSetter); ok {
+			if getter, ok := c.(timezoneMapperGetter); !ok || getter.getTimezoneMapper() == nil {
+				setter.setTimezoneMapper(cb.timezoneMapper)
+			}
+		}
+	}
+	cb.Components = append(cb.Components, c)
 }
 
 func (cb *ComponentBase) serializeThis(writer io.Writer, componentType ComponentType, serialConfig *SerializationConfiguration) error {
@@ -297,12 +336,15 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 		return time.Time{}, fmt.Errorf("%w: %s", ErrPropertyNotFound, componentProperty)
 	}
 
+	if cb.timezoneMapper != nil {
+		return parseTimeValue(timeProp.BaseProperty.Value, timeProp.ICalParameters, expectAllDay, fallBackTimezone, cb.timezoneMapper)
+	}
 	return parseTimeValue(timeProp.BaseProperty.Value, timeProp.ICalParameters, expectAllDay, fallBackTimezone)
 }
 
 // parseTimeValue parses a single iCal time value string with the given parameters.
 // This is the core time parsing logic shared by getTimeProp and multi-value time getters.
-func parseTimeValue(timeVal string, params map[string][]string, expectAllDay bool, fallBackTimezone *time.Location) (time.Time, error) {
+func parseTimeValue(timeVal string, params map[string][]string, expectAllDay bool, fallBackTimezone *time.Location, ops ...any) (time.Time, error) {
 	matched := timeStampVariations.FindStringSubmatch(timeVal)
 	if matched == nil {
 		return time.Time{}, fmt.Errorf("%w, got '%s'", ErrTimeValueNotMatched, timeVal)
@@ -319,7 +361,7 @@ func parseTimeValue(timeVal string, params map[string][]string, expectAllDay boo
 			return time.Time{}, ErrExpectedOneTZID
 		}
 		var tzErr error
-		propLoc, tzErr = time.LoadLocation(tzId[0])
+		propLoc, tzErr = resolveTimezone(tzId[0], ops...)
 		if tzErr != nil {
 			return time.Time{}, tzErr
 		}
@@ -458,7 +500,11 @@ func (cb *ComponentBase) getMultiTimeProp(prop ComponentProperty) ([]time.Time, 
 			if v == "" {
 				continue
 			}
-			t, err := parseTimeValue(v, p.ICalParameters, isDateOnly, time.Local)
+			var ops []any
+			if cb.timezoneMapper != nil {
+				ops = append(ops, cb.timezoneMapper)
+			}
+			t, err := parseTimeValue(v, p.ICalParameters, isDateOnly, time.Local, ops...)
 			if err != nil {
 				return nil, fmt.Errorf("parsing %s value %q: %w", prop, v, err)
 			}
@@ -628,13 +674,16 @@ func (cb *ComponentBase) Id() string {
 
 func (cb *ComponentBase) addAlarm() *VAlarm {
 	a := &VAlarm{
-		ComponentBase: ComponentBase{},
+		ComponentBase: ComponentBase{timezoneMapper: cb.timezoneMapper},
 	}
 	cb.Components = append(cb.Components, a)
 	return a
 }
 
 func (cb *ComponentBase) addVAlarm(a *VAlarm) {
+	if a != nil && cb.timezoneMapper != nil {
+		a.setTimezoneMapper(cb.timezoneMapper)
+	}
 	cb.Components = append(cb.Components, a)
 }
 
@@ -757,12 +806,12 @@ func NewTodo(uniqueId string) *VTodo {
 
 func (cal *Calendar) AddTodo(id string) *VTodo {
 	e := NewTodo(id)
-	cal.Components = append(cal.Components, e)
+	cal.addComponent(e)
 	return e
 }
 
 func (cal *Calendar) AddVTodo(e *VTodo) {
-	cal.Components = append(cal.Components, e)
+	cal.addComponent(e)
 }
 
 func (cal *Calendar) Todos() []*VTodo {
@@ -888,12 +937,12 @@ func NewJournal(uniqueId string) *VJournal {
 
 func (cal *Calendar) AddJournal(id string) *VJournal {
 	e := NewJournal(id)
-	cal.Components = append(cal.Components, e)
+	cal.addComponent(e)
 	return e
 }
 
 func (cal *Calendar) AddVJournal(e *VJournal) {
-	cal.Components = append(cal.Components, e)
+	cal.addComponent(e)
 }
 
 func (cal *Calendar) Journals() []*VJournal {
@@ -938,12 +987,12 @@ func NewBusy(uniqueId string) *VBusy {
 
 func (cal *Calendar) AddBusy(id string) *VBusy {
 	e := NewBusy(id)
-	cal.Components = append(cal.Components, e)
+	cal.addComponent(e)
 	return e
 }
 
 func (cal *Calendar) AddVBusy(e *VBusy) {
-	cal.Components = append(cal.Components, e)
+	cal.addComponent(e)
 }
 
 func (cal *Calendar) Busys() []*VBusy {
@@ -981,7 +1030,7 @@ func (timezone *VTimezone) SerializeTo(w io.Writer, serialConfig *SerializationC
 
 func (timezone *VTimezone) AddStandard() *Standard {
 	e := NewStandard()
-	timezone.Components = append(timezone.Components, e)
+	timezone.addComponent(e)
 	return e
 }
 
@@ -998,12 +1047,12 @@ func NewTimezone(tzId string) *VTimezone {
 
 func (cal *Calendar) AddTimezone(id string) *VTimezone {
 	e := NewTimezone(id)
-	cal.Components = append(cal.Components, e)
+	cal.addComponent(e)
 	return e
 }
 
 func (cal *Calendar) AddVTimezone(e *VTimezone) {
-	cal.Components = append(cal.Components, e)
+	cal.addComponent(e)
 }
 
 func (cal *Calendar) Timezones() []*VTimezone {
@@ -1046,7 +1095,7 @@ func NewAlarm(tzId string) *VAlarm {
 }
 
 func (cal *Calendar) AddVAlarm(e *VAlarm) {
-	cal.Components = append(cal.Components, e)
+	cal.addComponent(e)
 }
 
 func (cal *Calendar) Alarms() []*VAlarm {
@@ -1147,68 +1196,70 @@ func GeneralParseComponent(cs *CalendarStream, startLine *BaseProperty) (Compone
 }
 
 func GeneralParseComponentWithOptions(cs *CalendarStream, startLine *BaseProperty, opts ...any) (Component, error) {
+	if _, err := parseComponentOptions(opts...); err != nil {
+		return nil, err
+	}
+	if startLine == nil {
+		return nil, ErrNilStartLine
+	}
 	return generalParseComponentWithHandler(cs, startLine, opts...)
 }
 
 func generalParseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts ...any) (Component, error) {
-	parser, err := parsePropertyParserOptions(parseProperty, opts...)
 	var co Component
-	if err != nil {
-		return co, err
-	}
 	switch ComponentType(startLine.Value) {
 	case ComponentVCalendar:
 		return nil, ErrVCalendarNotWhereExpected
 	case ComponentVEvent:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, opts...)
 		if rerr != nil {
 			return nil, rerr
 		}
 		co = &VEvent{ComponentBase: r}
 	case ComponentVTodo:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, opts...)
 		if rerr != nil {
 			return nil, rerr
 		}
 		co = &VTodo{ComponentBase: r}
 	case ComponentVJournal:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, opts...)
 		if rerr != nil {
 			return nil, rerr
 		}
 		co = &VJournal{ComponentBase: r}
 	case ComponentVFreeBusy:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, opts...)
 		if rerr != nil {
 			return nil, rerr
 		}
 		co = &VBusy{ComponentBase: r}
 	case ComponentVTimezone:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, opts...)
 		if rerr != nil {
 			return nil, rerr
 		}
 		co = &VTimezone{ComponentBase: r}
 	case ComponentVAlarm:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, opts...)
 		if rerr != nil {
 			return nil, rerr
 		}
 		co = &VAlarm{ComponentBase: r}
 	case ComponentStandard:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, opts...)
 		if rerr != nil {
 			return nil, rerr
 		}
 		co = &Standard{ComponentBase: r}
 	case ComponentDaylight:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, opts...)
 		if rerr != nil {
 			return nil, rerr
 		}
 		co = &Daylight{ComponentBase: r}
 	default:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, opts...)
 		if rerr != nil {
 			return nil, rerr
 		}
@@ -1367,12 +1418,44 @@ func ParseComponent(cs *CalendarStream, startLine *BaseProperty) (ComponentBase,
 }
 
 func ParseComponentWithOptions(cs *CalendarStream, startLine *BaseProperty, opts ...any) (ComponentBase, error) {
+	if _, err := parseComponentOptions(opts...); err != nil {
+		return ComponentBase{}, err
+	}
+	if startLine == nil {
+		return ComponentBase{}, ErrNilStartLine
+	}
 	return parseComponentWithHandler(cs, startLine, opts...)
 }
 
+type componentParseConfig struct {
+	propertyParser PropertyParser
+	timezoneMapper TimezoneMapper
+}
+
+func parseComponentOptions(opts ...any) (componentParseConfig, error) {
+	cfg := componentParseConfig{propertyParser: parseProperty}
+	for i, opt := range opts {
+		switch opt := opt.(type) {
+		case nil:
+			continue
+		case PropertyParser:
+			cfg.propertyParser = opt
+		case func(ContentLine) (*BaseProperty, error):
+			cfg.propertyParser = PropertyParser(opt)
+		case TimezoneMapper:
+			cfg.timezoneMapper = opt
+		case func(string) *time.Location:
+			cfg.timezoneMapper = TimezoneMapper(opt)
+		default:
+			return cfg, fmt.Errorf("%w %d: %T", ErrInvalidOpArg, i, opt)
+		}
+	}
+	return cfg, nil
+}
+
 func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts ...any) (ComponentBase, error) {
-	parser, err := parsePropertyParserOptions(parseProperty, opts...)
-	cb := ComponentBase{}
+	cfg, err := parseComponentOptions(opts...)
+	cb := ComponentBase{timezoneMapper: cfg.timezoneMapper}
 	if err != nil {
 		return cb, err
 	}
@@ -1391,7 +1474,7 @@ func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts
 		if l == nil || len(*l) == 0 {
 			continue
 		}
-		line, err := parser(*l)
+		line, err := cfg.propertyParser(*l)
 		if err != nil {
 			if errors.Is(err, ErrPropertySkipped) {
 				continue
@@ -1411,7 +1494,7 @@ func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts
 				return cb, NewMalformedError(lineNo, -1, ErrUnbalancedEnd)
 			}
 		case "BEGIN":
-			co, err := generalParseComponentWithHandler(cs, line, parser)
+			co, err := generalParseComponentWithHandler(cs, line, opts...)
 			if err != nil {
 				return cb, err
 			}

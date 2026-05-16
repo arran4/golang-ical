@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -179,6 +180,7 @@ func (bp *BaseProperty) SerializeTo(w io.Writer, serialConfig *SerializationConf
 		b.WriteString(k)
 		b.WriteByte('=')
 		for vi, v := range vs {
+			v = serializeTZIDValue(serialConfig, k, v)
 			if vi > 0 {
 				b.WriteByte(',')
 			}
@@ -193,6 +195,9 @@ func (bp *BaseProperty) SerializeTo(w io.Writer, serialConfig *SerializationConf
 	}
 	b.WriteByte(':')
 	propertyValue := bp.Value
+	if bp.IANAToken == string(PropertyTzid) {
+		propertyValue = serializeTZIDValue(serialConfig, string(ParameterTzid), propertyValue)
+	}
 	if bp.GetValueType() == ValueDataTypeText {
 		propertyValue = ToText(propertyValue)
 	}
@@ -224,6 +229,23 @@ func (bp *BaseProperty) SerializeTo(w io.Writer, serialConfig *SerializationConf
 		return fmt.Errorf("property %s serialization: %w", bp.IANAToken, err)
 	}
 	return nil
+}
+
+func serializeTZIDValue(serialConfig *SerializationConfiguration, key, value string) string {
+	if serialConfig == nil || serialConfig.timezoneMapper == nil {
+		return value
+	}
+	if Parameter(key) != ParameterTzid {
+		return value
+	}
+	loc, err := time.LoadLocation(value)
+	if err != nil {
+		return value
+	}
+	if mapped, ok := serialConfig.timezoneMapper(loc); ok && mapped != "" {
+		return mapped
+	}
+	return value
 }
 
 func escapeValueString(v string) string {
@@ -347,24 +369,6 @@ func FallbackParser(fallback PropertyParser, fallbacks ...PropertyParser) Proper
 		}
 		return nil, fmt.Errorf("%w: no capable parsers found", ErrPropertySkipped)
 	}
-}
-
-func parsePropertyParserOptions(current PropertyParser, opts ...any) (PropertyParser, error) {
-	for i, opt := range opts {
-		switch opt := opt.(type) {
-		case PropertyParser:
-			if opt != nil {
-				current = opt
-			}
-		case func(ContentLine) (*BaseProperty, error):
-			if opt != nil {
-				current = PropertyParser(opt)
-			}
-		default:
-			return current, fmt.Errorf("%w %d: %T", ErrInvalidOpArg, i, opt)
-		}
-	}
-	return current, nil
 }
 
 func parseProperty(contentLine ContentLine) (*BaseProperty, error) {
