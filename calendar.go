@@ -12,6 +12,8 @@ import (
 )
 
 // ComponentType enumerates the component names defined in RFC 5545 section 3.6.
+// Use these constants when switching on component type or when serializing a
+// calendar object.
 type ComponentType string
 
 const (
@@ -548,10 +550,11 @@ func ComponentPropertyExtended(s string) ComponentProperty {
 	return ComponentProperty("X-" + strings.TrimPrefix("X-", s))
 }
 
+// Property enumerates the iCalendar property names defined primarily in RFC 5545
+// section 3.8. Use the constants below together with SetProperty, GetProperty
+// and the dedicated convenience methods where they exist.
 type Property string
 
-// Property enumerates iCalendar property names as defined primarily in RFC 5545
-// section 3.8.  Each constant maps to its textual representation.
 const (
 	// PropertyCalscale corresponds to CALSCALE (section 3.7.1).
 	// Example using the helper:
@@ -1005,6 +1008,9 @@ const (
 	PropertyTimezoneId Property = "TIMEZONE-ID"
 )
 
+// Parameter enumerates the named property parameters used when serializing
+// iCalendar content lines. Prefer the helper constructors and enum KeyValue
+// implementations below over raw strings.
 type Parameter string
 
 // IsQuoted reports whether the parameter's value should be quoted when serialized.
