@@ -297,12 +297,12 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 		return time.Time{}, fmt.Errorf("%w: %s", ErrorPropertyNotFound, componentProperty)
 	}
 
-	return parseTimeValue(timeProp.BaseProperty.Value, timeProp.ICalParameters, expectAllDay)
+	return parseTimeValue(timeProp.BaseProperty.Value, timeProp.ICalParameters, expectAllDay, fallBackTimezone)
 }
 
 // parseTimeValue parses a single iCal time value string with the given parameters.
 // This is the core time parsing logic shared by getTimeProp and multi-value time getters.
-func parseTimeValue(timeVal string, params map[string][]string, expectAllDay bool) (time.Time, error) {
+func parseTimeValue(timeVal string, params map[string][]string, expectAllDay bool, fallBackTimezone *time.Location) (time.Time, error) {
 	matched := timeStampVariations.FindStringSubmatch(timeVal)
 	if matched == nil {
 		return time.Time{}, fmt.Errorf("time value not matched, got '%s'", timeVal)
@@ -458,7 +458,7 @@ func (cb *ComponentBase) getMultiTimeProp(prop ComponentProperty) ([]time.Time, 
 			if v == "" {
 				continue
 			}
-			t, err := parseTimeValue(v, p.ICalParameters, isDateOnly)
+			t, err := parseTimeValue(v, p.ICalParameters, isDateOnly, time.Local)
 			if err != nil {
 				return nil, fmt.Errorf("parsing %s value %q: %w", prop, v, err)
 			}
