@@ -392,24 +392,6 @@ func FallbackParser(fallback PropertyParser, fallbacks ...PropertyParser) Proper
 	}
 }
 
-func parsePropertyParserOptions(current PropertyParser, opts ...any) (PropertyParser, error) {
-	for i, opt := range opts {
-		switch opt := opt.(type) {
-		case PropertyParser:
-			if opt != nil {
-				current = opt
-			}
-		case func(ContentLine) (*BaseProperty, error):
-			if opt != nil {
-				current = PropertyParser(opt)
-			}
-		default:
-			return current, fmt.Errorf("%w %d: %T", ErrInvalidOpArg, i, opt)
-		}
-	}
-	return current, nil
-}
-
 func parseProperty(contentLine ContentLine) (*BaseProperty, error) {
 	r := &BaseProperty{
 		ICalParameters: map[string][]string{},

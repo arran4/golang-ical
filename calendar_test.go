@@ -894,6 +894,45 @@ func TestComponentParseWithOptions_InvalidOptionType(t *testing.T) {
 	}
 }
 
+func TestParseCalendarWithOptions_StrictUnknownComponentHandlerRejectsUnknown(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:FOO
+SUMMARY:unsupported
+END:FOO
+END:VCALENDAR
+`
+
+	_, err := ParseCalendarWithOptions(strings.NewReader(input), WithUnknownComponentHandler(StrictUnknownComponentHandler))
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unknown component")
+	}
+}
+
+func TestParseCalendarWithOptions_StrictUnknownComponentHandlerAllowsExperimentalXComponent(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:X-FOO
+SUMMARY:experimental
+END:X-FOO
+END:VCALENDAR
+`
+
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input), WithUnknownComponentHandler(StrictUnknownComponentHandler))
+	if !assert.NoError(t, err) {
+		return
+	}
+	if assert.Len(t, cal.Components, 1) {
+		general, ok := cal.Components[0].(*GeneralComponent)
+		if assert.True(t, ok) {
+			assert.Equal(t, "X-FOO", general.Token)
+			assert.Equal(t, "experimental", general.GetProperty(ComponentPropertySummary).Value)
+		}
+	}
+}
+
 func TestSerialize_InvalidOptionType(t *testing.T) {
 	_, err := parseSerializeOps([]any{42})
 	if assert.Error(t, err) {

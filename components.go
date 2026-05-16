@@ -1137,6 +1137,25 @@ type GeneralComponent struct {
 	Token string
 }
 
+// DefaultUnknownComponentHandler preserves unknown components as GeneralComponent
+// values so they round-trip through the parser.
+func DefaultUnknownComponentHandler(cs *CalendarStream, startLine *BaseProperty, opts ...any) (Component, error) {
+	r, err := parseComponentWithHandler(cs, startLine, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &GeneralComponent{ComponentBase: r, Token: startLine.Value}, nil
+}
+
+// StrictUnknownComponentHandler rejects unknown component names unless they are
+// experimental X- components.
+func StrictUnknownComponentHandler(cs *CalendarStream, startLine *BaseProperty, opts ...any) (Component, error) {
+	if !strings.HasPrefix(startLine.Value, "X-") {
+		return nil, fmt.Errorf("unknown component %q", startLine.Value)
+	}
+	return DefaultUnknownComponentHandler(cs, startLine, opts...)
+}
+
 func (general *GeneralComponent) Serialize(serialConfig *SerializationConfiguration) string {
 	s, _ := general.serialize(serialConfig)
 	return s
@@ -1156,7 +1175,7 @@ func (general *GeneralComponent) SerializeTo(w io.Writer, serialConfig *Serializ
 }
 
 func GeneralParseComponent(cs *CalendarStream, startLine *BaseProperty) (Component, error) {
-	return generalParseComponentWithHandler(cs, startLine, parseProperty)
+	return generalParseComponentWithHandler(cs, startLine)
 }
 
 func GeneralParseComponentWithOptions(cs *CalendarStream, startLine *BaseProperty, opts ...any) (Component, error) {
@@ -1164,70 +1183,89 @@ func GeneralParseComponentWithOptions(cs *CalendarStream, startLine *BasePropert
 }
 
 func generalParseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts ...any) (Component, error) {
-	parser, err := parsePropertyParserOptions(parseProperty, opts...)
-	var co Component
-	if err != nil {
-		return co, err
+	componentHandler := DefaultUnknownComponentHandler
+	childOpts := make([]any, 0, len(opts))
+	for i, opt := range opts {
+		switch opt := opt.(type) {
+		case PropertyParser:
+			childOpts = append(childOpts, opt)
+		case func(ContentLine) (*BaseProperty, error):
+			childOpts = append(childOpts, opt)
+		case UnknownComponentPropertyHandler:
+			childOpts = append(childOpts, opt)
+		case func(*ComponentBase, *BaseProperty) error:
+			childOpts = append(childOpts, opt)
+		case UnknownComponentHandler:
+			if opt != nil {
+				componentHandler = opt
+			}
+			childOpts = append(childOpts, opt)
+		case func(*CalendarStream, *BaseProperty, ...any) (Component, error):
+			if opt != nil {
+				componentHandler = UnknownComponentHandler(opt)
+			}
+			childOpts = append(childOpts, opt)
+		default:
+			return nil, fmt.Errorf("%w %d: %T", ErrInvalidOpArg, i, opt)
+		}
+	}
+	if startLine == nil {
+		return nil, errors.New("nil component start line")
 	}
 	switch ComponentType(startLine.Value) {
 	case ComponentVCalendar:
 		return nil, errors.New("malformed calendar; vcalendar not where expected")
 	case ComponentVEvent:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, childOpts...)
 		if rerr != nil {
 			return nil, rerr
 		}
-		co = &VEvent{ComponentBase: r}
+		return &VEvent{ComponentBase: r}, nil
 	case ComponentVTodo:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, childOpts...)
 		if rerr != nil {
 			return nil, rerr
 		}
-		co = &VTodo{ComponentBase: r}
+		return &VTodo{ComponentBase: r}, nil
 	case ComponentVJournal:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, childOpts...)
 		if rerr != nil {
 			return nil, rerr
 		}
-		co = &VJournal{ComponentBase: r}
+		return &VJournal{ComponentBase: r}, nil
 	case ComponentVFreeBusy:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, childOpts...)
 		if rerr != nil {
 			return nil, rerr
 		}
-		co = &VBusy{ComponentBase: r}
+		return &VBusy{ComponentBase: r}, nil
 	case ComponentVTimezone:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, childOpts...)
 		if rerr != nil {
 			return nil, rerr
 		}
-		co = &VTimezone{ComponentBase: r}
+		return &VTimezone{ComponentBase: r}, nil
 	case ComponentVAlarm:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, childOpts...)
 		if rerr != nil {
 			return nil, rerr
 		}
-		co = &VAlarm{ComponentBase: r}
+		return &VAlarm{ComponentBase: r}, nil
 	case ComponentStandard:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, childOpts...)
 		if rerr != nil {
 			return nil, rerr
 		}
-		co = &Standard{ComponentBase: r}
+		return &Standard{ComponentBase: r}, nil
 	case ComponentDaylight:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
+		r, rerr := parseComponentWithHandler(cs, startLine, childOpts...)
 		if rerr != nil {
 			return nil, rerr
 		}
-		co = &Daylight{ComponentBase: r}
+		return &Daylight{ComponentBase: r}, nil
 	default:
-		r, rerr := parseComponentWithHandler(cs, startLine, parser)
-		if rerr != nil {
-			return nil, rerr
-		}
-		co = &GeneralComponent{ComponentBase: r, Token: startLine.Value}
+		return componentHandler(cs, startLine, childOpts...)
 	}
-	return co, nil
 }
 
 func ParseVEvent(cs *CalendarStream, startLine *BaseProperty) *VEvent {
@@ -1384,10 +1422,42 @@ func ParseComponentWithOptions(cs *CalendarStream, startLine *BaseProperty, opts
 }
 
 func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts ...any) (ComponentBase, error) {
-	parser, err := parsePropertyParserOptions(parseProperty, opts...)
 	cb := ComponentBase{}
-	if err != nil {
-		return cb, err
+	parser := parseProperty
+	componentPropertyHandler := DefaultUnknownComponentPropertyHandler
+	childOpts := make([]any, 0, len(opts))
+	for i, opt := range opts {
+		switch opt := opt.(type) {
+		case PropertyParser:
+			if opt != nil {
+				parser = opt
+			}
+			childOpts = append(childOpts, opt)
+		case func(ContentLine) (*BaseProperty, error):
+			if opt != nil {
+				parser = PropertyParser(opt)
+			}
+			childOpts = append(childOpts, opt)
+		case UnknownComponentPropertyHandler:
+			if opt != nil {
+				componentPropertyHandler = opt
+			}
+			childOpts = append(childOpts, opt)
+		case func(*ComponentBase, *BaseProperty) error:
+			if opt != nil {
+				componentPropertyHandler = UnknownComponentPropertyHandler(opt)
+			}
+			childOpts = append(childOpts, opt)
+		case UnknownComponentHandler:
+			childOpts = append(childOpts, opt)
+		case func(*CalendarStream, *BaseProperty, ...any) (Component, error):
+			childOpts = append(childOpts, opt)
+		default:
+			return cb, fmt.Errorf("%w %d: %T", ErrInvalidOpArg, i, opt)
+		}
+	}
+	if startLine == nil {
+		return cb, errors.New("nil component start line")
 	}
 	cont := true
 	for ln := 0; cont; ln++ {
@@ -1422,17 +1492,37 @@ func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts
 				return cb, errors.New("unbalanced end")
 			}
 		case "BEGIN":
-			co, err := generalParseComponentWithHandler(cs, line, parser)
+			co, err := generalParseComponentWithHandler(cs, line, childOpts...)
 			if err != nil {
 				return cb, err
 			}
 			if co != nil {
 				cb.Components = append(cb.Components, co)
 			}
+		case string(ComponentPropertyUniqueId), string(ComponentPropertyDtstamp), string(ComponentPropertyOrganizer),
+			string(ComponentPropertyAttendee), string(ComponentPropertyAttach), string(ComponentPropertyDescription),
+			string(ComponentPropertyCategories), string(ComponentPropertyClass), string(ComponentPropertyColor),
+			string(ComponentPropertyCreated), string(ComponentPropertySummary), string(ComponentPropertyDtStart),
+			string(ComponentPropertyDtEnd), string(ComponentPropertyLocation), string(ComponentPropertyStatus),
+			string(ComponentPropertyFreebusy), string(ComponentPropertyLastModified), string(ComponentPropertyUrl),
+			string(ComponentPropertyGeo), string(ComponentPropertyTransp), string(ComponentPropertySequence),
+			string(ComponentPropertyExdate), string(ComponentPropertyExrule), string(ComponentPropertyRdate),
+			string(ComponentPropertyRrule), string(ComponentPropertyAction), string(ComponentPropertyTrigger),
+			string(ComponentPropertyPriority), string(ComponentPropertyResources), string(ComponentPropertyCompleted),
+			string(ComponentPropertyDue), string(ComponentPropertyPercentComplete), string(ComponentPropertyTzid),
+			string(ComponentPropertyComment), string(ComponentPropertyRelatedTo), string(ComponentPropertyMethod),
+			string(ComponentPropertyRecurrenceId), string(ComponentPropertyDuration), string(ComponentPropertyContact),
+			string(ComponentPropertyRequestStatus):
+			if err := DefaultUnknownComponentPropertyHandler(&cb, line); err != nil {
+				return cb, err
+			}
 		default:
-			// Unrecognised property names are retained verbatim as IANA properties
-			// so non-standard extensions survive round-trip parsing and serialization.
-			cb.Properties = append(cb.Properties, IANAProperty{*line})
+			if err := componentPropertyHandler(&cb, line); err != nil {
+				if errors.Is(err, ErrPropertySkipped) {
+					continue
+				}
+				return cb, fmt.Errorf("parsing component property %d: %w", ln, err)
+			}
 		}
 	}
 	return cb, errors.New("ran out of lines")

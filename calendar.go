@@ -1386,10 +1386,12 @@ type CalendarProperty struct {
 // it must contain at least one component such as VEVENT.  NewCalendar and
 // NewCalendarFor create a calendar populated with those required fields.
 type Calendar struct {
-	Components                     []Component
-	CalendarProperties             []CalendarProperty
-	unknownCalendarPropertyHandler func(cal *Calendar, state string, cl *BaseProperty) error
-	propertyParser                 PropertyParser
+	Components                      []Component
+	CalendarProperties              []CalendarProperty
+	unknownCalendarPropertyHandler  func(cal *Calendar, state string, cl *BaseProperty) error
+	unknownComponentPropertyHandler UnknownComponentPropertyHandler
+	unknownComponentHandler         UnknownComponentHandler
+	propertyParser                  PropertyParser
 }
 
 // NewCalendar returns a basic Calendar using a default product identifier.
@@ -1701,6 +1703,23 @@ type ParseOption func(*Calendar) error
 // CalendarOption provides functional options for Calendar construction.
 type CalendarOption func(*Calendar) error
 
+// UnknownComponentPropertyHandler controls how component properties that fall
+// through the parser switch are handled. The default implementation preserves
+// the property verbatim as an IANA property.
+type UnknownComponentPropertyHandler func(*ComponentBase, *BaseProperty) error
+
+// UnknownComponentHandler controls how unknown component types are handled.
+// The default implementation preserves the component as a GeneralComponent,
+// while the strict variant rejects non-X- experimental component names.
+type UnknownComponentHandler func(*CalendarStream, *BaseProperty, ...any) (Component, error)
+
+// DefaultUnknownComponentPropertyHandler preserves an unknown component property
+// verbatim so the calendar can round-trip non-standard extensions.
+func DefaultUnknownComponentPropertyHandler(cb *ComponentBase, cl *BaseProperty) error {
+	cb.Properties = append(cb.Properties, IANAProperty{*cl})
+	return nil
+}
+
 // WithVersion sets the calendar version.
 func WithVersion(version string, params ...PropertyParameter) CalendarOption {
 	return func(c *Calendar) error {
@@ -1721,6 +1740,28 @@ func WithProductId(productID string, params ...PropertyParameter) CalendarOption
 func WithUnknownPropertyHandler(f func(*Calendar, string, *BaseProperty) error) ParseOption {
 	return func(c *Calendar) error {
 		c.unknownCalendarPropertyHandler = f
+		return nil
+	}
+}
+
+// WithUnknownComponentPropertyHandler allows custom handling of component
+// properties that are not handled explicitly by the parser switch.
+func WithUnknownComponentPropertyHandler(f UnknownComponentPropertyHandler) ParseOption {
+	return func(c *Calendar) error {
+		if f != nil {
+			c.unknownComponentPropertyHandler = f
+		}
+		return nil
+	}
+}
+
+// WithUnknownComponentHandler allows custom handling of unknown component
+// types encountered while parsing nested BEGIN/END blocks.
+func WithUnknownComponentHandler(f UnknownComponentHandler) ParseOption {
+	return func(c *Calendar) error {
+		if f != nil {
+			c.unknownComponentHandler = f
+		}
 		return nil
 	}
 }
@@ -1753,7 +1794,6 @@ func NewCalendarWithOptions(options ...any) (*Calendar, error) {
 		Components:                     []Component{},
 		CalendarProperties:             []CalendarProperty{},
 		unknownCalendarPropertyHandler: DefaultUnknownCalendarPropertyHandler,
-		propertyParser:                 parseProperty,
 	}
 	for i, opt := range options {
 		switch opt := opt.(type) {
@@ -1769,9 +1809,25 @@ func NewCalendarWithOptions(options ...any) (*Calendar, error) {
 			if opt != nil {
 				c.propertyParser = opt
 			}
+		case UnknownComponentPropertyHandler:
+			if opt != nil {
+				c.unknownComponentPropertyHandler = opt
+			}
+		case UnknownComponentHandler:
+			if opt != nil {
+				c.unknownComponentHandler = opt
+			}
 		case func(ContentLine) (*BaseProperty, error):
 			if opt != nil {
 				c.propertyParser = PropertyParser(opt)
+			}
+		case func(*ComponentBase, *BaseProperty) error:
+			if opt != nil {
+				c.unknownComponentPropertyHandler = UnknownComponentPropertyHandler(opt)
+			}
+		case func(*CalendarStream, *BaseProperty, ...any) (Component, error):
+			if opt != nil {
+				c.unknownComponentHandler = UnknownComponentHandler(opt)
 			}
 		default:
 			return nil, fmt.Errorf("%w %d: %T", ErrInvalidOpArg, i, opt)
@@ -1798,6 +1854,10 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 	if err != nil {
 		return nil, err
 	}
+	propertyParser := parseProperty
+	if c.propertyParser != nil {
+		propertyParser = c.propertyParser
+	}
 	cs := NewCalendarStream(r)
 	cont := true
 	for ln := 0; cont; ln++ {
@@ -1813,7 +1873,7 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 		if l == nil || len(*l) == 0 {
 			continue
 		}
-		line, err := c.propertyParser(*l)
+		line, err := propertyParser(*l)
 		if err != nil {
 			if errors.Is(err, ErrPropertySkipped) {
 				continue
@@ -1868,7 +1928,17 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 					return nil, errors.New("malformed calendar; expected end")
 				}
 			case "BEGIN":
-				co, err := generalParseComponentWithHandler(cs, line, c.propertyParser)
+				componentOpts := make([]any, 0, 3)
+				if c.propertyParser != nil {
+					componentOpts = append(componentOpts, c.propertyParser)
+				}
+				if c.unknownComponentPropertyHandler != nil {
+					componentOpts = append(componentOpts, c.unknownComponentPropertyHandler)
+				}
+				if c.unknownComponentHandler != nil {
+					componentOpts = append(componentOpts, c.unknownComponentHandler)
+				}
+				co, err := generalParseComponentWithHandler(cs, line, componentOpts...)
 				if err != nil {
 					return nil, err
 				}
