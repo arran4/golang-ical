@@ -1006,7 +1006,7 @@ const (
 	//     tz.SetTimezoneId("America/New_York")
 	//
 	PropertyTimezoneId Property = "TIMEZONE-ID"
-	PropertySource          Property = "SOURCE"
+	PropertySource     Property = "SOURCE"
 )
 
 // Parameter enumerates the named property parameters used when serializing
@@ -1911,11 +1911,9 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 			case string(PropertyCalscale), string(PropertyMethod), string(PropertyProductId), string(PropertyVersion), string(PropertyName), string(PropertyXWRCalName), string(PropertyXWRCalDesc), string(PropertyXWRTimezone), string(PropertyXWRCalID), string(PropertyXPublishedTTL), string(PropertyRefreshInterval), string(PropertyColor), string(PropertyDescription), string(PropertyLastModified), string(PropertyUrl), string(PropertyTzid), string(PropertyTimezoneId), string(PropertySource):
 				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
 			default:
-				// Unknown property names are retained to ensure
-				// that vendor extensions or future RFC updates
-				// are not lost when the calendar is parsed and
-				// serialized again.
-				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
+				if err := c.unknownCalendarPropertyHandler(c, state, line); err != nil {
+					return nil, NewMalformedError(lineNo, -1, err)
+				}
 			}
 			if state != "components" {
 				break
@@ -1962,20 +1960,19 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 	return c, nil
 }
 
-// AcceptUnknownPropertyHandler allows properties between components (non-standard but occurs in real-world ICS files)
-// These properties are added to the calendar properties list
-func AcceptUnknownPropertyHandler(cal *Calendar, state string, cl *BaseProperty) error {
-	switch state {
-	case "components":
-		cal.CalendarProperties = append(cal.CalendarProperties, CalendarProperty{*cl})
-		return nil
-	default:
-		return DefaultUnknownCalendarPropertyHandler(cal, state, cl)
-	}
+func DefaultUnknownCalendarPropertyHandler(cal *Calendar, state string, cl *BaseProperty) error {
+	cal.CalendarProperties = append(cal.CalendarProperties, CalendarProperty{*cl})
+	return nil
 }
 
-func DefaultUnknownCalendarPropertyHandler(cal *Calendar, state string, cl *BaseProperty) error {
-	return ErrExpectedBeginOrEnd
+// StrictUnknownCalendarPropertyHandler rejects unknown calendar properties
+// unless they are experimental X- properties.
+func StrictUnknownCalendarPropertyHandler(cal *Calendar, state string, cl *BaseProperty) error {
+	if !strings.HasPrefix(cl.IANAToken, "X-") {
+		return fmt.Errorf("unknown calendar property %q", cl.IANAToken)
+	}
+	cal.CalendarProperties = append(cal.CalendarProperties, CalendarProperty{*cl})
+	return nil
 }
 
 // CalendarStream reads content lines from an iCalendar stream. The reader

@@ -420,7 +420,6 @@ SUMMARY:Test Event
 END:VEVENT
 END:VCALENDAR
 `,
-			parseOptions: []any{WithUnknownPropertyHandler(AcceptUnknownPropertyHandler)},
 			output: `BEGIN:VCALENDAR
 VERSION:2.0
 TIMEZONE-ID:VT
@@ -849,6 +848,78 @@ END:VCALENDAR
 		}
 	}
 	assert.True(t, found, "expected recovered calendar-level property")
+}
+
+func TestWithUnknownPropertyHandler_CalendarLevel(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//Test//Test//EN
+END:VCALENDAR
+`
+
+	var states []string
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input),
+		WithUnknownPropertyHandler(func(cal *Calendar, state string, cl *BaseProperty) error {
+			states = append(states, state)
+			cal.CalendarProperties = append(cal.CalendarProperties, CalendarProperty{*cl})
+			return nil
+		}),
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, []string{"properties"}, states)
+	found := false
+	for _, p := range cal.CalendarProperties {
+		if p.IANAToken == "X-CUSTOM-FIELD" {
+			found = true
+			assert.Equal(t, "test", p.Value)
+		}
+	}
+	assert.True(t, found, "expected recovered calendar-level property")
+}
+
+func TestStrictUnknownCalendarPropertyHandler_AllowsExperimentalXProperty(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//Test//Test//EN
+END:VCALENDAR
+`
+
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input),
+		WithUnknownPropertyHandler(StrictUnknownCalendarPropertyHandler),
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	found := false
+	for _, p := range cal.CalendarProperties {
+		if p.IANAToken == "X-CUSTOM-FIELD" {
+			found = true
+			assert.Equal(t, "test", p.Value)
+		}
+	}
+	assert.True(t, found, "expected experimental calendar property to be preserved")
+}
+
+func TestStrictUnknownCalendarPropertyHandler_RejectsNonExperimentalProperty(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+BAD-CALENDAR-PROP:test
+PRODID:-//Test//Test//EN
+END:VCALENDAR
+`
+
+	_, err := ParseCalendarWithOptions(strings.NewReader(input),
+		WithUnknownPropertyHandler(StrictUnknownCalendarPropertyHandler),
+	)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unknown calendar property")
+	}
 }
 
 func TestWithPropertyParser_NestedComponentRecover(t *testing.T) {
