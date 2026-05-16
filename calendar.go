@@ -1006,6 +1006,7 @@ const (
 	//     tz.SetTimezoneId("America/New_York")
 	//
 	PropertyTimezoneId Property = "TIMEZONE-ID"
+	PropertySource          Property = "SOURCE"
 )
 
 // Parameter enumerates the named property parameters used when serializing
@@ -1847,11 +1848,9 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 				}
 			case "BEGIN":
 				state = "components"
+			case string(PropertyCalscale), string(PropertyMethod), string(PropertyProductId), string(PropertyVersion), string(PropertyName), string(PropertyXWRCalName), string(PropertyXWRCalDesc), string(PropertyXWRTimezone), string(PropertyXWRCalID), string(PropertyXPublishedTTL), string(PropertyRefreshInterval), string(PropertyColor), string(PropertyDescription), string(PropertyLastModified), string(PropertyUrl), string(PropertyTzid), string(PropertyTimezoneId), string(PropertySource):
+				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
 			default:
-				// Unknown property names are retained to ensure
-				// that vendor extensions or future RFC updates
-				// are not lost when the calendar is parsed and
-				// serialized again.
 				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
 			}
 			if state != "components" {
