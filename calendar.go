@@ -1355,6 +1355,21 @@ const (
 	ClassificationConfidential Classification = "CONFIDENTIAL"
 )
 
+// Method represents the iCalendar METHOD property.
+//
+// These should be used with caution when creating simple iCal (.ics) files.
+// The iCalendar specification is defined in RFC 5545. It refers to RFC 5546,
+// which defines the ADD method as allowing the Organizer to add one or more
+// new instances to an existing VEVENT, VTODO, or VJOURNAL using a single iTIP message. The UID
+// must be that of the existing event/task/journal.
+//
+// If you include METHOD: ADD in your .ics file (or use SetMethod(MethodAdd)),
+// it is required to refer to existing calendar components. If you are simply
+// writing .ics files to import into calendaring tools, it is not likely that
+// you will want to use this option. Notably, the Apple Calendar program will
+// reject events in .ics files that have this set if they do not refer to
+// existing calendar events; some other calendars (like Microsoft Outlook)
+// have a more permissive import process and will accept them.
 type Method string
 
 // Method enumerates METHOD property values used with scheduling messages
@@ -1391,6 +1406,7 @@ type Calendar struct {
 	CalendarProperties             []CalendarProperty
 	unknownCalendarPropertyHandler func(cal *Calendar, state string, cl *BaseProperty) error
 	propertyParser                 PropertyParser
+	timezoneMapper                 TimezoneMapper
 }
 
 // NewCalendar returns a basic Calendar using a default product identifier.
@@ -1455,7 +1471,11 @@ type SerializationConfiguration struct {
 	MaxLength         int
 	NewLine           string
 	PropertyMaxLength int
+	timezoneMapper    TimezoneSerializationMapper
 }
+
+// SerializationOption provides functional options for Serialize and SerializeTo.
+type SerializationOption func(*SerializationConfiguration) error
 
 // parseSerializeOps interprets the optional arguments provided to Serialize or
 // SerializeTo.  It accepts WithLineLength, WithNewLine or a
@@ -1468,8 +1488,18 @@ func parseSerializeOps(ops []any) (*SerializationConfiguration, error) {
 			serializeConfig.MaxLength = int(op)
 		case WithNewLine:
 			serializeConfig.NewLine = string(op)
+		case SerializationOption:
+			if op != nil {
+				if err := op(serializeConfig); err != nil {
+					return nil, err
+				}
+			}
 		case *SerializationConfiguration:
 			return op, nil
+		case TimezoneSerializationMapper:
+			serializeConfig.timezoneMapper = op
+		case func(*time.Location) (string, bool):
+			serializeConfig.timezoneMapper = TimezoneSerializationMapper(op)
 		case error:
 			return nil, op
 		default:
@@ -1491,6 +1521,49 @@ func defaultSerializationOptions() *SerializationConfiguration {
 	return serializeConfig
 }
 
+// WithTimezoneMapper configures how Windows timezone identifiers are mapped during parsing.
+func WithTimezoneMapper(mapper TimezoneMapper) ParseOption {
+	return func(c *Calendar) error {
+		c.timezoneMapper = mapper
+		return nil
+	}
+}
+
+// WithWindowsTimezoneMapping enables mapping of Windows timezone names to
+// IANA equivalents during calendar parsing.
+func WithWindowsTimezoneMapping() ParseOption {
+	return WithTimezoneMapper(WindowsTimezoneToIANA)
+}
+
+// WithSerializationTimezoneMapper configures how timezone identifiers are mapped during serialization.
+func WithSerializationTimezoneMapper(mapper TimezoneSerializationMapper) SerializationOption {
+	return func(c *SerializationConfiguration) error {
+		c.timezoneMapper = mapper
+		return nil
+	}
+}
+
+// WithWindowsTimezoneMappingForSerialization enables mapping of IANA timezone names
+// to Windows equivalents during serialization.
+func WithWindowsTimezoneMappingForSerialization() SerializationOption {
+	return WithSerializationTimezoneMapper(IANAToWindowsTimezone)
+}
+
+// SetMethod sets the METHOD property for the calendar.
+//
+// These should be used with caution when creating simple iCal (.ics) files.
+// The iCalendar specification is defined in RFC 5545. It refers to RFC 5546,
+// which defines the ADD method as allowing the Organizer to add one or more
+// new instances to an existing VEVENT, VTODO, or VJOURNAL using a single iTIP message. The UID
+// must be that of the existing event/task/journal.
+//
+// If you include METHOD: ADD in your .ics file (or use SetMethod(MethodAdd)),
+// it is required to refer to existing calendar components. If you are simply
+// writing .ics files to import into calendaring tools, it is not likely that
+// you will want to use this option. Notably, the Apple Calendar program will
+// reject events in .ics files that have this set if they do not refer to
+// existing calendar events; some other calendars (like Microsoft Outlook)
+// have a more permissive import process and will accept them.
 func (cal *Calendar) SetMethod(method Method, params ...PropertyParameter) {
 	cal.setProperty(PropertyMethod, string(method), params...)
 }
@@ -1560,6 +1633,31 @@ func (cal *Calendar) SetTimezoneId(s string, params ...PropertyParameter) {
 	cal.setProperty(PropertyTimezoneId, s, params...)
 }
 
+func (cal *Calendar) componentParseOptions() []any {
+	opts := make([]any, 0, 2)
+	if cal.propertyParser != nil {
+		opts = append(opts, cal.propertyParser)
+	}
+	if cal.timezoneMapper != nil {
+		opts = append(opts, cal.timezoneMapper)
+	}
+	return opts
+}
+
+func (cal *Calendar) addComponent(c Component) {
+	if c == nil {
+		return
+	}
+	if cal.timezoneMapper != nil {
+		if setter, ok := c.(timezoneMapperSetter); ok {
+			if getter, ok := c.(timezoneMapperGetter); !ok || getter.getTimezoneMapper() == nil {
+				setter.setTimezoneMapper(cal.timezoneMapper)
+			}
+		}
+	}
+	cal.Components = append(cal.Components, c)
+}
+
 func (cal *Calendar) setProperty(property Property, value string, params ...PropertyParameter) {
 	for i := range cal.CalendarProperties {
 		if cal.CalendarProperties[i].IANAToken == string(property) {
@@ -1588,12 +1686,12 @@ func (cal *Calendar) setProperty(property Property, value string, params ...Prop
 
 func (calendar *Calendar) AddEvent(id string) *VEvent {
 	e := NewEvent(id)
-	calendar.Components = append(calendar.Components, e)
+	calendar.addComponent(e)
 	return e
 }
 
 func (calendar *Calendar) AddVEvent(e *VEvent) {
-	calendar.Components = append(calendar.Components, e)
+	calendar.addComponent(e)
 }
 
 func (calendar *Calendar) Events() (r []*VEvent) {
@@ -1639,7 +1737,8 @@ func ParseCalendarFromUrl(url string, opts ...any) (*Calendar, error) {
 	var ctx context.Context
 	var req *http.Request
 	var client HttpClientLike = http.DefaultClient
-	for opti, opt := range opts {
+	parseOpts := make([]any, 0, len(opts))
+	for i, opt := range opts {
 		switch opt := opt.(type) {
 		case *http.Client:
 			client = opt
@@ -1655,8 +1754,20 @@ func ParseCalendarFromUrl(url string, opts ...any) (*Calendar, error) {
 			ctx = opt
 		case func() context.Context:
 			ctx = opt()
+		case ParseOption:
+			parseOpts = append(parseOpts, opt)
+		case CalendarOption:
+			parseOpts = append(parseOpts, opt)
+		case PropertyParser:
+			parseOpts = append(parseOpts, opt)
+		case func(ContentLine) (*BaseProperty, error):
+			parseOpts = append(parseOpts, opt)
+		case TimezoneMapper:
+			parseOpts = append(parseOpts, opt)
+		case func(string) *time.Location:
+			parseOpts = append(parseOpts, opt)
 		default:
-			return nil, fmt.Errorf("%w %d: %T", ErrInvalidOpArg, opti, opt)
+			return nil, fmt.Errorf("%w %d: %T", ErrInvalidOpArg, i, opt)
 		}
 	}
 	if ctx == nil {
@@ -1669,7 +1780,7 @@ func ParseCalendarFromUrl(url string, opts ...any) (*Calendar, error) {
 			return nil, fmt.Errorf("creating http request: %w", err)
 		}
 	}
-	return parseCalendarFromHttpRequest(client, req)
+	return parseCalendarFromHttpRequest(client, req, parseOpts...)
 }
 
 type HttpClientLike interface {
@@ -1680,7 +1791,7 @@ type HttpClientLike interface {
 // client and parses the response body.  It is a helper for
 // ParseCalendarFromUrl and allows custom HTTP clients to be injected for
 // testing or advanced configuration.
-func parseCalendarFromHttpRequest(client HttpClientLike, request *http.Request) (*Calendar, error) {
+func parseCalendarFromHttpRequest(client HttpClientLike, request *http.Request, opts ...any) (*Calendar, error) {
 	resp, err := client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("http request: %w", err)
@@ -1691,7 +1802,7 @@ func parseCalendarFromHttpRequest(client HttpClientLike, request *http.Request) 
 		}
 	}(resp.Body)
 	var cal *Calendar
-	cal, err = ParseCalendar(resp.Body)
+	cal, err = ParseCalendarWithOptions(resp.Body, opts...)
 	// This allows the defer func to change the error
 	return cal, err
 }
@@ -1759,13 +1870,21 @@ func NewCalendarWithOptions(options ...any) (*Calendar, error) {
 	for i, opt := range options {
 		switch opt := opt.(type) {
 		case CalendarOption:
-			if err := opt(c); err != nil {
-				return nil, err
+			if opt != nil {
+				if err := opt(c); err != nil {
+					return nil, err
+				}
 			}
 		case ParseOption:
-			if err := opt(c); err != nil {
-				return nil, err
+			if opt != nil {
+				if err := opt(c); err != nil {
+					return nil, err
+				}
 			}
+		case TimezoneMapper:
+			c.timezoneMapper = opt
+		case func(string) *time.Location:
+			c.timezoneMapper = TimezoneMapper(opt)
 		case PropertyParser:
 			if opt != nil {
 				c.propertyParser = opt
@@ -1867,7 +1986,7 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 					return nil, NewMalformedError(lineNo, -1, ErrExpectedEnd)
 				}
 			case "BEGIN":
-				co, err := generalParseComponentWithHandler(cs, line, c.propertyParser)
+				co, err := generalParseComponentWithHandler(cs, line, c.componentParseOptions()...)
 				if err != nil {
 					return nil, err
 				}

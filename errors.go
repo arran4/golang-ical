@@ -118,6 +118,8 @@ var (
 
 	// ErrInvalidOpArg marks an invalid variadic option argument.
 	ErrInvalidOpArg = errors.New("invalid option argument")
+	// ErrNilStartLine reports that a parser was called without a starting line.
+	ErrNilStartLine = errors.New("nil start line")
 
 	// ErrPropertySkipped marks a parser decision to skip a malformed line and continue.
 	ErrPropertySkipped = errors.New("property skipped")

@@ -72,7 +72,7 @@ func TestCalendar_ReSerialization(t *testing.T) {
 			require.NoError(t, err)
 
 			//then
-			if diff := cmp.Diff(originalDeserializedCal, deserializedCal, cmpopts.IgnoreUnexported(Calendar{})); diff != "" {
+			if diff := cmp.Diff(originalDeserializedCal, deserializedCal, cmpopts.IgnoreUnexported(Calendar{}, ComponentBase{})); diff != "" {
 				t.Error(diff)
 			}
 		})
