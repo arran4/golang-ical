@@ -577,15 +577,15 @@ func (v *DateTimePeriod) AllDay() bool { return v.allDay }
 // DateDuration represents a PERIOD that ends after a duration from the start.
 type DateDuration struct {
 	start    time.Time
-	duration time.Duration
+	duration Duration
 	allDay   bool
 }
 
 func (v *DateDuration) StartDate() time.Time { return v.start }
 
-func (v *DateDuration) EndDate() (time.Time, bool) { return v.start.Add(v.duration), true }
+func (v *DateDuration) EndDate() (time.Time, bool) { return v.duration.AddTo(v.start), true }
 
-func (v *DateDuration) Duration() (time.Duration, bool) { return v.duration, true }
+func (v *DateDuration) Duration() (time.Duration, bool) { return v.duration.TimeDuration(), true }
 
 func (v *DateDuration) HasEndDate() bool { return true }
 
@@ -664,7 +664,7 @@ func parseDateTimePeriod(start, end time.Time, allDay bool) MultiTimeValue {
 
 // parseDateDuration wraps a PERIOD whose end is expressed as a duration and
 // preserves whether the source value was date-only.
-func parseDateDuration(start time.Time, duration time.Duration, allDay bool) MultiTimeValue {
+func parseDateDuration(start time.Time, duration Duration, allDay bool) MultiTimeValue {
 	return &DateDuration{start: start, duration: duration, allDay: allDay}
 }
 
@@ -678,30 +678,63 @@ func hasOption[T comparable](opts []any, want T) bool {
 	return false
 }
 
+// Duration is the parsed representation of an RFC 5545 DURATION value.
+// Sign is 0 for positive durations and -1 for negative durations.
+type Duration struct {
+	Sign int
+	Time time.Duration
+	Days int
+}
+
+// AddTo applies the duration to t using RFC-compatible order.
+func (d Duration) AddTo(t time.Time) time.Time {
+	days := d.Days
+	clock := d.Time
+
+	if d.Sign == -1 {
+		days = -days
+		clock = -clock
+	}
+
+	return t.AddDate(0, 0, days).Add(clock)
+}
+
+// TimeDuration converts the structured duration into a legacy time.Duration.
+// Reserved for later option handling.
+func (d Duration) TimeDuration(ops ...any) time.Duration {
+	_ = ops
+	if d.Sign == -1 {
+		return -(time.Duration(d.Days)*24*time.Hour + d.Time)
+	}
+	return time.Duration(d.Days)*24*time.Hour + d.Time
+}
+
 // ParseICalDuration parses RFC 5545 DURATION values. It returns ok=false when
 // the input does not look like an iCal duration at all, and returns an error for
 // malformed durations.
-func ParseICalDuration(value string, _ ...any) (time.Duration, bool, error) {
+func ParseICalDuration(value string, ops ...any) (Duration, bool, error) {
+	_ = ops
 	if value == "" {
-		return 0, false, nil
+		return Duration{}, false, nil
 	}
 	if value[0] == '+' {
 		value = value[1:]
 	}
-	sign := 1
+	sign := 0
 	if strings.HasPrefix(value, "-") {
 		sign = -1
 		value = value[1:]
 	}
 	if !strings.HasPrefix(value, "P") {
-		return 0, false, nil
+		return Duration{}, false, nil
 	}
 	value = value[1:]
 	if value == "" {
-		return 0, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingDesignator)
+		return Duration{}, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingDesignator)
 	}
 
-	var total time.Duration
+	var out Duration
+	out.Sign = sign
 	inTime := false
 	haveValue := false
 	seenWeek := false
@@ -710,12 +743,12 @@ func ParseICalDuration(value string, _ ...any) (time.Duration, bool, error) {
 	for len(value) > 0 {
 		if value[0] == 'T' {
 			if inTime {
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateTimeDesignator, value)
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateTimeDesignator, value)
 			}
 			inTime = true
 			value = value[1:]
 			if value == "" {
-				return 0, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingTimeComponent)
+				return Duration{}, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingTimeComponent)
 			}
 			continue
 		}
@@ -725,15 +758,15 @@ func ParseICalDuration(value string, _ ...any) (time.Duration, bool, error) {
 			i++
 		}
 		if i == 0 {
-			return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationExpectedDigits, value)
+			return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationExpectedDigits, value)
 		}
 		if i == len(value) {
-			return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingUnit, value)
+			return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingUnit, value)
 		}
 
 		num, err := strconv.Atoi(value[:i])
 		if err != nil {
-			return 0, false, fmt.Errorf("invalid duration %q: %w", value[:i], err)
+			return Duration{}, false, fmt.Errorf("invalid duration %q: %w", value[:i], err)
 		}
 		unit := value[i]
 		value = value[i+1:]
@@ -742,73 +775,80 @@ func ParseICalDuration(value string, _ ...any) (time.Duration, bool, error) {
 		switch {
 		case !inTime && unit == 'W':
 			if seenWeek || seenDay {
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyDateComponent, value)
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyDateComponent, value)
 			}
 			if len(value) != 0 {
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyComponent, value)
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyComponent, value)
 			}
 			seenWeek = true
-			total += time.Duration(num) * 7 * 24 * time.Hour
+			out.Days += num * 7
 		case !inTime && unit == 'D':
 			if seenWeek {
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyDateComponent, value)
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyDateComponent, value)
 			}
 			if seenDay {
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateDayDesignator, value)
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateDayDesignator, value)
 			}
 			seenDay = true
-			total += time.Duration(num) * 24 * time.Hour
+			out.Days += num
 		case inTime && unit == 'H':
 			if lastTimeRank >= 1 {
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderHoursComponent, value)
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderHoursComponent, value)
 			}
 			lastTimeRank = 1
-			total += time.Duration(num) * time.Hour
+			out.Time += time.Duration(num) * time.Hour
 		case inTime && unit == 'M':
 			if lastTimeRank >= 2 {
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderMinutesComponent, value)
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderMinutesComponent, value)
 			}
 			lastTimeRank = 2
-			total += time.Duration(num) * time.Minute
+			out.Time += time.Duration(num) * time.Minute
 		case inTime && unit == 'S':
 			if lastTimeRank >= 3 {
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderSecondsComponent, value)
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderSecondsComponent, value)
 			}
 			lastTimeRank = 3
-			total += time.Duration(num) * time.Second
+			out.Time += time.Duration(num) * time.Second
 		case !inTime:
 			switch unit {
 			case 'H':
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationHoursRequireTimeSection, string(unit))
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationHoursRequireTimeSection, string(unit))
 			case 'M':
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationMinutesRequireTimeSection, string(unit))
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationMinutesRequireTimeSection, string(unit))
 			case 'S':
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationSecondsRequireTimeSection, string(unit))
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationSecondsRequireTimeSection, string(unit))
 			default:
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationUnknownUnit, string(unit))
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationUnknownUnit, string(unit))
 			}
 		default:
-			return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationUnknownUnit, string(unit))
+			return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationUnknownUnit, string(unit))
 		}
 
 		if !inTime && seenWeek {
 			// W is exclusive by RFC 5545: no additional date or time components.
 			if len(value) != 0 {
-				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyComponent, value)
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyComponent, value)
 			}
 		}
 	}
 
 	if !haveValue {
-		return 0, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingValue)
+		return Duration{}, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingValue)
 	}
 	if inTime && lastTimeRank == 0 {
-		return 0, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingTimeComponent)
+		return Duration{}, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingTimeComponent)
 	}
-	if sign < 0 {
-		total = -total
+	return out, true, nil
+}
+
+// ParseDurationAsTimeDuration parses an RFC 5545 duration and returns the legacy
+// flattened time.Duration form.
+func ParseDurationAsTimeDuration(value string) (time.Duration, bool, error) {
+	parsed, ok, err := ParseICalDuration(value)
+	if err != nil || !ok {
+		return 0, ok, err
 	}
-	return total, true, nil
+	return parsed.TimeDuration(), true, nil
 }
 
 func (cb *ComponentBase) SetSummary(s string, params ...PropertyParameter) {

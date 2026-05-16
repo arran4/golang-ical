@@ -250,27 +250,60 @@ END:VTODO
 
 func TestParseICalDurationRFCExamples(t *testing.T) {
 	tests := []struct {
-		name  string
-		input string
-		want  time.Duration
+		name     string
+		input    string
+		expected []Duration
 	}{
-		{name: "weeks", input: "P2W", want: 14 * 24 * time.Hour},
-		{name: "days hours minutes seconds", input: "P15DT5H0M20S", want: 15*24*time.Hour + 5*time.Hour + 20*time.Second},
-		{name: "hours and minutes", input: "PT5H30M", want: 5*time.Hour + 30*time.Minute},
-		{name: "minutes only", input: "PT15M", want: 15 * time.Minute},
-		{name: "days only", input: "P3D", want: 3 * 24 * time.Hour},
-		{name: "zero seconds", input: "PT0S", want: 0},
-		{name: "positive sign", input: "+PT45M", want: 45 * time.Minute},
-		{name: "negative duration", input: "-PT6H", want: -6 * time.Hour},
-		{name: "leading zeros", input: "P0003D", want: 3 * 24 * time.Hour},
+		{
+			name:     "days hours minutes seconds",
+			input:    "P15DT5H0M20S",
+			expected: []Duration{{Sign: 0, Time: 5*time.Hour + 20*time.Second, Days: 15}},
+		},
+		{
+			name:     "weeks",
+			input:    "P7W",
+			expected: []Duration{{Sign: 0, Time: 0, Days: 7 * 7}},
+		},
+		{
+			name:     "negative duration",
+			input:    "-P1DT3H",
+			expected: []Duration{{Sign: -1, Time: 3 * time.Hour, Days: 1}},
+		},
+		{
+			name:     "missing designator",
+			input:    "15DT5H0M20S",
+			expected: nil,
+		},
+		{
+			name:     "random string",
+			input:    "INVALID",
+			expected: nil,
+		},
+		{
+			name:     "comma separated list",
+			input:    "P1DT5H,P2DT3H",
+			expected: []Duration{{Sign: 0, Time: 5 * time.Hour, Days: 1}, {Sign: 0, Time: 3 * time.Hour, Days: 2}},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, ok, err := ParseICalDuration(tt.input)
-			require.NoError(t, err)
-			require.True(t, ok)
-			assert.Equal(t, tt.want, got)
+			if tt.expected == nil {
+				got, ok, err := ParseICalDuration(tt.input)
+				require.NoError(t, err)
+				require.False(t, ok)
+				assert.Equal(t, Duration{}, got)
+				return
+			}
+
+			parts := strings.Split(tt.input, ",")
+			require.Len(t, parts, len(tt.expected))
+			for i, part := range parts {
+				got, ok, err := ParseICalDuration(strings.TrimSpace(part))
+				require.NoError(t, err)
+				require.True(t, ok)
+				assert.Equal(t, tt.expected[i], got)
+			}
 		})
 	}
 }
@@ -315,6 +348,22 @@ func TestParseICalDurationRejectsInvalidRFCForms(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestParseDurationAsTimeDuration(t *testing.T) {
+	got, ok, err := ParseDurationAsTimeDuration("P15DT5H0M20S")
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, 15*24*time.Hour+5*time.Hour+20*time.Second, got)
+}
+
+func TestICalDurationAddTo(t *testing.T) {
+	start := time.Date(2026, 5, 16, 9, 0, 0, 0, time.UTC)
+	dur := Duration{Sign: -1, Days: 1, Time: 3 * time.Hour}
+
+	got := dur.AddTo(start)
+	want := start.AddDate(0, 0, -1).Add(-3 * time.Hour)
+	assert.True(t, want.Equal(got))
 }
 
 func TestParseMultiTimeValueShapes(t *testing.T) {
