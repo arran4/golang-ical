@@ -469,7 +469,7 @@ func (cb *ComponentBase) IsDuring(point time.Time, ops ...any) (bool, error) {
 	if durationProp != nil {
 		durations, err = durationProp.ParseDurations()
 		if err != nil {
-			return false, fmt.Errorf("start time: %w", err)
+			return false, fmt.Errorf("duration: %w", err)
 		}
 	}
 	switch {
