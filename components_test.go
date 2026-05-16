@@ -408,13 +408,13 @@ func TestParseMultiTimeValueRejectsInvalidPeriods(t *testing.T) {
 
 func TestParseTimeValue(t *testing.T) {
 	t.Run("timestamp utc", func(t *testing.T) {
-		got, err := parseTimeValue("20230119T163000Z", nil)
+		got, err := parseTimeValue("20230119T163000Z", nil, false)
 		require.NoError(t, err)
 		assert.True(t, got.Equal(time.Date(2023, 1, 19, 16, 30, 0, 0, time.UTC)))
 	})
 
 	t.Run("all day date", func(t *testing.T) {
-		got, err := parseTimeValue("20230119", map[string][]string{"TZID": []string{"UTC"}}, ParseAllDay(true))
+		got, err := parseTimeValue("20230119", map[string][]string{"TZID": []string{"UTC"}}, true)
 		require.NoError(t, err)
 		assert.Equal(t, 2023, got.Year())
 		assert.Equal(t, time.January, got.Month())
@@ -423,7 +423,7 @@ func TestParseTimeValue(t *testing.T) {
 	})
 
 	t.Run("timestamp with tzid", func(t *testing.T) {
-		got, err := parseTimeValue("20230119T163000", map[string][]string{"TZID": []string{"UTC"}})
+		got, err := parseTimeValue("20230119T163000", map[string][]string{"TZID": []string{"UTC"}}, false)
 		require.NoError(t, err)
 		assert.True(t, got.Equal(time.Date(2023, 1, 19, 16, 30, 0, 0, time.UTC)))
 	})
