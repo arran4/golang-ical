@@ -526,7 +526,7 @@ func (cb *ComponentBase) GetEndAt() (time.Time, error) {
 func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
 	timeProp := cb.GetProperty(componentProperty)
 	if timeProp == nil {
-		return time.Time{}, fmt.Errorf("%w: %s", ErrorPropertyNotFound, componentProperty)
+		return time.Time{}, fmt.Errorf("%w: %s", ErrPropertyNotFound, componentProperty)
 	}
 	t, _, err := timeProp.ParseTime(expectAllDay)
 	if t == nil {
@@ -1027,11 +1027,12 @@ func (todo *VTodo) Alarms() []*VAlarm {
 	return todo.alarms()
 }
 
+// TODO verify that due is only relevant to VTodo if not move to ComponentBase.
 func (todo *VTodo) GetDueAt() (time.Time, error) {
 	return todo.getTimeProp(ComponentPropertyDue, false)
 }
 
-func (todo *VTodo) GetAllDayDueAt() (time.Time, error) {
+func (todo *VEvent) GetAllDayDueAt() (time.Time, error) {
 	return todo.getTimeProp(ComponentPropertyDue, true)
 }
 
@@ -1336,7 +1337,7 @@ func generalParseComponentWithHandler(cs *CalendarStream, startLine *BasePropert
 	}
 	switch ComponentType(startLine.Value) {
 	case ComponentVCalendar:
-		return nil, errors.New("malformed calendar; vcalendar not where expected")
+		return nil, ErrVCalendarNotWhereExpected
 	case ComponentVEvent:
 		r, rerr := parseComponentWithHandler(cs, startLine, parser)
 		if rerr != nil {
@@ -1554,12 +1555,13 @@ func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts
 	if err != nil {
 		return cb, err
 	}
+	lastLine := 0
 	cont := true
-	for ln := 0; cont; ln++ {
-		l, err := cs.ReadLine()
+	for cont {
+		l, lineNo, err := cs.ReadLine()
 		if err != nil {
-			switch err {
-			case io.EOF:
+			switch {
+			case errors.Is(err, io.EOF):
 				cont = false
 			default:
 				return cb, err
@@ -1573,18 +1575,19 @@ func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts
 			if errors.Is(err, ErrPropertySkipped) {
 				continue
 			}
-			return cb, fmt.Errorf("parsing component property %d: %w", ln, err)
+			return cb, NewMalformedError(lineNo, -1, err)
 		}
 		if line == nil {
 			continue
 		}
+		lastLine = lineNo
 		switch line.IANAToken {
 		case "END":
 			switch line.Value {
 			case startLine.Value:
 				return cb, nil
 			default:
-				return cb, errors.New("unbalanced end")
+				return cb, NewMalformedError(lineNo, -1, ErrUnbalancedEnd)
 			}
 		case "BEGIN":
 			co, err := generalParseComponentWithHandler(cs, line, parser)
@@ -1613,5 +1616,5 @@ func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts
 			cb.Properties = append(cb.Properties, IANAProperty{*line})
 		}
 	}
-	return cb, errors.New("ran out of lines")
+	return cb, NewMalformedError(lastLine, -1, ErrOutOfLines)
 }

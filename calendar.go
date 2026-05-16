@@ -231,6 +231,7 @@ const (
 	PropertySequence        Property = "SEQUENCE"
 	PropertyXWRCalID        Property = "X-WR-RELCALID"
 	PropertyTimezoneId      Property = "TIMEZONE-ID"
+	PropertySource          Property = "SOURCE"
 )
 
 type Parameter string
@@ -781,11 +782,11 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 	}
 	cs := NewCalendarStream(r)
 	cont := true
-	for ln := 0; cont; ln++ {
-		l, err := cs.ReadLine()
+	for cont {
+		l, lineNo, err := cs.ReadLine()
 		if err != nil {
-			switch err {
-			case io.EOF:
+			switch {
+			case errors.Is(err, io.EOF):
 				cont = false
 			default:
 				return c, err
@@ -799,7 +800,7 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 			if errors.Is(err, ErrPropertySkipped) {
 				continue
 			}
-			return nil, fmt.Errorf("parsing line %d: %w", ln, err)
+			return nil, NewMalformedError(lineNo, -1, err)
 		}
 		if line == nil {
 			continue
@@ -812,10 +813,10 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 				case "VCALENDAR":
 					state = "properties"
 				default:
-					return nil, errors.New("malformed calendar; expected a vcalendar")
+					return nil, NewMalformedError(lineNo, -1, ErrExpectedVCalendar)
 				}
 			default:
-				return nil, errors.New("malformed calendar; expected begin")
+				return nil, NewMalformedError(lineNo, -1, ErrExpectedBegin)
 			}
 		case "properties":
 			switch line.IANAToken {
@@ -824,11 +825,13 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 				case "VCALENDAR":
 					state = "end"
 				default:
-					return nil, errors.New("malformed calendar; expected end")
+					return nil, NewMalformedError(lineNo, -1, ErrExpectedEnd)
 				}
 			case "BEGIN":
 				state = "components"
-			default: // TODO put in all the supported types for type switching etc.
+			case string(PropertyCalscale), string(PropertyMethod), string(PropertyProductId), string(PropertyVersion), string(PropertyName), string(PropertyXWRCalName), string(PropertyXWRCalDesc), string(PropertyXWRTimezone), string(PropertyXWRCalID), string(PropertyXPublishedTTL), string(PropertyRefreshInterval), string(PropertyColor), string(PropertyDescription), string(PropertyLastModified), string(PropertyUrl), string(PropertyTzid), string(PropertyTimezoneId), string(PropertySource):
+				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
+			default:
 				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
 			}
 			if state != "components" {
@@ -842,7 +845,7 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 				case "VCALENDAR":
 					state = "end"
 				default:
-					return nil, errors.New("malformed calendar; expected end")
+					return nil, NewMalformedError(lineNo, -1, ErrExpectedEnd)
 				}
 			case "BEGIN":
 				co, err := generalParseComponentWithHandler(cs, line, c.propertyParser)
@@ -854,13 +857,13 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 				}
 			default:
 				if err := c.unknownCalendarPropertyHandler(c, state, line); err != nil {
-					return nil, err
+					return nil, NewMalformedError(lineNo, -1, err)
 				}
 			}
 		case "end":
-			return nil, errors.New("malformed calendar; unexpected end")
+			return nil, NewMalformedError(lineNo, -1, ErrUnexpectedCalendarEnd)
 		default:
-			return nil, errors.New("malformed calendar; bad state")
+			return nil, NewMalformedError(lineNo, -1, ErrBadCalendarState)
 		}
 	}
 	return c, nil
@@ -879,12 +882,13 @@ func AcceptUnknownPropertyHandler(cal *Calendar, state string, cl *BaseProperty)
 }
 
 func DefaultUnknownCalendarPropertyHandler(cal *Calendar, state string, cl *BaseProperty) error {
-	return errors.New("malformed calendar; expected begin or end")
+	return ErrExpectedBeginOrEnd
 }
 
 type CalendarStream struct {
-	r io.Reader
-	b *bufio.Reader
+	r    io.Reader
+	b    *bufio.Reader
+	line int
 }
 
 func NewCalendarStream(r io.Reader) *CalendarStream {
@@ -894,10 +898,11 @@ func NewCalendarStream(r io.Reader) *CalendarStream {
 	}
 }
 
-func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
+func (cs *CalendarStream) ReadLine() (*ContentLine, int, error) {
 	r := []byte{}
 	c := true
 	var err error
+	lineNo := cs.line + 1
 	for c {
 		var b []byte
 		b, err = cs.b.ReadBytes('\n')
@@ -915,7 +920,7 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 			}
 			p, err := cs.b.Peek(1)
 			r = append(r, b[:len(b)-o]...)
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				c = false
 			}
 			switch {
@@ -929,20 +934,28 @@ func (cs *CalendarStream) ReadLine() (*ContentLine, error) {
 		default:
 			r = append(r, b...)
 		}
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			if len(r) == 0 {
 				c = true
 			}
-		case io.EOF:
+		case errors.Is(err, io.EOF):
 			c = false
 		default:
-			return nil, err
+			// This must be as a result of boxing?
+			if err != nil {
+				err = fmt.Errorf("readline: %w", err)
+			}
+			return nil, lineNo, err
 		}
 	}
 	if len(r) == 0 && err != nil {
-		return nil, err
+		return nil, lineNo, fmt.Errorf("readline: %w", err)
 	}
 	cl := ContentLine(r)
-	return &cl, err
+	cs.line = lineNo
+	if err != nil {
+		err = fmt.Errorf("readline: %w", err)
+	}
+	return &cl, lineNo, err
 }
