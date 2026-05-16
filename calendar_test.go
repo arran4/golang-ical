@@ -48,7 +48,7 @@ func TestTimeParsing(t *testing.T) {
 		t.Errorf("read file: %v", err)
 	}
 	cal, err := ParseCalendar(calFile)
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		t.Errorf("parse calendar: %v", err)
 	}
 
@@ -155,10 +155,10 @@ CLASS:PUBLIC
 	c := NewCalendarStream(strings.NewReader(i))
 	cont := true
 	for i := 0; cont; i++ {
-		l, err := c.ReadLine()
+		l, _, err := c.ReadLine()
 		if err != nil {
-			switch err {
-			case io.EOF:
+			switch {
+			case errors.Is(err, io.EOF):
 				cont = false
 			default:
 				t.Logf("Unknown error; %v", err)
@@ -167,7 +167,7 @@ CLASS:PUBLIC
 			}
 		}
 		if l == nil {
-			if err == io.EOF && i == len(expected) {
+			if errors.Is(err, io.EOF) && i == len(expected) {
 				cont = false
 			} else {
 				t.Logf("Nil response...")
@@ -206,7 +206,8 @@ func TestRfc5545Sec4Examples(t *testing.T) {
 
 		input := rnReplace.ReplaceAllString(string(inputBytes), "\r\n")
 		structure, err := ParseCalendar(strings.NewReader(input))
-		if assert.Nil(t, err, path) {
+		if err != nil && !errors.Is(err, io.EOF) {
+			assert.Nil(t, err, path)
 			// This should fail as the sample data doesn't conform to https://tools.ietf.org/html/rfc5545#page-45
 			// Probably due to RFC width guides
 			assert.NotNil(t, structure)
@@ -472,12 +473,12 @@ func TestIssue52(t *testing.T) {
 		_, fn := filepath.Split(path)
 		t.Run(fn, func(t *testing.T) {
 			f, err := TestData.Open(path)
-			if err != nil {
+			if err != nil && errors.Is(err, io.EOF) {
 				t.Fatalf("Error reading file: %s", err)
 			}
 			defer f.Close()
 
-			if _, err := ParseCalendar(f); err != nil {
+			if _, err := ParseCalendar(f); err != nil && !errors.Is(err, io.EOF) {
 				t.Fatalf("Error parsing file: %s", err)
 			}
 
@@ -717,6 +718,77 @@ END:VCALENDAR
 `
 	_, err := ParseCalendar(strings.NewReader(input))
 	assert.Error(t, err)
+}
+
+func TestParseCalendar_MalformedErrorIncludesLine(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+DTSTART:20240101T120000Z
+SUMMARY:Test Event
+X-BAD;under_score=val:value
+END:VEVENT
+END:VCALENDAR
+`
+
+	_, err := ParseCalendar(strings.NewReader(input))
+	if !assert.Error(t, err) {
+		return
+	}
+	var malformed *MalformedError
+	if assert.True(t, errors.As(err, &malformed)) {
+		assert.Equal(t, 7, malformed.Line)
+		assert.False(t, malformed.HasChar)
+		assert.ErrorIs(t, err, ErrMissingPropertyValue)
+	}
+}
+
+func TestParseCalendar_MalformedErrorFirstLine(t *testing.T) {
+	input := `BOGUS:VCALENDAR
+VERSION:2.0
+END:VCALENDAR
+`
+
+	_, err := ParseCalendar(strings.NewReader(input))
+	if !assert.Error(t, err) {
+		return
+	}
+	var malformed *MalformedError
+	if assert.True(t, errors.As(err, &malformed)) {
+		assert.Equal(t, 1, malformed.Line)
+		assert.False(t, malformed.HasChar)
+		assert.ErrorIs(t, err, ErrExpectedBegin)
+	}
+}
+
+func TestParseCalendar_MalformedErrorNestedComponentLine(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+DTSTART:20240101T120000Z
+SUMMARY:Test Event
+BEGIN:VALARM
+TRIGGER:-PT15M
+ACTION:DISPLAY
+X-ALARM-BAD;under_score=val:alarm-value
+DESCRIPTION:Reminder
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+`
+
+	_, err := ParseCalendar(strings.NewReader(input))
+	if !assert.Error(t, err) {
+		return
+	}
+	var malformed *MalformedError
+	if assert.True(t, errors.As(err, &malformed)) {
+		assert.Equal(t, 10, malformed.Line)
+		assert.False(t, malformed.HasChar)
+		assert.ErrorIs(t, err, ErrMissingPropertyValue)
+	}
 }
 
 func TestWithPropertyParser_NestedComponent(t *testing.T) {
