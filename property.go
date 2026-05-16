@@ -197,7 +197,7 @@ func (bp *BaseProperty) GetValueType() ValueDataType {
 	}
 }
 
-func (bp *BaseProperty) serialize(w io.Writer, serialConfig *SerializationConfiguration) error {
+func (bp *BaseProperty) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
 	var b strings.Builder
 	b.WriteString(bp.IANAToken)
 
@@ -320,29 +320,110 @@ func init() {
 // specification.
 type ContentLine string
 
-// ParseProperty interprets a single content line according to RFC 5545
-// section 3.1.  A content line has the form:
+// PropertyParser is an optional replacement parser for malformed content lines.
+// It receives the raw content line and can either recover, skip, or abort.
+type PropertyParser func(rawLine ContentLine) (*BaseProperty, error)
+
+// ParseProperty parses a single RFC 5545 content line using strict parsing rules.
+//
+// A content line has the form:
 //
 //	name *(";" param) ":" value CRLF
 //
-// This function extracts the property name, its parameters and the value
-// component.  The implementation performs minimal validation so unknown
-// properties and parameters are preserved.  It returns a BaseProperty holding
-// the parsed results.
+// Unknown properties and parameters are preserved in the returned BaseProperty.
 func ParseProperty(contentLine ContentLine) (*BaseProperty, error) {
+	return parseProperty(contentLine)
+}
+
+// SkipPropertyParser is an alternative to the default strict parser path used by ParseCalendar and ParseComponent.
+// It returns parsed properties when the line is valid and skips malformed lines.
+func SkipPropertyParser(rawLine ContentLine) (*BaseProperty, error) {
+	line, err := parseProperty(rawLine)
+	if err != nil {
+		return nil, nil
+	}
+	return line, nil
+}
+
+// LooseParser is an alternative to the default strict parser path used by ParseCalendar and ParseComponent.
+// It preserves the property token and value when malformed parameters prevent a full parse.
+func LooseParser(rawLine ContentLine) (*BaseProperty, error) {
+	s := string(rawLine)
+	colonIdx := strings.Index(s, ":")
+	if colonIdx <= 0 {
+		return nil, fmt.Errorf("%w: unable to recover property (no colon)", ErrPropertySkipped)
+	}
+	tokenEnd := colonIdx
+	if semiIdx := strings.Index(s, ";"); semiIdx > 0 && semiIdx < colonIdx {
+		tokenEnd = semiIdx
+	}
+	return &BaseProperty{
+		IANAToken:      s[:tokenEnd],
+		Value:          s[colonIdx+1:],
+		ICalParameters: map[string][]string{},
+	}, nil
+}
+
+// FallbackParser builds an alternative to the default strict parser path used by ParseCalendar and ParseComponent.
+// It tries the strict parser first, then each supplied fallback parser in order.
+func FallbackParser(fallback PropertyParser, fallbacks ...PropertyParser) PropertyParser {
+	parsers := append([]PropertyParser{fallback}, fallbacks...)
+	return func(rawLine ContentLine) (*BaseProperty, error) {
+		line, err := parseProperty(rawLine)
+		if err == nil {
+			return line, nil
+		}
+		for _, p := range parsers {
+			if p == nil {
+				continue
+			}
+			line, err := p(rawLine)
+			if err != nil {
+				if errors.Is(err, ErrPropertySkipped) {
+					continue
+				}
+				return nil, err
+			}
+			if line != nil {
+				return line, nil
+			}
+		}
+		return nil, fmt.Errorf("%w: no capable parsers found", ErrPropertySkipped)
+	}
+}
+
+func parsePropertyParserOptions(current PropertyParser, opts ...any) (PropertyParser, error) {
+	for i, opt := range opts {
+		switch opt := opt.(type) {
+		case PropertyParser:
+			if opt != nil {
+				current = opt
+			}
+		case func(ContentLine) (*BaseProperty, error):
+			if opt != nil {
+				current = PropertyParser(opt)
+			}
+		default:
+			return current, fmt.Errorf("%w %d: %T", ErrInvalidOpArg, i, opt)
+		}
+	}
+	return current, nil
+}
+
+func parseProperty(contentLine ContentLine) (*BaseProperty, error) {
 	r := &BaseProperty{
 		ICalParameters: map[string][]string{},
 	}
 	tokenPos := propertyIanaTokenReg.FindIndex([]byte(contentLine))
 	if tokenPos == nil {
-		return nil, nil
+		return nil, fmt.Errorf("invalid property token in %q", contentLine)
 	}
 	p := 0
 	r.IANAToken = string(contentLine[p+tokenPos[0] : p+tokenPos[1]])
 	p += tokenPos[1]
 	for {
 		if p >= len(contentLine) {
-			return nil, nil
+			return nil, fmt.Errorf("unexpected end of property %s", r.IANAToken)
 		}
 		switch rune(contentLine[p]) {
 		case ':':
@@ -356,11 +437,11 @@ func ParseProperty(contentLine ContentLine) (*BaseProperty, error) {
 				return nil, fmt.Errorf("parsing property %s: %w", t, err)
 			}
 			if r == nil {
-				return nil, nil
+				return nil, fmt.Errorf("parsing property %s: invalid property", t)
 			}
 			p = np
 		default:
-			return nil, nil
+			return nil, fmt.Errorf("parsing property %s: unexpected character %q", r.IANAToken, contentLine[p])
 		}
 	}
 }
