@@ -248,7 +248,7 @@ END:VTODO
 	}
 }
 
-func TestParseICalDurationRFCExamples(t *testing.T) {
+func TestParseDurationRFCExamples(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -289,7 +289,7 @@ func TestParseICalDurationRFCExamples(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.expected == nil {
-				got, ok, err := ParseICalDuration(tt.input)
+				got, ok, err := ParseDuration(tt.input)
 				require.NoError(t, err)
 				require.False(t, ok)
 				assert.Equal(t, Duration{}, got)
@@ -299,7 +299,7 @@ func TestParseICalDurationRFCExamples(t *testing.T) {
 			parts := strings.Split(tt.input, ",")
 			require.Len(t, parts, len(tt.expected))
 			for i, part := range parts {
-				got, ok, err := ParseICalDuration(strings.TrimSpace(part))
+				got, ok, err := ParseDuration(strings.TrimSpace(part))
 				require.NoError(t, err)
 				require.True(t, ok)
 				assert.Equal(t, tt.expected[i], got)
@@ -308,7 +308,7 @@ func TestParseICalDurationRFCExamples(t *testing.T) {
 	}
 }
 
-func TestParseICalDurationRejectsInvalidRFCForms(t *testing.T) {
+func TestParseDurationRejectsInvalidRFCForms(t *testing.T) {
 	tests := []struct {
 		input   string
 		wantOK  bool
@@ -336,7 +336,7 @@ func TestParseICalDurationRejectsInvalidRFCForms(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			_, ok, err := ParseICalDuration(tt.input)
+			_, ok, err := ParseDuration(tt.input)
 			assert.Equal(t, tt.wantOK, ok)
 			if tt.wantErr {
 				require.Error(t, err)

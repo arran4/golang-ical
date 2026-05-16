@@ -624,7 +624,7 @@ func parsePeriodValue(start, end string, params map[string][]string, opts ...any
 	if err != nil {
 		return nil, fmt.Errorf("parsing period start %q: %w", start, err)
 	}
-	duration, ok, err := ParseICalDuration(end)
+	duration, ok, err := ParseDuration(end)
 	if err != nil {
 		return nil, fmt.Errorf("parsing period end %q: %w", end, err)
 	}
@@ -709,10 +709,10 @@ func (d Duration) TimeDuration(ops ...any) time.Duration {
 	return time.Duration(d.Days)*24*time.Hour + d.Time
 }
 
-// ParseICalDuration parses RFC 5545 DURATION values. It returns ok=false when
+// ParseDuration parses RFC 5545 DURATION values. It returns ok=false when
 // the input does not look like an iCal duration at all, and returns an error for
 // malformed durations.
-func ParseICalDuration(value string, ops ...any) (Duration, bool, error) {
+func ParseDuration(value string, ops ...any) (Duration, bool, error) {
 	_ = ops
 	if value == "" {
 		return Duration{}, false, nil
@@ -844,7 +844,7 @@ func ParseICalDuration(value string, ops ...any) (Duration, bool, error) {
 // ParseDurationAsTimeDuration parses an RFC 5545 duration and returns the legacy
 // flattened time.Duration form.
 func ParseDurationAsTimeDuration(value string) (time.Duration, bool, error) {
-	parsed, ok, err := ParseICalDuration(value)
+	parsed, ok, err := ParseDuration(value)
 	if err != nil || !ok {
 		return 0, ok, err
 	}
