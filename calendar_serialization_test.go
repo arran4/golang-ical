@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 )
 
@@ -71,7 +72,7 @@ func TestCalendar_ReSerialization(t *testing.T) {
 			require.NoError(t, err)
 
 			//then
-			if diff := cmp.Diff(originalDeserializedCal, deserializedCal); diff != "" {
+			if diff := cmp.Diff(originalDeserializedCal, deserializedCal, cmpopts.IgnoreUnexported(Calendar{})); diff != "" {
 				t.Error(diff)
 			}
 		})

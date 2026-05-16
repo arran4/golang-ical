@@ -89,7 +89,7 @@ func TestPropertyParse(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			v, err := ParseProperty(ContentLine(test.Input))
+			v, err := parseProperty(ContentLine(test.Input))
 			test.Expected(t, v, err)
 		})
 	}
