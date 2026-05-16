@@ -654,7 +654,7 @@ func ParseICalDuration(value string, _ ...any) (time.Duration, bool, error) {
 	}
 	value = value[1:]
 	if value == "" {
-		return 0, false, fmt.Errorf("%w", ErrorInvalidICalDurationMissingDesignator)
+		return 0, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingDesignator)
 	}
 
 	var total time.Duration
@@ -666,12 +666,12 @@ func ParseICalDuration(value string, _ ...any) (time.Duration, bool, error) {
 	for len(value) > 0 {
 		if value[0] == 'T' {
 			if inTime {
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationDuplicateTimeDesignator, value)
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateTimeDesignator, value)
 			}
 			inTime = true
 			value = value[1:]
 			if value == "" {
-				return 0, false, fmt.Errorf("%w", ErrorInvalidICalDurationMissingTimeComponent)
+				return 0, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingTimeComponent)
 			}
 			continue
 		}
@@ -681,10 +681,10 @@ func ParseICalDuration(value string, _ ...any) (time.Duration, bool, error) {
 			i++
 		}
 		if i == 0 {
-			return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationExpectedDigits, value)
+			return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationExpectedDigits, value)
 		}
 		if i == len(value) {
-			return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationMissingUnit, value)
+			return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingUnit, value)
 		}
 
 		num, err := strconv.Atoi(value[:i])
@@ -698,68 +698,68 @@ func ParseICalDuration(value string, _ ...any) (time.Duration, bool, error) {
 		switch {
 		case !inTime && unit == 'W':
 			if seenWeek || seenDay {
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationWeeksOnlyDateComponent, value)
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyDateComponent, value)
 			}
 			if len(value) != 0 {
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationWeeksOnlyComponent, value)
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyComponent, value)
 			}
 			seenWeek = true
 			total += time.Duration(num) * 7 * 24 * time.Hour
 		case !inTime && unit == 'D':
 			if seenWeek {
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationWeeksOnlyDateComponent, value)
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyDateComponent, value)
 			}
 			if seenDay {
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationDuplicateDayDesignator, value)
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateDayDesignator, value)
 			}
 			seenDay = true
 			total += time.Duration(num) * 24 * time.Hour
 		case inTime && unit == 'H':
 			if lastTimeRank >= 1 {
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationDuplicateOrOutOfOrderHoursComponent, value)
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderHoursComponent, value)
 			}
 			lastTimeRank = 1
 			total += time.Duration(num) * time.Hour
 		case inTime && unit == 'M':
 			if lastTimeRank >= 2 {
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationDuplicateOrOutOfOrderMinutesComponent, value)
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderMinutesComponent, value)
 			}
 			lastTimeRank = 2
 			total += time.Duration(num) * time.Minute
 		case inTime && unit == 'S':
 			if lastTimeRank >= 3 {
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationDuplicateOrOutOfOrderSecondsComponent, value)
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderSecondsComponent, value)
 			}
 			lastTimeRank = 3
 			total += time.Duration(num) * time.Second
 		case !inTime:
 			switch unit {
 			case 'H':
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationHoursRequireTimeSection, string(unit))
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationHoursRequireTimeSection, string(unit))
 			case 'M':
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationMinutesRequireTimeSection, string(unit))
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationMinutesRequireTimeSection, string(unit))
 			case 'S':
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationSecondsRequireTimeSection, string(unit))
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationSecondsRequireTimeSection, string(unit))
 			default:
-				return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationUnknownUnit, string(unit))
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationUnknownUnit, string(unit))
 			}
 		default:
-			return 0, false, fmt.Errorf("%w: %q", ErrorInvalidICalDurationUnknownUnit, string(unit))
+			return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationUnknownUnit, string(unit))
 		}
 
 		if !inTime && seenWeek {
 			// W is exclusive by RFC 5545: no additional date or time components.
 			if len(value) != 0 {
-				return 0, false, fmt.Errorf("invalid duration %q: weeks must be the only component", value)
+				return 0, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyComponent, value)
 			}
 		}
 	}
 
 	if !haveValue {
-		return 0, false, fmt.Errorf("%w", ErrorInvalidICalDurationMissingValue)
+		return 0, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingValue)
 	}
 	if inTime && lastTimeRank == 0 {
-		return 0, false, fmt.Errorf("%w", ErrorInvalidICalDurationMissingTimeComponent)
+		return 0, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingTimeComponent)
 	}
 	if sign < 0 {
 		total = -total
