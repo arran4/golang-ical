@@ -3,6 +3,7 @@ package ics
 import (
 	"bufio"
 	"context"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -434,6 +435,12 @@ func NewCalendarFor(service string) *Calendar {
 		WithProductId("-//"+service+"//Golang ICS Library"),
 	)
 	return c
+}
+
+
+func (cal *Calendar) SerializeToXML() string {
+	b, _ := xml.MarshalIndent(cal, "", "  ")
+	return string(b)
 }
 
 func (cal *Calendar) Serialize(ops ...any) string {
