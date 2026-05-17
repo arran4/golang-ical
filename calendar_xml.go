@@ -54,6 +54,13 @@ type xcalValue struct {
 }
 
 // MarshalXML implements xml.Marshaler for Calendar.
+// UnmarshalXML implements xml.Unmarshaler for Calendar. (No-op currently as parsing xCal isn't supported)
+func (cal *Calendar) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	// Not implemented
+	return nil
+}
+
+// MarshalXML implements xml.Marshaler for Calendar.
 func (cal *Calendar) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	vcal := xcalVcalendar{
 		Properties: xcalProperties{},
