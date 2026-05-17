@@ -82,7 +82,7 @@ func componentToXcal(c Component) xcalComponent {
 	cb := c.UnknownPropertiesIANAProperties()
 
 	compType := ""
-	switch c.(type) {
+	switch v := c.(type) {
 	case *VEvent:
 		compType = "vevent"
 	case *VTodo:
@@ -99,6 +99,10 @@ func componentToXcal(c Component) xcalComponent {
 		compType = "standard"
 	case *Daylight:
 		compType = "daylight"
+	case *GeneralComponent:
+		compType = strings.ToLower(v.Token)
+	default:
+		compType = "unknown"
 	}
 
 	xc := xcalComponent{
@@ -134,17 +138,31 @@ func (bp BaseProperty) toXcalProperty() xcalProperty {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
+			if strings.ToUpper(k) == "VALUE" {
+				continue
+			}
 			vals := bp.ICalParameters[k]
 			xparam := xcalParameter{
 				XMLName: xml.Name{Local: strings.ToLower(k)},
 			}
+
+			paramValType := "text"
+			switch strings.ToUpper(k) {
+			case "ALTREP", "DIR":
+				paramValType = "uri"
+			case "MEMBER", "DELEGATED-FROM", "DELEGATED-TO", "SENT-BY":
+				paramValType = "cal-address"
+			}
 			for _, v := range vals {
 				xparam.Values = append(xparam.Values, xcalValue{
-					XMLName: xml.Name{Local: "text"},
+					XMLName: xml.Name{Local: paramValType},
 					Value:   v,
 				})
 			}
 			xp.Parameters.Params = append(xp.Parameters.Params, xparam)
+		}
+		if len(xp.Parameters.Params) == 0 {
+			xp.Parameters = nil
 		}
 	}
 
@@ -186,7 +204,7 @@ func (bp BaseProperty) toXcalProperty() xcalProperty {
 				innerVal = formatXcalDateTime(part)
 			} else if innerType == "date" {
 				innerVal = formatXcalDate(part)
-			} else if innerType == "period" && propName == "FREEBUSY" {
+			} else if innerType == "period" {
 				// Period formatting:
 				periodParts := strings.SplitN(part, "/", 2)
 				if len(periodParts) == 2 {

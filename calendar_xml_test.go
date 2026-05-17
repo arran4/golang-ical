@@ -50,11 +50,6 @@ func TestCalendarXMLMarshal(t *testing.T) {
             <date-time>2008-02-05T19:12:24Z</date-time>
           </dtstamp>
           <dtstart>
-            <parameters>
-              <value>
-                <text>DATE</text>
-              </value>
-            </parameters>
             <date>2008-10-06</date>
           </dtstart>
         </properties>
