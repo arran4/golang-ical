@@ -176,64 +176,64 @@ func ComponentPropertyExtended(s string) ComponentProperty {
 type Property string
 
 const (
-	PropertyCalscale        Property = "CALSCALE" // TEXT
-	PropertyMethod          Property = "METHOD"   // TEXT
-	PropertyProductId       Property = "PRODID"   // TEXT
-	PropertyVersion         Property = "VERSION"  // TEXT
-	PropertyXPublishedTTL   Property = "X-PUBLISHED-TTL"
-	PropertyRefreshInterval Property = "REFRESH-INTERVAL;VALUE=DURATION"
-	PropertyAttach          Property = "ATTACH"
-	PropertyCategories      Property = "CATEGORIES"  // TEXT
+	PropertyCalscale            Property = "CALSCALE" // TEXT
+	PropertyMethod              Property = "METHOD"   // TEXT
+	PropertyProductId           Property = "PRODID"   // TEXT
+	PropertyVersion             Property = "VERSION"  // TEXT
+	PropertyXPublishedTTL       Property = "X-PUBLISHED-TTL"
+	PropertyRefreshInterval     Property = "REFRESH-INTERVAL;VALUE=DURATION"
+	PropertyAttach              Property = "ATTACH"
+	PropertyCategories          Property = "CATEGORIES"             // TEXT
 	PropertyClass               Property = "CLASS"                  // TEXT
 	PropertyColor               Property = "COLOR"                  // TEXT
 	PropertyXAppleCalendarColor Property = "X-APPLE-CALENDAR-COLOR" // TEXT
 	PropertyComment             Property = "COMMENT"                // TEXT
-	PropertyDescription     Property = "DESCRIPTION" // TEXT
-	PropertyXWRCalDesc      Property = "X-WR-CALDESC"
-	PropertyGeo             Property = "GEO"
-	PropertyLocation        Property = "LOCATION" // TEXT
-	PropertyPercentComplete Property = "PERCENT-COMPLETE"
-	PropertyPriority        Property = "PRIORITY"
-	PropertyResources       Property = "RESOURCES" // TEXT
-	PropertyStatus          Property = "STATUS"    // TEXT
-	PropertySummary         Property = "SUMMARY"   // TEXT
-	PropertyCompleted       Property = "COMPLETED"
-	PropertyDtend           Property = "DTEND"
-	PropertyDue             Property = "DUE"
-	PropertyDtstart         Property = "DTSTART"
-	PropertyDuration        Property = "DURATION"
-	PropertyFreebusy        Property = "FREEBUSY"
-	PropertyTransp          Property = "TRANSP" // TEXT
-	PropertyTzid            Property = "TZID"   // TEXT
-	PropertyTzname          Property = "TZNAME" // TEXT
-	PropertyTzoffsetfrom    Property = "TZOFFSETFROM"
-	PropertyTzoffsetto      Property = "TZOFFSETTO"
-	PropertyTzurl           Property = "TZURL"
-	PropertyAttendee        Property = "ATTENDEE"
-	PropertyContact         Property = "CONTACT" // TEXT
-	PropertyOrganizer       Property = "ORGANIZER"
-	PropertyRecurrenceId    Property = "RECURRENCE-ID"
-	PropertyRelatedTo       Property = "RELATED-TO" // TEXT
-	PropertyUrl             Property = "URL"
-	PropertyUid             Property = "UID" // TEXT
-	PropertyExdate          Property = "EXDATE"
-	PropertyExrule          Property = "EXRULE"
-	PropertyRdate           Property = "RDATE"
-	PropertyRrule           Property = "RRULE"
-	PropertyAction          Property = "ACTION" // TEXT
-	PropertyRepeat          Property = "REPEAT"
-	PropertyTrigger         Property = "TRIGGER"
-	PropertyCreated         Property = "CREATED"
-	PropertyDtstamp         Property = "DTSTAMP"
-	PropertyLastModified    Property = "LAST-MODIFIED"
-	PropertyRequestStatus   Property = "REQUEST-STATUS" // TEXT
-	PropertyName            Property = "NAME"
-	PropertyXWRCalName      Property = "X-WR-CALNAME"
-	PropertyXWRTimezone     Property = "X-WR-TIMEZONE"
-	PropertySequence        Property = "SEQUENCE"
-	PropertyXWRCalID        Property = "X-WR-RELCALID"
-	PropertyTimezoneId      Property = "TIMEZONE-ID"
-	PropertySource          Property = "SOURCE"
+	PropertyDescription         Property = "DESCRIPTION"            // TEXT
+	PropertyXWRCalDesc          Property = "X-WR-CALDESC"
+	PropertyGeo                 Property = "GEO"
+	PropertyLocation            Property = "LOCATION" // TEXT
+	PropertyPercentComplete     Property = "PERCENT-COMPLETE"
+	PropertyPriority            Property = "PRIORITY"
+	PropertyResources           Property = "RESOURCES" // TEXT
+	PropertyStatus              Property = "STATUS"    // TEXT
+	PropertySummary             Property = "SUMMARY"   // TEXT
+	PropertyCompleted           Property = "COMPLETED"
+	PropertyDtend               Property = "DTEND"
+	PropertyDue                 Property = "DUE"
+	PropertyDtstart             Property = "DTSTART"
+	PropertyDuration            Property = "DURATION"
+	PropertyFreebusy            Property = "FREEBUSY"
+	PropertyTransp              Property = "TRANSP" // TEXT
+	PropertyTzid                Property = "TZID"   // TEXT
+	PropertyTzname              Property = "TZNAME" // TEXT
+	PropertyTzoffsetfrom        Property = "TZOFFSETFROM"
+	PropertyTzoffsetto          Property = "TZOFFSETTO"
+	PropertyTzurl               Property = "TZURL"
+	PropertyAttendee            Property = "ATTENDEE"
+	PropertyContact             Property = "CONTACT" // TEXT
+	PropertyOrganizer           Property = "ORGANIZER"
+	PropertyRecurrenceId        Property = "RECURRENCE-ID"
+	PropertyRelatedTo           Property = "RELATED-TO" // TEXT
+	PropertyUrl                 Property = "URL"
+	PropertyUid                 Property = "UID" // TEXT
+	PropertyExdate              Property = "EXDATE"
+	PropertyExrule              Property = "EXRULE"
+	PropertyRdate               Property = "RDATE"
+	PropertyRrule               Property = "RRULE"
+	PropertyAction              Property = "ACTION" // TEXT
+	PropertyRepeat              Property = "REPEAT"
+	PropertyTrigger             Property = "TRIGGER"
+	PropertyCreated             Property = "CREATED"
+	PropertyDtstamp             Property = "DTSTAMP"
+	PropertyLastModified        Property = "LAST-MODIFIED"
+	PropertyRequestStatus       Property = "REQUEST-STATUS" // TEXT
+	PropertyName                Property = "NAME"
+	PropertyXWRCalName          Property = "X-WR-CALNAME"
+	PropertyXWRTimezone         Property = "X-WR-TIMEZONE"
+	PropertySequence            Property = "SEQUENCE"
+	PropertyXWRCalID            Property = "X-WR-RELCALID"
+	PropertyTimezoneId          Property = "TIMEZONE-ID"
+	PropertySource              Property = "SOURCE"
 )
 
 type Parameter string
@@ -670,6 +670,15 @@ func (cal *Calendar) addComponent(c Component) {
 		}
 	}
 	cal.Components = append(cal.Components, c)
+}
+
+func (cal *Calendar) GetProperty(property Property) *CalendarProperty {
+	for i := range cal.CalendarProperties {
+		if cal.CalendarProperties[i].IANAToken == string(property) {
+			return &cal.CalendarProperties[i]
+		}
+	}
+	return nil
 }
 
 func (cal *Calendar) setProperty(property Property, value string, params ...PropertyParameter) {
