@@ -183,9 +183,10 @@ const (
 	PropertyRefreshInterval Property = "REFRESH-INTERVAL;VALUE=DURATION"
 	PropertyAttach          Property = "ATTACH"
 	PropertyCategories      Property = "CATEGORIES"  // TEXT
-	PropertyClass           Property = "CLASS"       // TEXT
-	PropertyColor           Property = "COLOR"       // TEXT
-	PropertyComment         Property = "COMMENT"     // TEXT
+	PropertyClass               Property = "CLASS"                  // TEXT
+	PropertyColor               Property = "COLOR"                  // TEXT
+	PropertyXAppleCalendarColor Property = "X-APPLE-CALENDAR-COLOR" // TEXT
+	PropertyComment             Property = "COMMENT"                // TEXT
 	PropertyDescription     Property = "DESCRIPTION" // TEXT
 	PropertyXWRCalDesc      Property = "X-WR-CALDESC"
 	PropertyGeo             Property = "GEO"
@@ -582,6 +583,11 @@ func (cal *Calendar) SetName(s string, params ...PropertyParameter) {
 
 func (cal *Calendar) SetColor(s string, params ...PropertyParameter) {
 	cal.setProperty(PropertyColor, s, params...)
+	cal.setProperty(PropertyXAppleCalendarColor, s, params...)
+}
+
+func (cal *Calendar) SetXAppleCalendarColor(s string, params ...PropertyParameter) {
+	cal.setProperty(PropertyXAppleCalendarColor, s, params...)
 }
 
 func (cal *Calendar) SetXWRCalName(s string, params ...PropertyParameter) {
@@ -947,7 +953,7 @@ func ParseCalendarWithOptions(r io.Reader, options ...any) (*Calendar, error) {
 				}
 			case "BEGIN":
 				state = "components"
-			case string(PropertyCalscale), string(PropertyMethod), string(PropertyProductId), string(PropertyVersion), string(PropertyName), string(PropertyXWRCalName), string(PropertyXWRCalDesc), string(PropertyXWRTimezone), string(PropertyXWRCalID), string(PropertyXPublishedTTL), string(PropertyRefreshInterval), string(PropertyColor), string(PropertyDescription), string(PropertyLastModified), string(PropertyUrl), string(PropertyTzid), string(PropertyTimezoneId), string(PropertySource):
+			case string(PropertyCalscale), string(PropertyMethod), string(PropertyProductId), string(PropertyVersion), string(PropertyName), string(PropertyXWRCalName), string(PropertyXWRCalDesc), string(PropertyXWRTimezone), string(PropertyXWRCalID), string(PropertyXPublishedTTL), string(PropertyRefreshInterval), string(PropertyColor), string(PropertyXAppleCalendarColor), string(PropertyDescription), string(PropertyLastModified), string(PropertyUrl), string(PropertyTzid), string(PropertyTimezoneId), string(PropertySource):
 				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
 			default:
 				c.CalendarProperties = append(c.CalendarProperties, CalendarProperty{*line})
