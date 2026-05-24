@@ -696,6 +696,14 @@ func (cal *Calendar) GetProperty(property Property) *CalendarProperty {
 	return nil
 }
 
+func (cal *Calendar) GetColor() *CalendarProperty {
+	return cal.GetProperty(PropertyColor)
+}
+
+func (cal *Calendar) GetXAppleCalendarColor() *CalendarProperty {
+	return cal.GetProperty(PropertyXAppleCalendarColor)
+}
+
 func (cal *Calendar) setProperty(property Property, value string, params ...PropertyParameter) {
 	for i := range cal.CalendarProperties {
 		if cal.CalendarProperties[i].IANAToken == string(property) {
