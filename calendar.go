@@ -591,7 +591,22 @@ func (cal *Calendar) SetXAppleCalendarColor(s string, params ...PropertyParamete
 }
 
 func colorToHex(c color.Color) string {
-	r, g, b, _ := c.RGBA()
+	switch c := c.(type) {
+	case color.NRGBA:
+		if c.A < 255 {
+			return fmt.Sprintf("#%02x%02x%02x%02x", c.R, c.G, c.B, c.A)
+		}
+		return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
+	case color.RGBA:
+		if c.A < 255 {
+			return fmt.Sprintf("#%02x%02x%02x%02x", c.R, c.G, c.B, c.A)
+		}
+		return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
+	}
+	r, g, b, a := c.RGBA()
+	if a < 65535 {
+		return fmt.Sprintf("#%02x%02x%02x%02x", uint8(r>>8), uint8(g>>8), uint8(b>>8), uint8(a>>8))
+	}
 	return fmt.Sprintf("#%02x%02x%02x", uint8(r>>8), uint8(g>>8), uint8(b>>8))
 }
 
