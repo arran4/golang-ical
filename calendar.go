@@ -725,16 +725,24 @@ func (cal *Calendar) GetColor() *CalendarProperty {
 	return cal.GetProperty(PropertyColor)
 }
 
-func (cal *Calendar) GetColorAsColor() (color.Color, error) {
+func (cal *Calendar) GetColorAsString() string {
 	p := cal.GetColor()
 	if p == nil {
-		return nil, errors.New("color property not found")
+		return ""
 	}
-	return hexToColor(p.Value)
+	return p.Value
 }
 
 func (cal *Calendar) GetXAppleCalendarColor() *CalendarProperty {
 	return cal.GetProperty(PropertyXAppleCalendarColor)
+}
+
+func (cal *Calendar) GetXAppleCalendarColorAsString() string {
+	p := cal.GetXAppleCalendarColor()
+	if p == nil {
+		return ""
+	}
+	return p.Value
 }
 
 func (cal *Calendar) GetXAppleCalendarColorAsColor() (color.Color, error) {

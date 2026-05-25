@@ -1144,18 +1144,18 @@ func TestICSx5Integration(t *testing.T) {
 				if colorProp == nil {
 					t.Errorf("expected COLOR property")
 				} else {
-					c, err := cal.GetColorAsColor()
+					c, err := hexToColor(cal.GetColorAsString())
 					if err != nil {
-						t.Errorf("GetColorAsColor error: %v", err)
+						t.Errorf("hexToColor error: %v", err)
 					} else if c != tt.wantColor {
 						t.Errorf("got color %v, want %v", c, tt.wantColor)
 					}
 				}
 			} else if tt.name == "NameAndColor" && colorProp != nil {
 				// We expect the property to exist but not be parseable by our hex logic
-				_, err := cal.GetColorAsColor()
+				_, err := hexToColor(cal.GetColorAsString())
 				if err == nil {
-					t.Errorf("expected error parsing lightblue with GetColorAsColor")
+					t.Errorf("expected error parsing lightblue with hexToColor")
 				}
 			}
 
