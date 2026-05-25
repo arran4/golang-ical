@@ -1067,6 +1067,8 @@ func TestHexToColor(t *testing.T) {
 		{"invalid length", "#f00", nil, true},
 		{"icsx5 color test: NameAndColor", "lightblue", nil, true}, // We do not currently resolve css names to hex in hexToColor
 		{"icsx5 color test: NameAndLegacyColor", "#123456", color.RGBA{R: 0x12, G: 0x34, B: 0x56, A: 255}, false},
+		{"X11 color: red", "red", nil, true}, // RFC 7986 specifies CSS3 color names, but parser doesn't resolve them yet
+		{"X11 color: papayawhip", "papayawhip", nil, true},
 	}
 
 	for _, tt := range tests {
@@ -1112,6 +1114,12 @@ func TestICSx5Integration(t *testing.T) {
 			iCal:       "BEGIN:VCALENDAR\nVERSION:2.0\nX-APPLE-CALENDAR-COLOR:#123456\nCOLOR:lightblue\nEND:VCALENDAR",
 			wantColor:  nil, // Note: lightblue is not parsed by hexToColor
 			wantXColor: color.RGBA{R: 0x12, G: 0x34, B: 0x56, A: 255},
+		},
+		{
+			name:       "X11Color",
+			iCal:       "BEGIN:VCALENDAR\nVERSION:2.0\nCOLOR:papayawhip\nEND:VCALENDAR",
+			wantColor:  nil, // Note: X11/CSS3 named colors are not converted to RGB/hex by hexToColor
+			wantXColor: nil,
 		},
 	}
 
