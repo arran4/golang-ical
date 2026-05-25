@@ -21,7 +21,7 @@ func TestColorToHex(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := colorToHex(tt.c); got != tt.want {
+			if got := colorToHex(tt.c); string(got) != tt.want {
 				t.Errorf("colorToHex() = %v, want %v", got, tt.want)
 			}
 		})
@@ -70,6 +70,14 @@ func TestColorName(t *testing.T) {
 			t.Errorf("expected red, got %v", c)
 		}
 
+		c, err = ColorName("greenX11").ToColor()
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if c != (color.RGBA{R: 0, G: 255, B: 0, A: 255}) {
+			t.Errorf("expected greenX11 to be lime, got %v", c)
+		}
+
 		_, err = ColorName("invalid").ToColor()
 		if err == nil {
 			t.Errorf("expected error for invalid color")
@@ -80,6 +88,11 @@ func TestColorName(t *testing.T) {
 		hex, err := ColorName("BLUE").ToHexString()
 		if err != nil || hex != "#0000ff" {
 			t.Errorf("expected #0000ff, got %v, err: %v", hex, err)
+		}
+
+        hex, err = ColorName("maroonX11").ToHexString()
+		if err != nil || hex != "#c71585" {
+			t.Errorf("expected maroonX11 to alias to mediumvioletred (#c71585), got %v, err: %v", hex, err)
 		}
 	})
 
@@ -103,6 +116,11 @@ func TestColorName(t *testing.T) {
 		if name != "red" {
 			t.Errorf("expected closest to be red, got %v", name)
 		}
+
+        _, err = ClosestColorNameFromHexString("invalid")
+        if err == nil {
+            t.Errorf("expected error from invalid hex")
+        }
 	})
 
 	t.Run("ClosestColorNameFromColor", func(t *testing.T) {
@@ -116,4 +134,48 @@ func TestColorName(t *testing.T) {
 			}
 		}
 	})
+
+    t.Run("ColorFromHex", func(t *testing.T) {
+        c, err := ColorFromHex("#000000")
+        if err != nil {
+            t.Fatalf("unexpected err: %v", err)
+        }
+        if c != (color.RGBA{R: 0, G: 0, B: 0, A: 255}) {
+            t.Fatalf("expected black, got %v", c)
+        }
+    })
+
+    t.Run("HexFromColor", func(t *testing.T) {
+        c := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+        h := HexFromColor(c)
+        if h != "#000000" {
+            t.Fatalf("expected #000000, got %v", h)
+        }
+    })
+}
+
+func TestColorNameEdgeCases(t *testing.T) {
+	// Let's test the aliases
+	tests := []struct {
+		name string
+		want ColorHex
+	}{
+		{"GreenX11", "#00ff00"},
+		{"MaroonX11", "#c71585"},
+		{"PurpleX11", "#9932cc"},
+		{"GreyX11", "#c0c0c0"},
+		{"GrayX11", "#c0c0c0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hex, err := ColorName(tt.name).ToHexString()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if hex != tt.want {
+				t.Errorf("got %v, want %v", hex, tt.want)
+			}
+		})
+	}
 }

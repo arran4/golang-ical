@@ -591,11 +591,11 @@ func (cal *Calendar) SetXAppleCalendarColor(s string, params ...PropertyParamete
 }
 
 func (cal *Calendar) SetColorFromColor(c color.Color, params ...PropertyParameter) {
-	cal.setProperty(PropertyColor, colorToHex(c), params...)
+	cal.setProperty(PropertyColor, string(colorToHex(c)), params...)
 }
 
 func (cal *Calendar) SetXAppleCalendarColorFromColor(c color.Color, params ...PropertyParameter) {
-	cal.setProperty(PropertyXAppleCalendarColor, colorToHex(c), params...)
+	cal.setProperty(PropertyXAppleCalendarColor, string(colorToHex(c)), params...)
 }
 
 func (cal *Calendar) SetXWRCalName(s string, params ...PropertyParameter) {

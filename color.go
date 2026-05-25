@@ -10,24 +10,27 @@ import (
 // ColorName represents a CSS/X11 standard named color string.
 type ColorName string
 
-func colorToHex(c color.Color) string {
+// ColorHex represents a hexadecimal color string format like "#FFFFFF".
+type ColorHex string
+
+func colorToHex(c color.Color) ColorHex {
 	switch c := c.(type) {
 	case color.NRGBA:
 		if c.A < 255 {
-			return fmt.Sprintf("#%02x%02x%02x%02x", c.R, c.G, c.B, c.A)
+			return ColorHex(fmt.Sprintf("#%02x%02x%02x%02x", c.R, c.G, c.B, c.A))
 		}
-		return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
+		return ColorHex(fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B))
 	case color.RGBA:
 		if c.A < 255 {
-			return fmt.Sprintf("#%02x%02x%02x%02x", c.R, c.G, c.B, c.A)
+			return ColorHex(fmt.Sprintf("#%02x%02x%02x%02x", c.R, c.G, c.B, c.A))
 		}
-		return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
+		return ColorHex(fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B))
 	}
 	r, g, b, a := c.RGBA()
 	if a < 65535 {
-		return fmt.Sprintf("#%02x%02x%02x%02x", uint8(r>>8), uint8(g>>8), uint8(b>>8), uint8(a>>8))
+		return ColorHex(fmt.Sprintf("#%02x%02x%02x%02x", uint8(r>>8), uint8(g>>8), uint8(b>>8), uint8(a>>8)))
 	}
-	return fmt.Sprintf("#%02x%02x%02x", uint8(r>>8), uint8(g>>8), uint8(b>>8))
+	return ColorHex(fmt.Sprintf("#%02x%02x%02x", uint8(r>>8), uint8(g>>8), uint8(b>>8)))
 }
 
 // hexToColor takes a hex color string like "#FF0000" or "#FF0000FF" and returns a color.Color.
@@ -55,10 +58,24 @@ func hexToColor(s string) (color.Color, error) {
 	}
 }
 
+// ToColor converts the hex string to a color.Color instance.
+func (ch ColorHex) ToColor() (color.Color, error) {
+	return hexToColor(string(ch))
+}
+
+// ColorFromHex converts the hex string to a color.Color instance.
+func ColorFromHex(hex string) (color.Color, error) {
+    return ColorHex(hex).ToColor()
+}
+
+// HexFromColor gets the ColorHex from a color.Color instance.
+func HexFromColor(c color.Color) ColorHex {
+    return colorToHex(c)
+}
+
 // Standard mapping of X11/CSS3 color names to hex codes.
-// Note: where W3C/CSS and X11 clash (e.g. green, gray), we default to the W3C spec as it's standard for web,
-// but include the alternate names.
-var colorNameToHex = map[ColorName]string{
+// Note: where W3C/CSS and X11 clash (e.g. green, gray), we default to the W3C spec as it's standard for web.
+var colorNameToHex = map[ColorName]ColorHex{
 	"aliceblue":            "#f0f8ff",
 	"antiquewhite":         "#faebd7",
 	"aqua":                 "#00ffff",
@@ -207,40 +224,58 @@ var colorNameToHex = map[ColorName]string{
 	"whitesmoke":           "#f5f5f5",
 	"yellow":               "#ffff00",
 	"yellowgreen":          "#9acd32",
-	// X11 specific alternate names that clash with W3C
-	"greenX11":   "#00ff00",
-	"grayX11":    "#bebebe",
-	"greyX11":    "#bebebe",
-	"maroonX11":  "#b03060",
-	"purpleX11":  "#a020f0",
+}
+
+// Aliases where X11/CSS naming clashed or alternative names exist.
+var colorNameAliases = map[ColorName]ColorName{
+	"greenx11":   "lime",      // X11 green is #00ff00, which is lime in W3C
+	"grayx11":    "silver",    // X11 gray is #bebebe, which is slightly lighter than silver (#c0c0c0), but we'll map to it if resolving closest
+	"greyx11":    "silver",
+	"maroonx11":  "mediumvioletred", // X11 maroon is #b03060, closest w3c name
+	"purplex11":  "darkorchid",      // X11 purple is #a020f0, close to darkorchid (#9932cc)
 }
 
 // ToColor converts the ColorName to an image/color.Color exactly.
 func (cn ColorName) ToColor() (color.Color, error) {
-	hex, ok := colorNameToHex[ColorName(strings.ToLower(string(cn)))]
+	cnLower := ColorName(strings.ToLower(string(cn)))
+	hex, ok := colorNameToHex[cnLower]
+	if !ok {
+		// fallback to aliases
+		alias, okAlias := colorNameAliases[cnLower]
+		if okAlias {
+			hex, ok = colorNameToHex[alias]
+		}
+	}
 	if !ok {
 		return nil, fmt.Errorf("unknown color name: %s", cn)
 	}
-	return hexToColor(hex)
+	return hex.ToColor()
 }
 
 // ToHexString converts the ColorName to an exact Hex string.
-func (cn ColorName) ToHexString() (string, error) {
-	hex, ok := colorNameToHex[ColorName(strings.ToLower(string(cn)))]
+func (cn ColorName) ToHexString() (ColorHex, error) {
+	cnLower := ColorName(strings.ToLower(string(cn)))
+	hex, ok := colorNameToHex[cnLower]
+	if !ok {
+		alias, okAlias := colorNameAliases[cnLower]
+		if okAlias {
+			hex, ok = colorNameToHex[alias]
+		}
+	}
 	if !ok {
 		return "", fmt.Errorf("unknown color name: %s", cn)
 	}
 	return hex, nil
 }
 
-// ColorNameToColorName returns the exact ColorName for a given hex string or color.Color.
-func ColorNameFromHexString(hex string) (ColorName, bool) {
-	hex = strings.ToLower(hex)
-	if len(hex) > 0 && hex[0] != '#' {
-		hex = "#" + hex
+// ColorNameFromHexString returns the exact ColorName for a given hex string or color.Color.
+func ColorNameFromHexString(hex ColorHex) (ColorName, bool) {
+	h := strings.ToLower(string(hex))
+	if len(h) > 0 && h[0] != '#' {
+		h = "#" + h
 	}
-	for name, h := range colorNameToHex {
-		if h == hex {
+	for name, hx := range colorNameToHex {
+		if string(hx) == h {
 			return name, true
 		}
 	}
@@ -251,9 +286,25 @@ func ColorNameFromColor(c color.Color) (ColorName, bool) {
 	return ColorNameFromHexString(colorToHex(c))
 }
 
-// ColorNameToNearestColorName returns the closest ColorName for a given hex string using Euclidean distance in RGB space.
-func ClosestColorNameFromHexString(hex string) (ColorName, error) {
-	c, err := hexToColor(hex)
+// RGB space conversion functions
+func rgbaToFloat(c color.Color) (r, g, b float64) {
+	r32, g32, b32, _ := c.RGBA()
+	return float64(r32 >> 8), float64(g32 >> 8), float64(b32 >> 8)
+}
+
+// ColorDifference computes Euclidean distance between colors.
+func ColorDifference(c1, c2 color.Color) float64 {
+	r1, g1, b1 := rgbaToFloat(c1)
+	r2, g2, b2 := rgbaToFloat(c2)
+	dr := r1 - r2
+	dg := g1 - g2
+	db := b1 - b2
+	return math.Sqrt(dr*dr + dg*dg + db*db)
+}
+
+// ClosestColorNameFromHexString returns the closest ColorName for a given hex string using Euclidean distance in RGB space.
+func ClosestColorNameFromHexString(hex ColorHex) (ColorName, error) {
+	c, err := hexToColor(string(hex))
 	if err != nil {
 		return "", err
 	}
@@ -267,21 +318,12 @@ func ClosestColorNameFromColor(c color.Color) ColorName {
 		return exact
 	}
 
-	cr, cg, cb, _ := c.RGBA()
-	cr, cg, cb = cr>>8, cg>>8, cb>>8
-
 	var closestName ColorName
 	minDist := math.MaxFloat64
 
 	for name, hex := range colorNameToHex {
-		hc, _ := hexToColor(hex)
-		hcr, hcg, hcb, _ := hc.RGBA()
-		hcr, hcg, hcb = hcr>>8, hcg>>8, hcb>>8
-
-		dr := float64(cr) - float64(hcr)
-		dg := float64(cg) - float64(hcg)
-		db := float64(cb) - float64(hcb)
-		dist := math.Sqrt(dr*dr + dg*dg + db*db)
+		hc, _ := hex.ToColor()
+		dist := ColorDifference(c, hc)
 
 		if dist < minDist {
 			minDist = dist
