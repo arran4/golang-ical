@@ -481,17 +481,17 @@ func (cb *ComponentBase) getMultiTimeProp(prop ComponentProperty, opts ...any) (
 	for _, p := range props {
 		parts := strings.Split(p.Value, ",")
 		isDateOnly := p.parameterHasValue(ParameterValue, "DATE")
+		localOpts := append([]any{}, opts...)
+		if isDateOnly {
+			localOpts = append(localOpts, ParseAllDay(true))
+		}
+		if cb.timezoneMapper != nil {
+			localOpts = append(localOpts, cb.timezoneMapper)
+		}
 		for _, v := range parts {
 			value := strings.TrimSpace(v)
 			if value == "" {
 				continue
-			}
-			localOpts := append([]any{}, opts...)
-			if isDateOnly {
-				localOpts = append(localOpts, ParseAllDay(true))
-			}
-			if cb.timezoneMapper != nil {
-				localOpts = append(localOpts, cb.timezoneMapper)
 			}
 			parsed, err := parseMultiTimeValue(value, p.ICalParameters, localOpts...)
 			if err != nil {
