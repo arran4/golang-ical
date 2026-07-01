@@ -29,6 +29,10 @@ var (
 	_ Component = (*VJournal)(nil)
 )
 
+// ComponentBase provides common storage for properties and subcomponents.
+// It is embedded in the concrete component structs such as VEvent and VTodo.
+// Each component begins with a "BEGIN" content line and ends with "END" as
+// defined in RFC 5545 section 3.4.
 type ComponentBase struct {
 	Properties     []IANAProperty
 	Components     []Component
@@ -99,6 +103,10 @@ func (cb *ComponentBase) serializeThis(writer io.Writer, componentType Component
 	return err
 }
 
+// NewComponent creates a minimal component with the required UID property.
+// RFC 5545 section 3.8.4.7 states that the UID uniquely identifies the
+// component.  Callers typically embed the returned ComponentBase into a
+// specific component struct.
 func NewComponent(uniqueId string) ComponentBase {
 	return ComponentBase{
 		Properties: []IANAProperty{
@@ -224,11 +232,17 @@ func (cb *ComponentBase) RemovePropertyByFunc(removeProp ComponentProperty, remo
 	return removedProperties
 }
 
+// The following layout constants format DATE and DATE-TIME values according to
+// RFC 5545 section 3.3.
 const (
-	icalTimestampFormatUtc   = "20060102T150405Z"
+	// icalTimestampFormatUtc is the layout for DATE-TIME in UTC.
+	icalTimestampFormatUtc = "20060102T150405Z"
+	// icalTimestampFormatLocal is the layout for DATE-TIME without timezone.
 	icalTimestampFormatLocal = "20060102T150405"
-	icalDateFormatUtc        = "20060102Z"
-	icalDateFormatLocal      = "20060102"
+	// icalDateFormatUtc is the layout for DATE in UTC.
+	icalDateFormatUtc = "20060102Z"
+	// icalDateFormatLocal is the layout for DATE in local time.
+	icalDateFormatLocal = "20060102"
 )
 
 var timeStampVariations = regexp.MustCompile("^([0-9]{8})?([TZ])?([0-9]{6})?(Z)?$")
@@ -273,11 +287,11 @@ func (cb *ComponentBase) SetAllDayEndAt(t time.Time, params ...PropertyParameter
 	)
 }
 
-// SetDuration updates the duration of an event.
-// This function will set either the end or start time of an event depending what is already given.
-// The duration defines the length of a event relative to start or end time.
-//
-// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
+// SetDuration updates the duration of an event without explicitly setting the
+// DURATION property.  RFC 5545 section 3.3.6 states "The DURATION value type
+// expresses a period of time."  This helper adjusts DTSTART or DTEND so the
+// resulting period equals d.  If both a start and end are present, one is
+// modified to satisfy the requested duration.
 func (cb *ComponentBase) SetDuration(d time.Duration) error {
 	startProp := cb.GetProperty(ComponentPropertyDtStart)
 	if startProp != nil {
@@ -492,10 +506,15 @@ func (cb *ComponentBase) SetStatus(s ObjectStatus, params ...PropertyParameter) 
 	cb.SetProperty(ComponentPropertyStatus, string(s), params...)
 }
 
+// SetDescription updates the DESCRIPTION property on the component.
+// RFC 5545 section 3.8.1.5 explains this text supplies descriptive
+// information that calendar clients typically display to the user.
 func (cb *ComponentBase) SetDescription(s string, params ...PropertyParameter) {
 	cb.SetProperty(ComponentPropertyDescription, s, params...)
 }
 
+// SetLocation stores the LOCATION property (RFC 5545 section 3.8.1.7)
+// describing where the event will take place.
 func (cb *ComponentBase) SetLocation(s string, params ...PropertyParameter) {
 	cb.SetProperty(ComponentPropertyLocation, s, params...)
 }
@@ -516,22 +535,30 @@ func SetGeo[T GeoType](c SetPropertyOwner, lat T, lng T, params ...PropertyParam
 	c.SetProperty(ComponentPropertyGeo, fmt.Sprintf("%v;%v", lat, lng), params...)
 }
 
+// SetURL sets the URL property as defined in RFC 5545 section 3.8.4.6.
+// The URL points to additional information about the component.
 func (cb *ComponentBase) SetURL(s string, params ...PropertyParameter) {
 	cb.SetProperty(ComponentPropertyUrl, s, params...)
 }
 
+// SetOrganizer sets the ORGANIZER property (RFC 5545 section 3.8.4.3)
+// to the specified calendar address. The address is prefixed with
+// "mailto:" if not already present.
 func (cb *ComponentBase) SetOrganizer(s string, params ...PropertyParameter) {
 	if !strings.HasPrefix(s, "mailto:") {
 		s = "mailto:" + s
 	}
-
 	cb.SetProperty(ComponentPropertyOrganizer, s, params...)
 }
 
+// SetColor stores the non-standard COLOR property which many clients
+// use to style calendar entries.
 func (cb *ComponentBase) SetColor(s string, params ...PropertyParameter) {
 	cb.SetProperty(ComponentPropertyColor, s, params...)
 }
 
+// SetClass sets the CLASS property controlling access to the
+// component as described in RFC 5545 section 3.8.1.3.
 func (cb *ComponentBase) SetClass(c Classification, params ...PropertyParameter) {
 	cb.SetProperty(ComponentPropertyClass, string(c), params...)
 }
@@ -544,48 +571,66 @@ func (cb *ComponentBase) setResources(r string, params ...PropertyParameter) {
 	cb.SetProperty(ComponentPropertyResources, r, params...)
 }
 
+// AddAttendee appends an ATTENDEE property (RFC 5545 section 3.8.4.1)
+// identifying a participant of the event.
 func (cb *ComponentBase) AddAttendee(s string, params ...PropertyParameter) {
 	if !strings.HasPrefix(s, "mailto:") {
 		s = "mailto:" + s
 	}
-
 	cb.AddProperty(ComponentPropertyAttendee, s, params...)
 }
 
+// AddExdate adds an EXDATE property (RFC 5545 section 3.8.5.1)
+// excluding the specified recurrence date.
 func (cb *ComponentBase) AddExdate(s string, params ...PropertyParameter) {
 	cb.AddProperty(ComponentPropertyExdate, s, params...)
 }
 
+// AddExrule appends the deprecated EXRULE property. It remains for
+// backward compatibility with RFC 2445 calendars.
 func (cb *ComponentBase) AddExrule(s string, params ...PropertyParameter) {
 	cb.AddProperty(ComponentPropertyExrule, s, params...)
 }
 
+// AddRdate appends an RDATE property containing an additional
+// recurrence date (RFC 5545 section 3.8.5.2).
 func (cb *ComponentBase) AddRdate(s string, params ...PropertyParameter) {
 	cb.AddProperty(ComponentPropertyRdate, s, params...)
 }
 
+// AddRrule appends an RRULE property (RFC 5545 section 3.8.5.3)
+// defining the recurrence rule for the component.
 func (cb *ComponentBase) AddRrule(s string, params ...PropertyParameter) {
 	cb.AddProperty(ComponentPropertyRrule, s, params...)
 }
 
+// AddAttachment appends an ATTACH property (RFC 5545 section 3.8.1.1).
+// Use AddAttachmentURL or AddAttachmentBinary for convenience.
 func (cb *ComponentBase) AddAttachment(s string, params ...PropertyParameter) {
 	cb.AddProperty(ComponentPropertyAttach, s, params...)
 }
 
+// AddAttachmentURL is a helper that records an attachment by URL with
+// its associated MIME type.
 func (cb *ComponentBase) AddAttachmentURL(uri string, contentType string) {
 	cb.AddAttachment(uri, WithFmtType(contentType))
 }
 
+// AddAttachmentBinary attaches raw binary data to the component. The
+// data is base64 encoded and stored in an ATTACH property.
 func (cb *ComponentBase) AddAttachmentBinary(binary []byte, contentType string) {
 	cb.AddAttachment(base64.StdEncoding.EncodeToString(binary),
 		WithFmtType(contentType), WithEncoding("base64"), WithValue("binary"),
 	)
 }
 
+// AddComment appends a COMMENT property (RFC 5545 section 3.8.1.4).
 func (cb *ComponentBase) AddComment(s string, params ...PropertyParameter) {
 	cb.AddProperty(ComponentPropertyComment, s, params...)
 }
 
+// AddCategory adds a CATEGORIES property which can be repeated to
+// classify the component (RFC 5545 section 3.8.1.2).
 func (cb *ComponentBase) AddCategory(s string, params ...PropertyParameter) {
 	cb.AddProperty(ComponentPropertyCategories, s, params...)
 }
@@ -673,7 +718,7 @@ type VEvent struct {
 }
 
 func (event *VEvent) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return event.ComponentBase.serializeThis(w, ComponentVEvent, serialConfig)
+	return event.serializeThis(w, ComponentVEvent, serialConfig)
 }
 
 func (event *VEvent) Serialize(serialConfig *SerializationConfiguration) string {
@@ -683,7 +728,7 @@ func (event *VEvent) Serialize(serialConfig *SerializationConfiguration) string 
 
 func (event *VEvent) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := event.ComponentBase.serializeThis(b, ComponentVEvent, serialConfig)
+	err := event.serializeThis(b, ComponentVEvent, serialConfig)
 	return b.String(), err
 }
 
@@ -702,7 +747,9 @@ func (event *VEvent) SetLastModifiedAt(t time.Time, props ...PropertyParameter) 
 	event.SetProperty(ComponentPropertyLastModified, t.UTC().Format(icalTimestampFormatUtc), props...)
 }
 
-// SetGeo sets the geo property
+// SetGeo records the geographic position of the event. Latitude and longitude
+// may be provided as any numeric type. Values are formatted using fmt.Sprintf
+// and stored in the GEO property (RFC 5545 section 3.8.1.6).
 func (event *VEvent) SetGeo(lat interface{}, lng interface{}, params ...PropertyParameter) {
 	event.setGeo(lat, lng, params...)
 }
@@ -733,8 +780,11 @@ func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
 
 type TimeTransparency string
 
+// TimeTransparency enumerates values for the TRANSP property (RFC 5545 section 3.8.2.7).
 const (
-	TransparencyOpaque      TimeTransparency = "OPAQUE" // default
+	// TransparencyOpaque marks busy time that blocks availability.
+	TransparencyOpaque TimeTransparency = "OPAQUE" // default
+	// TransparencyTransparent marks busy time that does not block availability.
 	TransparencyTransparent TimeTransparency = "TRANSPARENT"
 )
 
@@ -747,7 +797,7 @@ type VTodo struct {
 }
 
 func (todo *VTodo) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return todo.ComponentBase.serializeThis(w, ComponentVTodo, serialConfig)
+	return todo.serializeThis(w, ComponentVTodo, serialConfig)
 }
 
 func (todo *VTodo) Serialize(serialConfig *SerializationConfiguration) string {
@@ -757,7 +807,7 @@ func (todo *VTodo) Serialize(serialConfig *SerializationConfiguration) string {
 
 func (todo *VTodo) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := todo.ComponentBase.serializeThis(b, ComponentVTodo, serialConfig)
+	err := todo.serializeThis(b, ComponentVTodo, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -828,10 +878,9 @@ func (todo *VTodo) SetResources(r string, params ...PropertyParameter) {
 }
 
 // SetDuration updates the duration of an event.
-// This function will set either the end or start time of an event depending what is already given.
-// The duration defines the length of a event relative to start or end time.
-//
-// Notice: It will not set the DURATION key of the ics - only DTSTART and DTEND will be affected.
+// This function mirrors SetDuration on ComponentBase.  It adjusts DTSTART or
+// DUE so that the task spans the requested duration as defined by RFC 5545
+// section 3.3.6 without adding a DURATION property.
 func (todo *VTodo) SetDuration(d time.Duration) error {
 	t, err := todo.GetStartAt()
 	if err == nil {
@@ -873,7 +922,7 @@ type VJournal struct {
 }
 
 func (journal *VJournal) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return journal.ComponentBase.serializeThis(w, ComponentVJournal, serialConfig)
+	return journal.serializeThis(w, ComponentVJournal, serialConfig)
 }
 
 func (journal *VJournal) Serialize(serialConfig *SerializationConfiguration) string {
@@ -883,7 +932,7 @@ func (journal *VJournal) Serialize(serialConfig *SerializationConfiguration) str
 
 func (journal *VJournal) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := journal.ComponentBase.serializeThis(b, ComponentVJournal, serialConfig)
+	err := journal.serializeThis(b, ComponentVJournal, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -929,7 +978,7 @@ func (busy *VBusy) Serialize(serialConfig *SerializationConfiguration) string {
 
 func (busy *VBusy) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := busy.ComponentBase.serializeThis(b, ComponentVFreeBusy, serialConfig)
+	err := busy.serializeThis(b, ComponentVFreeBusy, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -937,7 +986,7 @@ func (busy *VBusy) serialize(serialConfig *SerializationConfiguration) (string, 
 }
 
 func (busy *VBusy) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return busy.ComponentBase.serializeThis(w, ComponentVFreeBusy, serialConfig)
+	return busy.serializeThis(w, ComponentVFreeBusy, serialConfig)
 }
 
 func NewBusy(uniqueId string) *VBusy {
@@ -979,7 +1028,7 @@ func (timezone *VTimezone) Serialize(serialConfig *SerializationConfiguration) s
 
 func (timezone *VTimezone) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := timezone.ComponentBase.serializeThis(b, ComponentVTimezone, serialConfig)
+	err := timezone.serializeThis(b, ComponentVTimezone, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -987,7 +1036,7 @@ func (timezone *VTimezone) serialize(serialConfig *SerializationConfiguration) (
 }
 
 func (timezone *VTimezone) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return timezone.ComponentBase.serializeThis(w, ComponentVTimezone, serialConfig)
+	return timezone.serializeThis(w, ComponentVTimezone, serialConfig)
 }
 
 func (timezone *VTimezone) AddStandard() *Standard {
@@ -1039,7 +1088,7 @@ func (c *VAlarm) Serialize(serialConfig *SerializationConfiguration) string {
 
 func (c *VAlarm) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := c.ComponentBase.serializeThis(b, ComponentVAlarm, serialConfig)
+	err := c.serializeThis(b, ComponentVAlarm, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1047,11 +1096,14 @@ func (c *VAlarm) serialize(serialConfig *SerializationConfiguration) (string, er
 }
 
 func (c *VAlarm) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return c.ComponentBase.serializeThis(w, ComponentVAlarm, serialConfig)
+	return c.serializeThis(w, ComponentVAlarm, serialConfig)
 }
 
+// NewAlarm creates a bare VALARM component.  The tzId argument is kept for
+// backward compatibility but is not currently used when constructing the
+// component.
 func NewAlarm(tzId string) *VAlarm {
-	// Todo How did this come about?
+	_ = tzId // parameter reserved for future use
 	e := &VAlarm{}
 	return e
 }
@@ -1097,7 +1149,7 @@ func (standard *Standard) Serialize(serialConfig *SerializationConfiguration) st
 
 func (standard *Standard) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := standard.ComponentBase.serializeThis(b, ComponentStandard, serialConfig)
+	err := standard.serializeThis(b, ComponentStandard, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1105,7 +1157,7 @@ func (standard *Standard) serialize(serialConfig *SerializationConfiguration) (s
 }
 
 func (standard *Standard) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return standard.ComponentBase.serializeThis(w, ComponentStandard, serialConfig)
+	return standard.serializeThis(w, ComponentStandard, serialConfig)
 }
 
 type Daylight struct {
@@ -1119,7 +1171,7 @@ func (daylight *Daylight) Serialize(serialConfig *SerializationConfiguration) st
 
 func (daylight *Daylight) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := daylight.ComponentBase.serializeThis(b, ComponentDaylight, serialConfig)
+	err := daylight.serializeThis(b, ComponentDaylight, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1127,12 +1179,31 @@ func (daylight *Daylight) serialize(serialConfig *SerializationConfiguration) (s
 }
 
 func (daylight *Daylight) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return daylight.ComponentBase.serializeThis(w, ComponentDaylight, serialConfig)
+	return daylight.serializeThis(w, ComponentDaylight, serialConfig)
 }
 
 type GeneralComponent struct {
 	ComponentBase
 	Token string
+}
+
+// DefaultUnknownComponentHandler preserves unknown components as GeneralComponent
+// values so they round-trip through the parser.
+func DefaultUnknownComponentHandler(cs *CalendarStream, startLine *BaseProperty, opts ...any) (Component, error) {
+	r, err := parseComponentWithHandler(cs, startLine, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &GeneralComponent{ComponentBase: r, Token: startLine.Value}, nil
+}
+
+// StrictUnknownComponentHandler rejects unknown component names unless they are
+// experimental X- components.
+func StrictUnknownComponentHandler(cs *CalendarStream, startLine *BaseProperty, opts ...any) (Component, error) {
+	if !strings.HasPrefix(startLine.Value, "X-") {
+		return nil, fmt.Errorf("unknown component %q", startLine.Value)
+	}
+	return DefaultUnknownComponentHandler(cs, startLine, opts...)
 }
 
 func (general *GeneralComponent) Serialize(serialConfig *SerializationConfiguration) string {
@@ -1142,7 +1213,7 @@ func (general *GeneralComponent) Serialize(serialConfig *SerializationConfigurat
 
 func (general *GeneralComponent) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := general.ComponentBase.serializeThis(b, ComponentType(general.Token), serialConfig)
+	err := general.serializeThis(b, ComponentType(general.Token), serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1150,11 +1221,11 @@ func (general *GeneralComponent) serialize(serialConfig *SerializationConfigurat
 }
 
 func (general *GeneralComponent) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return general.ComponentBase.serializeThis(w, ComponentType(general.Token), serialConfig)
+	return general.serializeThis(w, ComponentType(general.Token), serialConfig)
 }
 
 func GeneralParseComponent(cs *CalendarStream, startLine *BaseProperty) (Component, error) {
-	return generalParseComponentWithHandler(cs, startLine, parseProperty)
+	return generalParseComponentWithHandler(cs, startLine)
 }
 
 func GeneralParseComponentWithOptions(cs *CalendarStream, startLine *BaseProperty, opts ...any) (Component, error) {
@@ -1168,6 +1239,13 @@ func GeneralParseComponentWithOptions(cs *CalendarStream, startLine *BasePropert
 }
 
 func generalParseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts ...any) (Component, error) {
+	cfg, err := parseComponentOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+	if startLine == nil {
+		return nil, ErrNilStartLine
+	}
 	var co Component
 	switch ComponentType(startLine.Value) {
 	case ComponentVCalendar:
@@ -1221,11 +1299,7 @@ func generalParseComponentWithHandler(cs *CalendarStream, startLine *BasePropert
 		}
 		co = &Daylight{ComponentBase: r}
 	default:
-		r, rerr := parseComponentWithHandler(cs, startLine, opts...)
-		if rerr != nil {
-			return nil, rerr
-		}
-		co = &GeneralComponent{ComponentBase: r, Token: startLine.Value}
+		return cfg.unknownComponentHandler(cs, startLine, cfg.childOptions...)
 	}
 	return co, nil
 }
@@ -1390,24 +1464,64 @@ func ParseComponentWithOptions(cs *CalendarStream, startLine *BaseProperty, opts
 }
 
 type componentParseConfig struct {
-	propertyParser PropertyParser
-	timezoneMapper TimezoneMapper
+	propertyParser                  PropertyParser
+	unknownComponentPropertyHandler UnknownComponentPropertyHandler
+	unknownComponentHandler         UnknownComponentHandler
+	timezoneMapper                  TimezoneMapper
+	childOptions                    []any
 }
 
 func parseComponentOptions(opts ...any) (componentParseConfig, error) {
-	cfg := componentParseConfig{propertyParser: parseProperty}
+	cfg := componentParseConfig{
+		propertyParser:                  parseProperty,
+		unknownComponentPropertyHandler: DefaultUnknownComponentPropertyHandler,
+		unknownComponentHandler:         DefaultUnknownComponentHandler,
+		childOptions:                    make([]any, 0, len(opts)),
+	}
 	for i, opt := range opts {
 		switch opt := opt.(type) {
 		case nil:
 			continue
 		case PropertyParser:
-			cfg.propertyParser = opt
+			if opt != nil {
+				cfg.propertyParser = opt
+			}
+			cfg.childOptions = append(cfg.childOptions, opt)
 		case func(ContentLine) (*BaseProperty, error):
-			cfg.propertyParser = PropertyParser(opt)
+			if opt != nil {
+				cfg.propertyParser = PropertyParser(opt)
+			}
+			cfg.childOptions = append(cfg.childOptions, opt)
+		case UnknownComponentPropertyHandler:
+			if opt != nil {
+				cfg.unknownComponentPropertyHandler = opt
+			}
+			cfg.childOptions = append(cfg.childOptions, opt)
+		case func(*ComponentBase, *BaseProperty) error:
+			if opt != nil {
+				cfg.unknownComponentPropertyHandler = UnknownComponentPropertyHandler(opt)
+			}
+			cfg.childOptions = append(cfg.childOptions, opt)
+		case UnknownComponentHandler:
+			if opt != nil {
+				cfg.unknownComponentHandler = opt
+			}
+			cfg.childOptions = append(cfg.childOptions, opt)
+		case func(*CalendarStream, *BaseProperty, ...any) (Component, error):
+			if opt != nil {
+				cfg.unknownComponentHandler = UnknownComponentHandler(opt)
+			}
+			cfg.childOptions = append(cfg.childOptions, opt)
 		case TimezoneMapper:
-			cfg.timezoneMapper = opt
+			if opt != nil {
+				cfg.timezoneMapper = opt
+			}
+			cfg.childOptions = append(cfg.childOptions, opt)
 		case func(string) *time.Location:
-			cfg.timezoneMapper = TimezoneMapper(opt)
+			if opt != nil {
+				cfg.timezoneMapper = TimezoneMapper(opt)
+			}
+			cfg.childOptions = append(cfg.childOptions, opt)
 		default:
 			return cfg, fmt.Errorf("%w %d: %T", ErrInvalidOpArg, i, opt)
 		}
@@ -1420,6 +1534,9 @@ func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts
 	cb := ComponentBase{timezoneMapper: cfg.timezoneMapper}
 	if err != nil {
 		return cb, err
+	}
+	if startLine == nil {
+		return cb, ErrNilStartLine
 	}
 	lastLine := 0
 	cont := true
@@ -1456,7 +1573,7 @@ func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts
 				return cb, NewMalformedError(lineNo, -1, ErrUnbalancedEnd)
 			}
 		case "BEGIN":
-			co, err := generalParseComponentWithHandler(cs, line, opts...)
+			co, err := generalParseComponentWithHandler(cs, line, cfg.childOptions...)
 			if err != nil {
 				return cb, err
 			}
@@ -1477,9 +1594,16 @@ func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts
 			string(ComponentPropertyComment), string(ComponentPropertyRelatedTo), string(ComponentPropertyMethod),
 			string(ComponentPropertyRecurrenceId), string(ComponentPropertyDuration), string(ComponentPropertyContact),
 			string(ComponentPropertyRequestStatus):
-			cb.Properties = append(cb.Properties, IANAProperty{*line})
+			if err := DefaultUnknownComponentPropertyHandler(&cb, line); err != nil {
+				return cb, err
+			}
 		default:
-			cb.Properties = append(cb.Properties, IANAProperty{*line})
+			if err := cfg.unknownComponentPropertyHandler(&cb, line); err != nil {
+				if errors.Is(err, ErrPropertySkipped) {
+					continue
+				}
+				return cb, fmt.Errorf("parsing component property %d: %w", lineNo, err)
+			}
 		}
 	}
 	return cb, NewMalformedError(lastLine, -1, ErrOutOfLines)
