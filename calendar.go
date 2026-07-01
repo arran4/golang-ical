@@ -176,64 +176,73 @@ func ComponentPropertyExtended(s string) ComponentProperty {
 type Property string
 
 const (
-	PropertyCalscale            Property = "CALSCALE" // TEXT
-	PropertyMethod              Property = "METHOD"   // TEXT
-	PropertyProductId           Property = "PRODID"   // TEXT
-	PropertyVersion             Property = "VERSION"  // TEXT
-	PropertyXPublishedTTL       Property = "X-PUBLISHED-TTL"
-	PropertyRefreshInterval     Property = "REFRESH-INTERVAL;VALUE=DURATION"
-	PropertyAttach              Property = "ATTACH"
-	PropertyCategories          Property = "CATEGORIES"             // TEXT
-	PropertyClass               Property = "CLASS"                  // TEXT
-	PropertyColor               Property = "COLOR"                  // TEXT
-	PropertyXAppleCalendarColor Property = "X-APPLE-CALENDAR-COLOR" // TEXT
-	PropertyComment             Property = "COMMENT"                // TEXT
-	PropertyDescription         Property = "DESCRIPTION"            // TEXT
-	PropertyXWRCalDesc          Property = "X-WR-CALDESC"
-	PropertyGeo                 Property = "GEO"
-	PropertyLocation            Property = "LOCATION" // TEXT
-	PropertyPercentComplete     Property = "PERCENT-COMPLETE"
-	PropertyPriority            Property = "PRIORITY"
-	PropertyResources           Property = "RESOURCES" // TEXT
-	PropertyStatus              Property = "STATUS"    // TEXT
-	PropertySummary             Property = "SUMMARY"   // TEXT
-	PropertyCompleted           Property = "COMPLETED"
-	PropertyDtend               Property = "DTEND"
-	PropertyDue                 Property = "DUE"
-	PropertyDtstart             Property = "DTSTART"
-	PropertyDuration            Property = "DURATION"
-	PropertyFreebusy            Property = "FREEBUSY"
-	PropertyTransp              Property = "TRANSP" // TEXT
-	PropertyTzid                Property = "TZID"   // TEXT
-	PropertyTzname              Property = "TZNAME" // TEXT
-	PropertyTzoffsetfrom        Property = "TZOFFSETFROM"
-	PropertyTzoffsetto          Property = "TZOFFSETTO"
-	PropertyTzurl               Property = "TZURL"
-	PropertyAttendee            Property = "ATTENDEE"
-	PropertyContact             Property = "CONTACT" // TEXT
-	PropertyOrganizer           Property = "ORGANIZER"
-	PropertyRecurrenceId        Property = "RECURRENCE-ID"
-	PropertyRelatedTo           Property = "RELATED-TO" // TEXT
-	PropertyUrl                 Property = "URL"
-	PropertyUid                 Property = "UID" // TEXT
-	PropertyExdate              Property = "EXDATE"
-	PropertyExrule              Property = "EXRULE"
-	PropertyRdate               Property = "RDATE"
-	PropertyRrule               Property = "RRULE"
-	PropertyAction              Property = "ACTION" // TEXT
-	PropertyRepeat              Property = "REPEAT"
-	PropertyTrigger             Property = "TRIGGER"
-	PropertyCreated             Property = "CREATED"
-	PropertyDtstamp             Property = "DTSTAMP"
-	PropertyLastModified        Property = "LAST-MODIFIED"
-	PropertyRequestStatus       Property = "REQUEST-STATUS" // TEXT
-	PropertyName                Property = "NAME"
-	PropertyXWRCalName          Property = "X-WR-CALNAME"
-	PropertyXWRTimezone         Property = "X-WR-TIMEZONE"
-	PropertySequence            Property = "SEQUENCE"
-	PropertyXWRCalID            Property = "X-WR-RELCALID"
-	PropertyTimezoneId          Property = "TIMEZONE-ID"
-	PropertySource              Property = "SOURCE"
+	PropertyCalscale  Property = "CALSCALE" // TEXT
+	PropertyMethod    Property = "METHOD"   // TEXT
+	PropertyProductId Property = "PRODID"   // TEXT
+	PropertyVersion   Property = "VERSION"  // TEXT
+	// PropertyXPublishedTTL is retained for compatibility with earlier releases.
+	// This vendor extension should not be in the core package; prefer an optional extension package for new code.
+	PropertyXPublishedTTL   Property = "X-PUBLISHED-TTL"
+	PropertyRefreshInterval Property = "REFRESH-INTERVAL;VALUE=DURATION"
+	PropertyAttach          Property = "ATTACH"
+	PropertyCategories      Property = "CATEGORIES"  // TEXT
+	PropertyClass           Property = "CLASS"       // TEXT
+	PropertyColor           Property = "COLOR"       // TEXT
+	PropertyComment         Property = "COMMENT"     // TEXT
+	PropertyDescription     Property = "DESCRIPTION" // TEXT
+	// PropertyXWRCalDesc is retained for compatibility with earlier releases.
+	// This vendor extension should not be in the core package; prefer an optional extension package for new code.
+	PropertyXWRCalDesc      Property = "X-WR-CALDESC"
+	PropertyGeo             Property = "GEO"
+	PropertyLocation        Property = "LOCATION" // TEXT
+	PropertyPercentComplete Property = "PERCENT-COMPLETE"
+	PropertyPriority        Property = "PRIORITY"
+	PropertyResources       Property = "RESOURCES" // TEXT
+	PropertyStatus          Property = "STATUS"    // TEXT
+	PropertySummary         Property = "SUMMARY"   // TEXT
+	PropertyCompleted       Property = "COMPLETED"
+	PropertyDtend           Property = "DTEND"
+	PropertyDue             Property = "DUE"
+	PropertyDtstart         Property = "DTSTART"
+	PropertyDuration        Property = "DURATION"
+	PropertyFreebusy        Property = "FREEBUSY"
+	PropertyTransp          Property = "TRANSP" // TEXT
+	PropertyTzid            Property = "TZID"   // TEXT
+	PropertyTzname          Property = "TZNAME" // TEXT
+	PropertyTzoffsetfrom    Property = "TZOFFSETFROM"
+	PropertyTzoffsetto      Property = "TZOFFSETTO"
+	PropertyTzurl           Property = "TZURL"
+	PropertyAttendee        Property = "ATTENDEE"
+	PropertyContact         Property = "CONTACT" // TEXT
+	PropertyOrganizer       Property = "ORGANIZER"
+	PropertyRecurrenceId    Property = "RECURRENCE-ID"
+	PropertyRelatedTo       Property = "RELATED-TO" // TEXT
+	PropertyUrl             Property = "URL"
+	PropertyUid             Property = "UID" // TEXT
+	PropertyExdate          Property = "EXDATE"
+	PropertyExrule          Property = "EXRULE"
+	PropertyRdate           Property = "RDATE"
+	PropertyRrule           Property = "RRULE"
+	PropertyAction          Property = "ACTION" // TEXT
+	PropertyRepeat          Property = "REPEAT"
+	PropertyTrigger         Property = "TRIGGER"
+	PropertyCreated         Property = "CREATED"
+	PropertyDtstamp         Property = "DTSTAMP"
+	PropertyLastModified    Property = "LAST-MODIFIED"
+	PropertyRequestStatus   Property = "REQUEST-STATUS" // TEXT
+	PropertyName            Property = "NAME"
+	// PropertyXWRCalName is retained for compatibility with earlier releases.
+	// This vendor extension should not be in the core package; prefer an optional extension package for new code.
+	PropertyXWRCalName Property = "X-WR-CALNAME"
+	// PropertyXWRTimezone is retained for compatibility with earlier releases.
+	// This vendor extension should not be in the core package; prefer an optional extension package for new code.
+	PropertyXWRTimezone Property = "X-WR-TIMEZONE"
+	PropertySequence    Property = "SEQUENCE"
+	// PropertyXWRCalID is retained for compatibility with earlier releases.
+	// This vendor extension should not be in the core package; prefer an optional extension package for new code.
+	PropertyXWRCalID   Property = "X-WR-RELCALID"
+	PropertyTimezoneId Property = "TIMEZONE-ID"
+	PropertySource     Property = "SOURCE"
 )
 
 type Parameter string
@@ -565,6 +574,9 @@ func (cal *Calendar) SetMethod(method Method, params ...PropertyParameter) {
 	cal.setProperty(PropertyMethod, string(method), params...)
 }
 
+// SetXPublishedTTL sets X-PUBLISHED-TTL.
+// This vendor extension is retained for compatibility with earlier releases.
+// It should not be in the core package; prefer an optional extension package for new code.
 func (cal *Calendar) SetXPublishedTTL(s string, params ...PropertyParameter) {
 	cal.setProperty(PropertyXPublishedTTL, s, params...)
 }
@@ -577,6 +589,8 @@ func (cal *Calendar) SetProductId(s string, params ...PropertyParameter) {
 	cal.setProperty(PropertyProductId, s, params...)
 }
 
+// SetName sets NAME and, for compatibility with earlier releases, X-WR-CALNAME.
+// The vendor extension should not be in the core package; prefer an optional extension package for new code.
 func (cal *Calendar) SetName(s string, params ...PropertyParameter) {
 	cal.setProperty(PropertyName, s, params...)
 	cal.setProperty(PropertyXWRCalName, s, params...)
@@ -584,10 +598,6 @@ func (cal *Calendar) SetName(s string, params ...PropertyParameter) {
 
 func (cal *Calendar) SetColor(s string, params ...PropertyParameter) {
 	cal.setProperty(PropertyColor, s, params...)
-}
-
-func (cal *Calendar) SetXAppleCalendarColor(s string, params ...PropertyParameter) {
-	cal.setProperty(PropertyXAppleCalendarColor, s, params...)
 }
 
 func (cal *Calendar) SetColorFromColor(c color.Color, params ...PropertyParameter) {
@@ -598,22 +608,30 @@ func (cal *Calendar) SetColorFromColorName(c ColorName, params ...PropertyParame
 	cal.setProperty(PropertyColor, string(c), params...)
 }
 
-func (cal *Calendar) SetXAppleCalendarColorFromColor(c color.Color, params ...PropertyParameter) {
-	cal.setProperty(PropertyXAppleCalendarColor, string(colorToHex(c)), params...)
-}
-
+// SetXWRCalName sets X-WR-CALNAME.
+// This vendor extension is retained for compatibility with earlier releases.
+// It should not be in the core package; prefer an optional extension package for new code.
 func (cal *Calendar) SetXWRCalName(s string, params ...PropertyParameter) {
 	cal.setProperty(PropertyXWRCalName, s, params...)
 }
 
+// SetXWRCalDesc sets X-WR-CALDESC.
+// This vendor extension is retained for compatibility with earlier releases.
+// It should not be in the core package; prefer an optional extension package for new code.
 func (cal *Calendar) SetXWRCalDesc(s string, params ...PropertyParameter) {
 	cal.setProperty(PropertyXWRCalDesc, s, params...)
 }
 
+// SetXWRTimezone sets X-WR-TIMEZONE.
+// This vendor extension is retained for compatibility with earlier releases.
+// It should not be in the core package; prefer an optional extension package for new code.
 func (cal *Calendar) SetXWRTimezone(s string, params ...PropertyParameter) {
 	cal.setProperty(PropertyXWRTimezone, s, params...)
 }
 
+// SetXWRCalID sets X-WR-RELCALID.
+// This vendor extension is retained for compatibility with earlier releases.
+// It should not be in the core package; prefer an optional extension package for new code.
 func (cal *Calendar) SetXWRCalID(s string, params ...PropertyParameter) {
 	cal.setProperty(PropertyXWRCalID, s, params...)
 }
@@ -692,24 +710,8 @@ func (cal *Calendar) GetColorAsString() string {
 	return p.Value
 }
 
-func (cal *Calendar) GetXAppleCalendarColor() *CalendarProperty {
-	return cal.GetProperty(PropertyXAppleCalendarColor)
-}
-
-func (cal *Calendar) GetXAppleCalendarColorAsString() string {
-	p := cal.GetXAppleCalendarColor()
-	if p == nil {
-		return ""
-	}
-	return p.Value
-}
-
-func (cal *Calendar) GetXAppleCalendarColorAsColor() (color.Color, error) {
-	p := cal.GetXAppleCalendarColor()
-	if p == nil {
-		return nil, errors.New("x-apple-calendar-color property not found")
-	}
-	return hexToColor(p.Value)
+func (cal *Calendar) SetProperty(property Property, value string, params ...PropertyParameter) {
+	cal.setProperty(property, value, params...)
 }
 
 func (cal *Calendar) setProperty(property Property, value string, params ...PropertyParameter) {

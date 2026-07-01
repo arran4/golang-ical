@@ -6,7 +6,6 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
-	"image/color"
 	"io"
 	"io/fs"
 	"net/http"
@@ -1030,42 +1029,27 @@ func BenchmarkSerialize(b *testing.B) {
 	}
 }
 
-
-func TestICSx5Integration(t *testing.T) {
+func TestCalendarColorIntegration(t *testing.T) {
 	tests := []struct {
-		name       string
-		iCal       string
-		wantName   string
-		wantColor  color.Color
-		wantXColor color.Color
+		name      string
+		iCal      string
+		wantName  string
+		wantColor string
 	}{
 		{
 			name: "None",
 			iCal: "BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR",
 		},
 		{
-			name:      "NameAndColor",
+			name:      "NameAndColorName",
 			iCal:      "BEGIN:VCALENDAR\nVERSION:2.0\nX-WR-CALNAME:Some Calendar\nCOLOR:lightblue\nEND:VCALENDAR",
 			wantName:  "Some Calendar",
-			wantColor: nil, // Note: lightblue is not parsed by hexToColor
+			wantColor: "lightblue",
 		},
 		{
-			name:       "NameAndLegacyColor",
-			iCal:       "BEGIN:VCALENDAR\nVERSION:2.0\nX-WR-CALNAME:Some Calendar\nX-APPLE-CALENDAR-COLOR:#123456\nEND:VCALENDAR",
-			wantName:   "Some Calendar",
-			wantXColor: color.RGBA{R: 0x12, G: 0x34, B: 0x56, A: 255},
-		},
-		{
-			name:       "ColorAndLegacyColor",
-			iCal:       "BEGIN:VCALENDAR\nVERSION:2.0\nX-APPLE-CALENDAR-COLOR:#123456\nCOLOR:lightblue\nEND:VCALENDAR",
-			wantColor:  nil, // Note: lightblue is not parsed by hexToColor
-			wantXColor: color.RGBA{R: 0x12, G: 0x34, B: 0x56, A: 255},
-		},
-		{
-			name:       "X11Color",
-			iCal:       "BEGIN:VCALENDAR\nVERSION:2.0\nCOLOR:papayawhip\nEND:VCALENDAR",
-			wantColor:  nil, // Note: X11/CSS3 named colors are not converted to RGB/hex by hexToColor
-			wantXColor: nil,
+			name:      "HexColor",
+			iCal:      "BEGIN:VCALENDAR\nVERSION:2.0\nCOLOR:#123456\nEND:VCALENDAR",
+			wantColor: "#123456",
 		},
 	}
 
@@ -1084,39 +1068,12 @@ func TestICSx5Integration(t *testing.T) {
 				}
 			}
 
-			// Color validation
 			colorProp := cal.GetColor()
-			if tt.wantColor != nil {
+			if tt.wantColor != "" {
 				if colorProp == nil {
 					t.Errorf("expected COLOR property")
-				} else {
-					c, err := hexToColor(cal.GetColorAsString())
-					if err != nil {
-						t.Errorf("hexToColor error: %v", err)
-					} else if c != tt.wantColor {
-						t.Errorf("got color %v, want %v", c, tt.wantColor)
-					}
-				}
-			} else if tt.name == "NameAndColor" && colorProp != nil {
-				// We expect the property to exist but not be parseable by our hex logic
-				_, err := hexToColor(cal.GetColorAsString())
-				if err == nil {
-					t.Errorf("expected error parsing lightblue with hexToColor")
-				}
-			}
-
-			// X-APPLE-CALENDAR-COLOR validation
-			xColorProp := cal.GetXAppleCalendarColor()
-			if tt.wantXColor != nil {
-				if xColorProp == nil {
-					t.Errorf("expected X-APPLE-CALENDAR-COLOR property")
-				} else {
-					c, err := cal.GetXAppleCalendarColorAsColor()
-					if err != nil {
-						t.Errorf("GetXAppleCalendarColorAsColor error: %v", err)
-					} else if c != tt.wantXColor {
-						t.Errorf("got x-color %v, want %v", c, tt.wantXColor)
-					}
+				} else if got := cal.GetColorAsString(); got != tt.wantColor {
+					t.Errorf("got color %v, want %v", got, tt.wantColor)
 				}
 			}
 		})
