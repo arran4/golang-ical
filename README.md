@@ -10,7 +10,7 @@ An ICS / ICal parser and serialiser for Golang.
 
 ## Generated Sourcey docs
 
-A Sourcey-generated API reference for this repository is available at https://tttt28444.github.io/golang-ical-sourcey/ . It was generated from commit `579a4be6cbce5bd613cdb647b685c2b7b271b266` with Sourcey 3.6.5 using a godoc snapshot over `./...`; the page includes the Sourcey config, package map, llms.txt, and spot checks against the source.
+A Sourcey-generated API reference for this repository is available at https://tttt28444.github.io/golang-ical-sourcey/. The page includes the Sourcey config, package map, llms.txt, and spot checks against the source.
 
 Because the other libraries didn't quite do what I needed.
 
