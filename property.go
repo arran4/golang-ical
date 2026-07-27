@@ -248,7 +248,22 @@ func serializeTZIDValue(serialConfig *SerializationConfiguration, key, value str
 	return value
 }
 
+// RFC 5545 3.1 allows no CONTROL in a param-value, and no escape for one.
+var paramValueControlStripper = newParamValueControlStripper()
+
+func newParamValueControlStripper() *strings.Replacer {
+	pairs := make([]string, 0, 66)
+	for c := 0x00; c <= 0x1F; c++ {
+		if c == '\t' {
+			continue // HTAB is WSP, the one control SAFE-CHAR permits
+		}
+		pairs = append(pairs, string(rune(c)), "")
+	}
+	return strings.NewReplacer(append(pairs, "\x7f", "")...)
+}
+
 func escapeValueString(v string) string {
+	v = paramValueControlStripper.Replace(v)
 	changed := 0
 	result := ""
 	for i, r := range v {
@@ -265,6 +280,7 @@ func escapeValueString(v string) string {
 }
 
 func quotedValueString(v string) string {
+	v = paramValueControlStripper.Replace(v)
 	changed := 0
 	result := ""
 	for i, r := range v {
