@@ -249,27 +249,21 @@ func serializeTZIDValue(serialConfig *SerializationConfiguration, key, value str
 }
 
 // RFC 5545 3.1 allows no CONTROL in a param-value, and no escape for one.
-var paramValueControlStripper = newParamValueControlStripper()
-
-func newParamValueControlStripper() *strings.Replacer {
-	pairs := make([]string, 0, 66)
-	for c := 0x00; c <= 0x1F; c++ {
-		if c == '\t' {
-			continue // HTAB is WSP, the one control SAFE-CHAR permits
-		}
-		pairs = append(pairs, string(rune(c)), "")
-	}
-	return strings.NewReplacer(append(pairs, "\x7f", "")...)
+// HTAB is WSP, the one control SAFE-CHAR and QSAFE-CHAR permit.
+func isParamValueControl(r rune) bool {
+	return (r < 0x20 || r == 0x7f) && r != '\t'
 }
 
 func escapeValueString(v string) string {
-	v = paramValueControlStripper.Replace(v)
 	changed := 0
 	result := ""
 	for i, r := range v {
-		switch r {
-		case ',', '"', ';', ':', '\\', '\'':
+		switch {
+		case r == ',', r == '"', r == ';', r == ':', r == '\\', r == '\'':
 			result = result + v[changed:i] + "\\" + string(r)
+			changed = i + 1
+		case isParamValueControl(r):
+			result = result + v[changed:i]
 			changed = i + 1
 		}
 	}
@@ -280,13 +274,15 @@ func escapeValueString(v string) string {
 }
 
 func quotedValueString(v string) string {
-	v = paramValueControlStripper.Replace(v)
 	changed := 0
 	result := ""
 	for i, r := range v {
-		switch r {
-		case '"', '\\':
+		switch {
+		case r == '"', r == '\\':
 			result = result + v[changed:i] + "\\" + string(r)
+			changed = i + 1
+		case isParamValueControl(r):
+			result = result + v[changed:i]
 			changed = i + 1
 		}
 	}
