@@ -1416,11 +1416,24 @@ func parseComponentOptions(opts ...any) (componentParseConfig, error) {
 	return cfg, nil
 }
 
+// maxComponentNestingDepth bounds how deeply nested BEGIN/END components may be
+// before parsing is aborted. Nested components recurse through
+// parseComponentWithHandler, so without a limit an input consisting of many
+// repeated BEGIN lines drives unbounded recursion and crashes the program with a
+// fatal stack overflow. Real-world calendars nest only a few levels deep
+// (e.g. VCALENDAR > VEVENT > VALARM), so this limit is far above any legitimate use.
+const maxComponentNestingDepth = 1000
+
 func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts ...any) (ComponentBase, error) {
 	cfg, err := parseComponentOptions(opts...)
 	cb := ComponentBase{timezoneMapper: cfg.timezoneMapper}
 	if err != nil {
 		return cb, err
+	}
+	cs.depth++
+	defer func() { cs.depth-- }()
+	if cs.depth > maxComponentNestingDepth {
+		return cb, NewMalformedError(cs.line, -1, ErrComponentNestingTooDeep)
 	}
 	lastLine := 0
 	cont := true
