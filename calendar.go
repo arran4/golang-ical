@@ -1015,9 +1015,10 @@ func DefaultUnknownCalendarPropertyHandler(cal *Calendar, state string, cl *Base
 }
 
 type CalendarStream struct {
-	r    io.Reader
-	b    *bufio.Reader
-	line int
+	r     io.Reader
+	b     *bufio.Reader
+	line  int
+	depth int
 }
 
 func NewCalendarStream(r io.Reader) *CalendarStream {
