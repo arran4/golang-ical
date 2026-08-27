@@ -309,15 +309,16 @@ func (cb *ComponentBase) SetDuration(d time.Duration) error {
 }
 
 func (cb *ComponentBase) GetEndAt() (time.Time, error) {
-	return cb.getTimeProp(ComponentPropertyDtEnd, false)
+	return cb.getTimeProp(ComponentPropertyDtEnd)
 }
 
-func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expectAllDay bool) (time.Time, error) {
+func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, opts ...any) (time.Time, error) {
 	timeProp := cb.GetProperty(componentProperty)
 	if timeProp == nil {
 		return time.Time{}, fmt.Errorf("%w: %s", ErrPropertyNotFound, componentProperty)
 	}
 
+	expectAllDay := hasOption(opts, ParseAllDay(true))
 	if cb.timezoneMapper != nil {
 		return parseTimeValue(timeProp.BaseProperty.Value, timeProp.ICalParameters, expectAllDay, cb.timezoneMapper)
 	}
@@ -389,19 +390,19 @@ func parseTimeValue(timeVal string, params map[string][]string, expectAllDay boo
 }
 
 func (cb *ComponentBase) GetStartAt() (time.Time, error) {
-	return cb.getTimeProp(ComponentPropertyDtStart, false)
+	return cb.getTimeProp(ComponentPropertyDtStart)
 }
 
 func (cb *ComponentBase) GetAllDayStartAt() (time.Time, error) {
-	return cb.getTimeProp(ComponentPropertyDtStart, true)
+	return cb.getTimeProp(ComponentPropertyDtStart, ParseAllDay(true))
 }
 
 func (cb *ComponentBase) GetLastModifiedAt() (time.Time, error) {
-	return cb.getTimeProp(ComponentPropertyLastModified, false)
+	return cb.getTimeProp(ComponentPropertyLastModified)
 }
 
 func (cb *ComponentBase) GetDtStampTime() (time.Time, error) {
-	return cb.getTimeProp(ComponentPropertyDtstamp, false)
+	return cb.getTimeProp(ComponentPropertyDtstamp)
 }
 
 // GetRRules returns all RRULE properties parsed into RecurrenceRule structs.
@@ -431,57 +432,423 @@ func (cb *ComponentBase) getRecurrenceRules(prop ComponentProperty) ([]*Recurren
 }
 
 // GetRDates returns all RDATE times, handling both comma-separated values
-// within a single property and multiple RDATE properties.
+// within a single property and multiple RDATE properties. In the case of a
+// duration returns the start time
 func (cb *ComponentBase) GetRDates() ([]time.Time, error) {
-	return cb.getMultiTimeProp(ComponentPropertyRdate)
+	values, err := cb.getMultiTimeProp(ComponentPropertyRdate, ParseStartOnly(true))
+	if err != nil {
+		return nil, err
+	}
+	return extractStartTimes(values), nil
 }
 
 // GetExDates returns all EXDATE times, handling both comma-separated values
-// within a single property and multiple EXDATE properties.
+// within a single property and multiple EXDATE properties. In the case of a
+// duration returns the start time
 func (cb *ComponentBase) GetExDates() ([]time.Time, error) {
-	return cb.getMultiTimeProp(ComponentPropertyExdate)
+	values, err := cb.getMultiTimeProp(ComponentPropertyExdate, ParseStartOnly(true))
+	if err != nil {
+		return nil, err
+	}
+	return extractStartTimes(values), nil
+}
+
+// GetRDateValues returns the parsed RDATE values, including PERIOD end/duration
+// information when present. The variadic arguments are reserved for future
+// filtering and option handling.
+func (cb *ComponentBase) GetRDateValues(opts ...any) ([]MultiTimeValue, error) {
+	return cb.getMultiTimeProp(ComponentPropertyRdate, opts...)
+}
+
+// GetExDateValues returns the parsed EXDATE values, including PERIOD end/duration
+// information when present. The variadic arguments are reserved for future
+// filtering and option handling.
+func (cb *ComponentBase) GetExDateValues(opts ...any) ([]MultiTimeValue, error) {
+	return cb.getMultiTimeProp(ComponentPropertyExdate, opts...)
 }
 
 // GetRecurrenceID returns the RECURRENCE-ID property as a time.Time.
 func (cb *ComponentBase) GetRecurrenceID() (time.Time, error) {
-	return cb.getTimeProp(ComponentPropertyRecurrenceId, false)
+	return cb.getTimeProp(ComponentPropertyRecurrenceId)
 }
 
-func (cb *ComponentBase) getMultiTimeProp(prop ComponentProperty) ([]time.Time, error) {
+func (cb *ComponentBase) getMultiTimeProp(prop ComponentProperty, opts ...any) ([]MultiTimeValue, error) {
 	props := cb.GetProperties(prop)
 	if len(props) == 0 {
 		return nil, nil
 	}
-	var times []time.Time
+	var values []MultiTimeValue
 	for _, p := range props {
-		values := strings.Split(p.Value, ",")
-		// Check if VALUE=DATE is explicitly set in parameters
-		isDateOnly := false
-		if vals, ok := p.ICalParameters["VALUE"]; ok {
-			for _, val := range vals {
-				if val == "DATE" {
-					isDateOnly = true
-					break
-				}
-			}
+		parts := strings.Split(p.Value, ",")
+		isDateOnly := p.parameterHasValue(ParameterValue, "DATE")
+		localOpts := append([]any{}, opts...)
+		if isDateOnly {
+			localOpts = append(localOpts, ParseAllDay(true))
 		}
-		for _, v := range values {
-			v = strings.TrimSpace(v)
-			if v == "" {
+		if cb.timezoneMapper != nil {
+			localOpts = append(localOpts, cb.timezoneMapper)
+		}
+		for _, v := range parts {
+			value := strings.TrimSpace(v)
+			if value == "" {
 				continue
 			}
-			var ops []any
-			if cb.timezoneMapper != nil {
-				ops = append(ops, cb.timezoneMapper)
-			}
-			t, err := parseTimeValue(v, p.ICalParameters, isDateOnly, ops...)
+			parsed, err := parseMultiTimeValue(value, p.ICalParameters, localOpts...)
 			if err != nil {
-				return nil, fmt.Errorf("parsing %s value %q: %w", prop, v, err)
+				return nil, fmt.Errorf("parsing %s value %q: %w", prop, value, err)
 			}
-			times = append(times, t)
+			values = append(values, parsed)
 		}
 	}
-	return times, nil
+	return values, nil
+}
+
+// ParseStartOnly requests the fast path that parses only the start value of a
+// PERIOD. It is reserved so callers can opt into avoiding end/duration parsing.
+type ParseStartOnly bool
+
+// ParseAllDay requests date-only parsing for a value with no explicit time
+// component. It is reserved so callers can opt into all-day handling.
+type ParseAllDay bool
+
+// extractStartTimes extracts the start time from parsed RDATE/EXDATE values.
+// Legacy getters use this to preserve the existing []time.Time API.
+func extractStartTimes(values []MultiTimeValue) []time.Time {
+	if len(values) == 0 {
+		return nil
+	}
+	times := make([]time.Time, 0, len(values))
+	for _, value := range values {
+		times = append(times, value.StartDate())
+	}
+	return times
+}
+
+// MultiTimeValue is the parsed representation of an RDATE/EXDATE value. It
+// preserves the start time and, when present, the PERIOD end or duration.
+type MultiTimeValue interface {
+	StartDate() time.Time
+	EndDate() (time.Time, bool)
+	Duration() (time.Duration, bool)
+	HasEndDate() bool
+	HasDuration() bool
+	AllDay() bool
+}
+
+// DateTimeValue represents a single date/time value without a PERIOD tail.
+type DateTimeValue struct {
+	start  time.Time
+	allDay bool
+}
+
+func (v *DateTimeValue) StartDate() time.Time { return v.start }
+
+func (v *DateTimeValue) EndDate() (time.Time, bool) { return time.Time{}, false }
+
+func (v *DateTimeValue) Duration() (time.Duration, bool) { return 0, false }
+
+func (v *DateTimeValue) HasEndDate() bool { return false }
+
+func (v *DateTimeValue) HasDuration() bool { return false }
+
+func (v *DateTimeValue) AllDay() bool { return v.allDay }
+
+// DateTimePeriod represents a PERIOD with an explicit end date/time.
+type DateTimePeriod struct {
+	start  time.Time
+	end    time.Time
+	allDay bool
+}
+
+func (v *DateTimePeriod) StartDate() time.Time { return v.start }
+
+func (v *DateTimePeriod) EndDate() (time.Time, bool) { return v.end, true }
+
+func (v *DateTimePeriod) Duration() (time.Duration, bool) {
+	return v.end.Sub(v.start), true
+}
+
+func (v *DateTimePeriod) HasEndDate() bool { return true }
+
+func (v *DateTimePeriod) HasDuration() bool { return true }
+
+func (v *DateTimePeriod) AllDay() bool { return v.allDay }
+
+// DateDuration represents a PERIOD that ends after a duration from the start.
+type DateDuration struct {
+	start    time.Time
+	duration Duration
+	allDay   bool
+}
+
+func (v *DateDuration) StartDate() time.Time { return v.start }
+
+func (v *DateDuration) EndDate() (time.Time, bool) { return v.duration.AddTo(v.start), true }
+
+func (v *DateDuration) Duration() (time.Duration, bool) { return v.duration.TimeDuration(), true }
+
+func (v *DateDuration) HasEndDate() bool { return true }
+
+func (v *DateDuration) HasDuration() bool { return true }
+
+func (v *DateDuration) AllDay() bool { return v.allDay }
+
+// parseMultiTimeValue parses RDATE/EXDATE values. ParseStartOnly skips PERIOD
+// end/duration parsing, and ParseAllDay enables date-only parsing for values
+// without an explicit time component.
+func parseMultiTimeValue(value string, params map[string][]string, opts ...any) (MultiTimeValue, error) {
+	startOnly := false
+	childOpts := make([]any, 0, len(opts))
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case ParseStartOnly:
+			if bool(v) {
+				startOnly = true
+			}
+		default:
+			childOpts = append(childOpts, v)
+		}
+	}
+	if start, maybeEnd, ok := strings.Cut(value, "/"); !ok || startOnly {
+		return parseDateTimeValue(strings.TrimSpace(start), params, childOpts...)
+	} else {
+		return parsePeriodValue(strings.TrimSpace(start), strings.TrimSpace(maybeEnd), params, childOpts...)
+	}
+}
+
+// parsePeriodValue parses a PERIOD value and returns either a date/time end or
+// a duration-based end, depending on the trailing token.
+func parsePeriodValue(start, end string, params map[string][]string, opts ...any) (MultiTimeValue, error) {
+	expectAllDay := hasOption(opts, ParseAllDay(true))
+	startTime, err := parseTimeValue(start, params, expectAllDay)
+	if err != nil {
+		return nil, fmt.Errorf("parsing period start %q: %w", start, err)
+	}
+	duration, ok, err := ParseDuration(end)
+	if err != nil {
+		return nil, fmt.Errorf("parsing period end %q: %w", end, err)
+	}
+	if ok {
+		return parseDateDuration(startTime, duration, expectAllDay), nil
+	}
+
+	endTime, err := parseTimeValue(end, params, expectAllDay)
+	if err != nil {
+		return nil, fmt.Errorf("parsing period end %q: %w", end, err)
+	}
+	return parseDateTimePeriod(startTime, endTime, expectAllDay), nil
+}
+
+// parseDateTimeValue parses a standalone date/time or date-only value into the
+// internal MultiTimeValue form.
+func parseDateTimeValue(value string, params map[string][]string, opts ...any) (MultiTimeValue, error) {
+	expectAllDay := hasOption(opts, ParseAllDay(true))
+	startTime, err := parseTimeValue(value, params, expectAllDay)
+	if err != nil {
+		return nil, fmt.Errorf("parsing date-time value %q: %w", value, err)
+	}
+	return parseDateTime(startTime, expectAllDay), nil
+}
+
+// parseDateTime wraps a single parsed time in a MultiTimeValue and preserves
+// whether the source value was date-only.
+func parseDateTime(start time.Time, allDay bool) MultiTimeValue {
+	return &DateTimeValue{start: start, allDay: allDay}
+}
+
+// parseDateTimePeriod wraps a PERIOD with an explicit end time and preserves
+// whether the source value was date-only.
+func parseDateTimePeriod(start, end time.Time, allDay bool) MultiTimeValue {
+	return &DateTimePeriod{start: start, end: end, allDay: allDay}
+}
+
+// parseDateDuration wraps a PERIOD whose end is expressed as a duration and
+// preserves whether the source value was date-only.
+func parseDateDuration(start time.Time, duration Duration, allDay bool) MultiTimeValue {
+	return &DateDuration{start: start, duration: duration, allDay: allDay}
+}
+
+// hasOption reports whether opts contains the requested reserved option value.
+func hasOption[T comparable](opts []any, want T) bool {
+	for _, opt := range opts {
+		if v, ok := opt.(T); ok && v == want {
+			return true
+		}
+	}
+	return false
+}
+
+// Duration is the parsed representation of an RFC 5545 DURATION value.
+// Sign is 0 for positive durations and -1 for negative durations.
+type Duration struct {
+	Sign int
+	Time time.Duration
+	Days int
+}
+
+// AddTo applies the duration to t using RFC-compatible order.
+func (d Duration) AddTo(t time.Time) time.Time {
+	days := d.Days
+	clock := d.Time
+
+	if d.Sign == -1 {
+		days = -days
+		clock = -clock
+	}
+
+	return t.AddDate(0, 0, days).Add(clock)
+}
+
+// TimeDuration converts the structured duration into a legacy time.Duration.
+// Reserved for later option handling.
+func (d Duration) TimeDuration(ops ...any) time.Duration {
+	_ = ops
+	if d.Sign == -1 {
+		return -(time.Duration(d.Days)*24*time.Hour + d.Time)
+	}
+	return time.Duration(d.Days)*24*time.Hour + d.Time
+}
+
+// ParseDuration parses RFC 5545 DURATION values. It returns ok=false when
+// the input does not look like an iCal duration at all, and returns an error for
+// malformed durations.
+func ParseDuration(value string, ops ...any) (Duration, bool, error) {
+	_ = ops
+	if value == "" {
+		return Duration{}, false, nil
+	}
+	if value[0] == '+' {
+		value = value[1:]
+	}
+	sign := 0
+	if strings.HasPrefix(value, "-") {
+		sign = -1
+		value = value[1:]
+	}
+	if !strings.HasPrefix(value, "P") {
+		return Duration{}, false, nil
+	}
+	value = value[1:]
+	if value == "" {
+		return Duration{}, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingDesignator)
+	}
+
+	var out Duration
+	out.Sign = sign
+	inTime := false
+	haveValue := false
+	seenWeek := false
+	seenDay := false
+	lastTimeRank := 0
+	for len(value) > 0 {
+		if value[0] == 'T' {
+			if inTime {
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateTimeDesignator, value)
+			}
+			inTime = true
+			value = value[1:]
+			if value == "" {
+				return Duration{}, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingTimeComponent)
+			}
+			continue
+		}
+
+		i := 0
+		for i < len(value) && value[i] >= '0' && value[i] <= '9' {
+			i++
+		}
+		if i == 0 {
+			return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationExpectedDigits, value)
+		}
+		if i == len(value) {
+			return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingUnit, value)
+		}
+
+		num, err := strconv.Atoi(value[:i])
+		if err != nil {
+			return Duration{}, false, fmt.Errorf("invalid duration %q: %w", value[:i], err)
+		}
+		unit := value[i]
+		value = value[i+1:]
+		haveValue = true
+
+		switch {
+		case !inTime && unit == 'W':
+			if seenWeek || seenDay {
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyDateComponent, value)
+			}
+			if len(value) != 0 {
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyComponent, value)
+			}
+			seenWeek = true
+			out.Days += num * 7
+		case !inTime && unit == 'D':
+			if seenWeek {
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyDateComponent, value)
+			}
+			if seenDay {
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateDayDesignator, value)
+			}
+			seenDay = true
+			out.Days += num
+		case inTime && unit == 'H':
+			if lastTimeRank >= 1 {
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderHoursComponent, value)
+			}
+			lastTimeRank = 1
+			out.Time += time.Duration(num) * time.Hour
+		case inTime && unit == 'M':
+			if lastTimeRank >= 2 {
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderMinutesComponent, value)
+			}
+			lastTimeRank = 2
+			out.Time += time.Duration(num) * time.Minute
+		case inTime && unit == 'S':
+			if lastTimeRank >= 3 {
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationDuplicateOrOutOfOrderSecondsComponent, value)
+			}
+			lastTimeRank = 3
+			out.Time += time.Duration(num) * time.Second
+		case !inTime:
+			switch unit {
+			case 'H':
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationHoursRequireTimeSection, string(unit))
+			case 'M':
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationMinutesRequireTimeSection, string(unit))
+			case 'S':
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationSecondsRequireTimeSection, string(unit))
+			default:
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationUnknownUnit, string(unit))
+			}
+		default:
+			return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationUnknownUnit, string(unit))
+		}
+
+		if !inTime && seenWeek {
+			// W is exclusive by RFC 5545: no additional date or time components.
+			if len(value) != 0 {
+				return Duration{}, false, fmt.Errorf("%w: %w: %q", ErrorInvalidICalDuration, ErrorInvalidICalDurationWeeksOnlyComponent, value)
+			}
+		}
+	}
+
+	if !haveValue {
+		return Duration{}, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingValue)
+	}
+	if inTime && lastTimeRank == 0 {
+		return Duration{}, false, fmt.Errorf("%w: %w", ErrorInvalidICalDuration, ErrorInvalidICalDurationMissingTimeComponent)
+	}
+	return out, true, nil
+}
+
+// ParseDurationAsTimeDuration parses an RFC 5545 duration and returns the legacy
+// flattened time.Duration form.
+func ParseDurationAsTimeDuration(value string) (time.Duration, bool, error) {
+	parsed, ok, err := ParseDuration(value)
+	if err != nil || !ok {
+		return 0, ok, err
+	}
+	return parsed.TimeDuration(), true, nil
 }
 
 func (cb *ComponentBase) SetSummary(s string, params ...PropertyParameter) {
@@ -728,7 +1095,11 @@ func (event *VEvent) Alarms() []*VAlarm {
 }
 
 func (event *VEvent) GetAllDayEndAt() (time.Time, error) {
-	return event.getTimeProp(ComponentPropertyDtEnd, true)
+	return event.getTimeProp(ComponentPropertyDtEnd, ParseAllDay(true))
+}
+
+func (event *VEvent) GetAllDayDueAt() (time.Time, error) {
+	return event.getTimeProp(ComponentPropertyDue, ParseAllDay(true))
 }
 
 type TimeTransparency string
@@ -861,11 +1232,11 @@ func (todo *VTodo) Alarms() []*VAlarm {
 
 // TODO verify that due is only relevant to VTodo if not move to ComponentBase.
 func (todo *VTodo) GetDueAt() (time.Time, error) {
-	return todo.getTimeProp(ComponentPropertyDue, false)
+	return todo.getTimeProp(ComponentPropertyDue)
 }
 
-func (todo *VEvent) GetAllDayDueAt() (time.Time, error) {
-	return todo.getTimeProp(ComponentPropertyDue, true)
+func (todo *VTodo) GetAllDayDueAt() (time.Time, error) {
+	return todo.getTimeProp(ComponentPropertyDue, ParseAllDay(true))
 }
 
 type VJournal struct {

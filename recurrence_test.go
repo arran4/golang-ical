@@ -357,6 +357,67 @@ func TestGetRDatesCommaSeparated(t *testing.T) {
 	require.Len(t, dates, 2)
 }
 
+func TestGetRDatesRFC5545Examples(t *testing.T) {
+	ical := `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:test-rdate-rfc-examples
+DTSTART:19970714T123000Z
+RDATE:19970714T123000Z
+RDATE;TZID=America/New_York:19970714T083000
+RDATE;VALUE=PERIOD:19960403T020000Z/19960403T040000Z,19960404T010000Z/PT3H
+RDATE;VALUE=DATE:19970101,19970120,19970217,19970421,
+ 19970526,19970704,19970901,19971014,19971128,19971129,19971225
+SUMMARY:RDATE RFC examples
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ParseCalendar(strings.NewReader(ical))
+	require.NoError(t, err)
+
+	events := cal.Events()
+	require.Len(t, events, 1)
+
+	dates, err := events[0].GetRDates()
+	require.NoError(t, err)
+	require.Len(t, dates, 15)
+
+	assert.True(t, dates[0].Equal(time.Date(1997, 7, 14, 12, 30, 0, 0, time.UTC)))
+
+	ny, err := time.LoadLocation("America/New_York")
+	require.NoError(t, err)
+	assert.True(t, dates[1].Equal(time.Date(1997, 7, 14, 8, 30, 0, 0, ny)))
+
+	assert.True(t, dates[2].Equal(time.Date(1996, 4, 3, 2, 0, 0, 0, time.UTC)))
+	assert.True(t, dates[3].Equal(time.Date(1996, 4, 4, 1, 0, 0, 0, time.UTC)))
+
+	wantDateOnly := []struct {
+		y int
+		m time.Month
+		d int
+	}{
+		{1997, time.January, 1},
+		{1997, time.January, 20},
+		{1997, time.February, 17},
+		{1997, time.April, 21},
+		{1997, time.May, 26},
+		{1997, time.July, 4},
+		{1997, time.September, 1},
+		{1997, time.October, 14},
+		{1997, time.November, 28},
+		{1997, time.November, 29},
+		{1997, time.December, 25},
+	}
+	for i, want := range wantDateOnly {
+		got := dates[i+4]
+		assert.Equal(t, want.y, got.Year())
+		assert.Equal(t, want.m, got.Month())
+		assert.Equal(t, want.d, got.Day())
+		assert.Equal(t, 0, got.Hour())
+		assert.Equal(t, 0, got.Minute())
+		assert.Equal(t, 0, got.Second())
+	}
+}
+
 func TestGetRecurrenceID(t *testing.T) {
 	ical := `BEGIN:VCALENDAR
 BEGIN:VEVENT
@@ -409,4 +470,82 @@ END:VCALENDAR`
 	loc, _ := time.LoadLocation("America/New_York")
 	expected := time.Date(2023, 12, 8, 9, 0, 0, 0, loc)
 	assert.True(t, dates[0].Equal(expected), "want %v, got %v", expected, dates[0])
+}
+
+// TestGetRDatesPeriodStartEnd verifies that RDATE period values of the form
+// "start/end" (RFC 5545 §3.3.9) are accepted and the start time is returned.
+func TestGetRDatesPeriodStartEnd(t *testing.T) {
+	ical := `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:test-rdate-period
+DTSTART:20230119T163000Z
+DTEND:20230119T180000Z
+RDATE;VALUE=PERIOD:20230119T163000Z/20230119T180000Z
+SUMMARY:Period RDATE event
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ParseCalendar(strings.NewReader(ical))
+	require.NoError(t, err)
+
+	events := cal.Events()
+	require.Len(t, events, 1)
+
+	dates, err := events[0].GetRDates()
+	require.NoError(t, err)
+	require.Len(t, dates, 1)
+	assert.True(t, dates[0].Equal(time.Date(2023, 1, 19, 16, 30, 0, 0, time.UTC)),
+		"want 2023-01-19T16:30:00Z, got %v", dates[0])
+}
+
+// TestGetRDatesPeriodSpacesAroundSlash verifies that malformed PERIOD values with
+// spaces around the "/" separator (e.g. "start / end") are handled correctly.
+func TestGetRDatesPeriodSpacesAroundSlash(t *testing.T) {
+	ical := `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:test-rdate-period-spaces
+DTSTART:20230119T163000Z
+DTEND:20230119T180000Z
+RDATE;VALUE=PERIOD:20230119T163000Z / 20230119T180000Z
+SUMMARY:Period RDATE event with spaces
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ParseCalendar(strings.NewReader(ical))
+	require.NoError(t, err)
+
+	events := cal.Events()
+	require.Len(t, events, 1)
+
+	dates, err := events[0].GetRDates()
+	require.NoError(t, err)
+	require.Len(t, dates, 1)
+	assert.True(t, dates[0].Equal(time.Date(2023, 1, 19, 16, 30, 0, 0, time.UTC)),
+		"want 2023-01-19T16:30:00Z, got %v", dates[0])
+}
+
+// TestGetRDatesPeriodStartDuration verifies that RDATE period values of the form
+// "start/duration" (RFC 5545 §3.3.9) are accepted and the start time is returned.
+func TestGetRDatesPeriodStartDuration(t *testing.T) {
+	ical := `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:test-rdate-period-dur
+DTSTART:20230119T163000Z
+DTEND:20230119T180000Z
+RDATE;VALUE=PERIOD:20230119T163000Z/PT1H30M
+SUMMARY:Period duration RDATE event
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ParseCalendar(strings.NewReader(ical))
+	require.NoError(t, err)
+
+	events := cal.Events()
+	require.Len(t, events, 1)
+
+	dates, err := events[0].GetRDates()
+	require.NoError(t, err)
+	require.Len(t, dates, 1)
+	assert.True(t, dates[0].Equal(time.Date(2023, 1, 19, 16, 30, 0, 0, time.UTC)),
+		"want 2023-01-19T16:30:00Z, got %v", dates[0])
 }
