@@ -202,7 +202,7 @@ func (r *RecurrenceRule) String() string {
 		if r.UntilDateOnly {
 			parts = append(parts, "UNTIL="+r.Until.Format(icalDateFormatLocal))
 		} else {
-			parts = append(parts, "UNTIL="+r.Until.Format(icalTimestampFormatUtc))
+			parts = append(parts, "UNTIL="+r.Until.UTC().Format(icalTimestampFormatUtc))
 		}
 	}
 	if r.Count != 0 {
