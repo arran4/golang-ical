@@ -200,8 +200,8 @@ func (cb *ComponentBase) RemoveProperty(removeProp ComponentProperty) []IANAProp
 	return removedProperties
 }
 
-// RemovePropertyByValue removes from the component all properties that has a particular property type and value,
-// return a count of removed properties
+// RemovePropertyByValue removes properties matching the given type and value.
+// It returns a slice of the removed properties.
 func (cb *ComponentBase) RemovePropertyByValue(removeProp ComponentProperty, value string) []IANAProperty {
 	return cb.RemovePropertyByFunc(removeProp, func(p IANAProperty) bool {
 		return p.Value == value
@@ -214,7 +214,7 @@ func (cb *ComponentBase) RemovePropertyByFunc(removeProp ComponentProperty, remo
 	var keptProperties []IANAProperty
 	var removedProperties []IANAProperty
 	for i := range cb.Properties {
-		if cb.Properties[i].IANAToken != string(removeProp) && remove(cb.Properties[i]) {
+		if cb.Properties[i].IANAToken != string(removeProp) || !remove(cb.Properties[i]) {
 			keptProperties = append(keptProperties, cb.Properties[i])
 		} else {
 			removedProperties = append(removedProperties, cb.Properties[i])
