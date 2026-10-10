@@ -82,7 +82,9 @@ func (cb *ComponentBase) addComponent(c Component) {
 }
 
 func (cb *ComponentBase) serializeThis(writer io.Writer, componentType ComponentType, serialConfig *SerializationConfiguration) error {
-	_, _ = io.WriteString(writer, "BEGIN:"+string(componentType)+serialConfig.NewLine)
+	if _, err := io.WriteString(writer, "BEGIN:"+string(componentType)+serialConfig.NewLine); err != nil {
+		return err
+	}
 	for _, p := range cb.Properties {
 		err := p.SerializeTo(writer, serialConfig)
 		if err != nil {

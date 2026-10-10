@@ -462,7 +462,9 @@ func (cal *Calendar) SerializeTo(w io.Writer, ops ...any) error {
 	if err != nil {
 		return err
 	}
-	_, _ = io.WriteString(w, "BEGIN:VCALENDAR"+serializeConfig.NewLine)
+	if _, err := io.WriteString(w, "BEGIN:VCALENDAR"+serializeConfig.NewLine); err != nil {
+		return err
+	}
 	for _, p := range cal.CalendarProperties {
 		err := p.SerializeTo(w, serializeConfig)
 		if err != nil {
@@ -475,8 +477,8 @@ func (cal *Calendar) SerializeTo(w io.Writer, ops ...any) error {
 			return err
 		}
 	}
-	_, _ = io.WriteString(w, "END:VCALENDAR"+serializeConfig.NewLine)
-	return nil
+	_, err = io.WriteString(w, "END:VCALENDAR"+serializeConfig.NewLine)
+	return err
 }
 
 type SerializationConfiguration struct {
