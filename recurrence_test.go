@@ -247,6 +247,21 @@ func TestRecurrenceRuleString(t *testing.T) {
 	}
 }
 
+func TestRecurrenceRuleStringUntilIsUTC(t *testing.T) {
+	// UNTIL is written with a literal "Z", so a non-UTC Until has to be
+	// converted rather than formatted in place (RFC 5545 3.3.10).
+	jst := time.FixedZone("JST", 9*60*60)
+	until := time.Date(2026, 3, 1, 10, 0, 0, 0, jst)
+
+	r := &RecurrenceRule{Freq: FrequencyDaily, Until: until}
+	assert.Equal(t, "FREQ=DAILY;UNTIL=20260301T010000Z", r.String())
+
+	back, err := ParseRecurrenceRule(r.String())
+	require.NoError(t, err)
+	assert.True(t, back.Until.Equal(until),
+		"round trip moved the instant: got %s, want %s", back.Until.UTC(), until.UTC())
+}
+
 func TestGetRRules(t *testing.T) {
 	event := NewEvent("test-rrule")
 	event.AddRrule("FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU")
