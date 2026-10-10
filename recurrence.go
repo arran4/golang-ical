@@ -105,12 +105,12 @@ func ParseRecurrenceRule(s string) (*RecurrenceRule, error) {
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("invalid RRULE part: %q", part)
 		}
-		key, value := kv[0], kv[1]
+		key, value := upperRecurrenceToken(kv[0]), kv[1]
 
 		var err error
 		switch rruleKey(key) {
 		case rruleKeyFreq:
-			rule.Freq = Frequency(value)
+			rule.Freq = Frequency(upperRecurrenceToken(value))
 			if !isValidFrequency(rule.Freq) {
 				return nil, fmt.Errorf("invalid FREQ value: %q", value)
 			}
@@ -145,7 +145,7 @@ func ParseRecurrenceRule(s string) (*RecurrenceRule, error) {
 				return nil, fmt.Errorf("invalid BYHOUR value: %w", err)
 			}
 		case rruleKeyByDay:
-			rule.ByDay, err = parseWeekdayNumList(value)
+			rule.ByDay, err = parseWeekdayNumList(upperRecurrenceToken(value))
 			if err != nil {
 				return nil, fmt.Errorf("invalid BYDAY value: %w", err)
 			}
@@ -175,7 +175,7 @@ func ParseRecurrenceRule(s string) (*RecurrenceRule, error) {
 				return nil, fmt.Errorf("invalid BYSETPOS value: %w", err)
 			}
 		case rruleKeyWkst:
-			rule.Wkst = Weekday(value)
+			rule.Wkst = Weekday(upperRecurrenceToken(value))
 			if !validWeekdays[rule.Wkst] {
 				return nil, fmt.Errorf("invalid WKST value: %q", value)
 			}
@@ -334,4 +334,14 @@ func intListString(nums []int) string {
 		strs[i] = strconv.Itoa(n)
 	}
 	return strings.Join(strs, ",")
+}
+
+// Recurrence names and enum values use ASCII case-insensitive ABNF literals.
+func upperRecurrenceToken(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' {
+			return r - ('a' - 'A')
+		}
+		return r
+	}, s)
 }
