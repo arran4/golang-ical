@@ -410,3 +410,42 @@ END:VCALENDAR`
 	expected := time.Date(2023, 12, 8, 9, 0, 0, 0, loc)
 	assert.True(t, dates[0].Equal(expected), "want %v, got %v", expected, dates[0])
 }
+
+func TestParseRecurrenceRuleCaseInsensitive(t *testing.T) {
+	for _, input := range []string{
+		"freq=weekly;count=5;interval=2;byday=mo,we,fr;wkst=su",
+		"FrEq=WeEkLy;CoUnT=5;InTeRvAl=2;ByDaY=mO,wE,fR;WkSt=sU",
+		"FREQ=weekly;COUNT=5;INTERVAL=2;BYDAY=mo,we,fr;WKST=su",
+		"freq=WEEKLY;count=5;interval=2;byday=MO,WE,FR;wkst=SU",
+		"FREQ=WEEKLY;count=5;interval=2;byday=MO,WE,FR;wkst=SU",
+	} {
+		t.Run(input, func(t *testing.T) {
+			rule, err := ParseRecurrenceRule(input)
+			require.NoError(t, err)
+			assert.Equal(t, FrequencyWeekly, rule.Freq)
+			assert.Equal(t, 5, rule.Count)
+			assert.Equal(t, 2, rule.Interval)
+			assert.Equal(t, []WeekdayNum{{Day: WeekdayMonday}, {Day: WeekdayWednesday}, {Day: WeekdayFriday}}, rule.ByDay)
+			assert.Equal(t, WeekdaySunday, rule.Wkst)
+			assert.Equal(t, "FREQ=WEEKLY;COUNT=5;INTERVAL=2;BYDAY=MO,WE,FR;WKST=SU", rule.String())
+		})
+	}
+}
+
+func TestGetRRulesMixedCase(t *testing.T) {
+	cal, err := ParseCalendar(strings.NewReader("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:example\r\nRRULE:FREQ=Monthly;COUNT=3;BYDAY=-1fR\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"))
+	require.NoError(t, err)
+	rules, err := cal.Events()[0].GetRRules()
+	require.NoError(t, err)
+	require.Len(t, rules, 1)
+	assert.Equal(t, FrequencyMonthly, rules[0].Freq)
+	assert.Equal(t, []WeekdayNum{{OrdWeek: -1, Day: WeekdayFriday}}, rules[0].ByDay)
+	assert.Equal(t, 3, rules[0].Count)
+}
+
+func TestParseRecurrenceRuleRejectsNonASCIIEnums(t *testing.T) {
+	for _, input := range []string{"FREQ=daıly", "FREQ=WEEKLY;BYDAY=ſu", "FREQ=WEEKLY;WKST=ſu"} {
+		_, err := ParseRecurrenceRule(input)
+		require.Error(t, err, input)
+	}
+}
