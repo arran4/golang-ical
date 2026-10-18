@@ -522,8 +522,12 @@ func (cb *ComponentBase) SetURL(s string, params ...PropertyParameter) {
 	cb.SetProperty(ComponentPropertyUrl, s, params...)
 }
 
+func hasMailtoPrefix(s string) bool {
+	return len(s) >= len("mailto:") && strings.EqualFold(s[:len("mailto:")], "mailto:")
+}
+
 func (cb *ComponentBase) SetOrganizer(s string, params ...PropertyParameter) {
-	if !strings.HasPrefix(s, "mailto:") {
+	if !hasMailtoPrefix(s) {
 		s = "mailto:" + s
 	}
 
@@ -547,7 +551,7 @@ func (cb *ComponentBase) setResources(r string, params ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) AddAttendee(s string, params ...PropertyParameter) {
-	if !strings.HasPrefix(s, "mailto:") {
+	if !hasMailtoPrefix(s) {
 		s = "mailto:" + s
 	}
 
@@ -597,7 +601,7 @@ type Attendee struct {
 }
 
 func (p *Attendee) Email() string {
-	if len(p.Value) >= len("mailto:") && strings.EqualFold(p.Value[:len("mailto:")], "mailto:") {
+	if hasMailtoPrefix(p.Value) {
 		return p.Value[len("mailto:"):]
 	}
 	return p.Value

@@ -213,6 +213,26 @@ func TestSetMailtoPrefix(t *testing.T) {
 	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ATTENDEE:mailto:att2@provider.com") {
 		t.Errorf("expected single mailto: prefix for email att2")
 	}
+
+	e.SetOrganizer("MAILTO:org3@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ORGANIZER:MAILTO:org3@provider.com") {
+		t.Errorf("expected single mailto: prefix for email org3")
+	}
+
+	e.SetOrganizer("Mailto:org4@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ORGANIZER:Mailto:org4@provider.com") {
+		t.Errorf("expected single mailto: prefix for email org4")
+	}
+
+	e.AddAttendee("MAILTO:att3@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ATTENDEE:MAILTO:att3@provider.com") {
+		t.Errorf("expected single mailto: prefix for email att3")
+	}
+
+	e.AddAttendee("Mailto:att4@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ATTENDEE:Mailto:att4@provider.com") {
+		t.Errorf("expected single mailto: prefix for email att4")
+	}
 }
 
 func TestAttendeeEmail(t *testing.T) {
