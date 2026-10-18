@@ -213,6 +213,50 @@ func TestSetMailtoPrefix(t *testing.T) {
 	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ATTENDEE:mailto:att2@provider.com") {
 		t.Errorf("expected single mailto: prefix for email att2")
 	}
+
+	e.SetOrganizer("MAILTO:org3@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ORGANIZER:MAILTO:org3@provider.com") {
+		t.Errorf("expected single mailto: prefix for email org3")
+	}
+
+	e.SetOrganizer("Mailto:org4@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ORGANIZER:Mailto:org4@provider.com") {
+		t.Errorf("expected single mailto: prefix for email org4")
+	}
+
+	e.AddAttendee("MAILTO:att3@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ATTENDEE:MAILTO:att3@provider.com") {
+		t.Errorf("expected single mailto: prefix for email att3")
+	}
+
+	e.AddAttendee("Mailto:att4@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ATTENDEE:Mailto:att4@provider.com") {
+		t.Errorf("expected single mailto: prefix for email att4")
+	}
+}
+
+func TestAttendeeEmail(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "lower case scheme", value: "mailto:a@example.com", want: "a@example.com"},
+		{name: "upper case scheme", value: "MAILTO:a@example.com", want: "a@example.com"},
+		{name: "mixed case scheme", value: "Mailto:a@example.com", want: "a@example.com"},
+		{name: "no scheme", value: "a@example.com", want: "a@example.com"},
+		{name: "scheme only", value: "mailto:", want: ""},
+		{name: "value shorter than scheme", value: "mail", want: "mail"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := NewEvent("test-attendee-email")
+			e.AddProperty(ComponentPropertyAttendee, tc.value)
+			attendees := e.Attendees()
+			if assert.Len(t, attendees, 1) {
+				assert.Equal(t, tc.want, attendees[0].Email())
+			}
+		})
+	}
 }
 
 func TestRemoveProperty(t *testing.T) {
