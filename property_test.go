@@ -1,6 +1,8 @@
 package ics
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -250,6 +252,127 @@ func TestFixValueStrings(t *testing.T) {
 			if result != tt.expected {
 				t.Errorf("got %q, want %q", result, tt.expected)
 			}
+		})
+	}
+}
+
+func TestParamValueEscapersDropControlCharacters(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		unquoted string
+		quoted   string
+	}{
+		{"htab is WSP and stays", "a\tb", "a\tb", "\"a\tb\""},
+		{"nul", "a\x00b", "ab", `"ab"`},
+		{"bel", "a\ab", "ab", `"ab"`},
+		{"lf", "a\nb", "ab", `"ab"`},
+		{"cr", "a\rb", "ab", `"ab"`},
+		{"crlf", "a\r\nb", "ab", `"ab"`},
+		{"vertical tab", "a\vb", "ab", `"ab"`},
+		{"form feed", "a\fb", "ab", `"ab"`},
+		{"escape", "a\x1bb", "ab", `"ab"`},
+		{"del", "a\x7fb", "ab", `"ab"`},
+		{"non-ascii is not a control", "a\u0080b", "a\u0080b", "\"a\u0080b\""},
+		{"specials are still escaped", `a,b;c:d"e\f`, `a\,b\;c\:d\"e\\f`, `"a,b;c:d\"e\\f"`},
+		{"control between specials", "a\x00,b", `a\,b`, `"a,b"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.unquoted, escapeValueString(tt.input))
+			assert.Equal(t, tt.quoted, quotedValueString(tt.input))
+		})
+	}
+}
+
+func serializeParamValue(t *testing.T, key, value string) string {
+	t.Helper()
+	cal := NewCalendar()
+	event := cal.AddEvent("uid")
+	event.SetProperty(ComponentProperty("X-TEST"), "v", &KeyValues{Key: key, Value: []string{value}})
+	return cal.Serialize(WithNewLineWindows)
+}
+
+func parsedParamValue(t *testing.T, serialized, key string) (string, bool) {
+	t.Helper()
+	cal, err := ParseCalendar(strings.NewReader(serialized))
+	if !assert.NoError(t, err, "serialized output must parse back: %q", serialized) {
+		return "", false
+	}
+	for _, component := range cal.Components {
+		for _, property := range component.UnknownPropertiesIANAProperties() {
+			if property.IANAToken != "X-TEST" {
+				continue
+			}
+			if values, ok := property.ICalParameters[key]; ok && len(values) > 0 {
+				return values[0], true
+			}
+		}
+	}
+	return "", false
+}
+
+func assertNoRawControlCharacter(t *testing.T, serialized string) {
+	t.Helper()
+	for _, line := range strings.Split(serialized, string(WithNewLineWindows)) {
+		for i := 0; i < len(line); i++ {
+			if c := line[i]; (c < 0x20 || c == 0x7F) && c != '\t' {
+				t.Fatalf("raw control 0x%02x in content line %q", c, line)
+			}
+		}
+	}
+}
+
+// A param-value carries no escape mechanism, so serialization has to drop every
+// CONTROL character rather than emit one parsePropertyParamValue rejects.
+func TestSerializeParamValueNoRawControlCharacters(t *testing.T) {
+	// CN is written as paramtext, ALTREP as a quoted-string.
+	for _, key := range []string{"CN", "ALTREP"} {
+		for b := 0x00; b <= 0x7F; b++ {
+			if b > 0x1F && b != 0x7F {
+				continue
+			}
+			t.Run(fmt.Sprintf("%s/0x%02x", key, b), func(t *testing.T) {
+				serialized := serializeParamValue(t, key, "a"+string(rune(b))+"b")
+				assertNoRawControlCharacter(t, serialized)
+
+				want := "ab"
+				if b == '\t' {
+					want = "a\tb"
+				}
+				got, ok := parsedParamValue(t, serialized, key)
+				assert.True(t, ok, "%s must survive the round trip, got %q", key, serialized)
+				assert.Equal(t, want, got)
+			})
+		}
+	}
+}
+
+// The strip must leave everything SAFE-CHAR and QSAFE-CHAR permit alone.
+func TestSerializeParamValuePrintableUnchanged(t *testing.T) {
+	for _, key := range []string{"CN", "ALTREP"} {
+		for b := 0x20; b <= 0x7E; b++ {
+			t.Run(fmt.Sprintf("%s/0x%02x", key, b), func(t *testing.T) {
+				want := "a" + string(rune(b)) + "b"
+				got, ok := parsedParamValue(t, serializeParamValue(t, key, want), key)
+				assert.True(t, ok, "%s must survive the round trip", key)
+				assert.Equal(t, want, got)
+			})
+		}
+	}
+}
+
+func TestSerializeParamValueControlAcrossFold(t *testing.T) {
+	for _, key := range []string{"CN", "ALTREP"} {
+		t.Run(key, func(t *testing.T) {
+			want := strings.Repeat("x", 70) + strings.Repeat("y", 20)
+			serialized := serializeParamValue(t, key, strings.Repeat("x", 70)+"\v"+strings.Repeat("y", 20))
+			assert.Contains(t, serialized, string(WithNewLineWindows)+" ", "value must be long enough to fold")
+			assertNoRawControlCharacter(t, serialized)
+
+			got, ok := parsedParamValue(t, serialized, key)
+			assert.True(t, ok, "%s must survive the round trip", key)
+			assert.Equal(t, want, got)
 		})
 	}
 }
