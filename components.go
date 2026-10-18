@@ -597,7 +597,7 @@ type Attendee struct {
 }
 
 func (p *Attendee) Email() string {
-	if strings.HasPrefix(p.Value, "mailto:") {
+	if len(p.Value) >= len("mailto:") && strings.EqualFold(p.Value[:len("mailto:")], "mailto:") {
 		return p.Value[len("mailto:"):]
 	}
 	return p.Value
