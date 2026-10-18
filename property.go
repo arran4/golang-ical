@@ -525,12 +525,33 @@ func parsePropertyValue(r *BaseProperty, contentLine string, p int) *BasePropert
 	return r
 }
 
-var textEscaper = strings.NewReplacer(
-	`\`, `\\`,
-	"\n", `\n`,
-	`;`, `\;`,
-	`,`, `\,`,
-)
+// textEscaper escapes the specials RFC 5545 §3.3.11 requires in a TEXT value
+// and normalises line breaks to the \n escape: CR, CRLF and LF all collapse to
+// \n (FromText maps \n back to LF, so CR/CRLF round-trip as LF). The remaining
+// control characters have no escaped form (CONTROL = %x00-08 / %x0A-1F / %x7F,
+// i.e. everything but HTAB) and are dropped so serialization can never emit an
+// invalid content line.
+var textEscaper = newTextEscaper()
+
+func newTextEscaper() *strings.Replacer {
+	// "\r\n" must precede "\r" so a CRLF collapses to a single \n.
+	pairs := []string{
+		`\`, `\\`,
+		"\r\n", `\n`,
+		"\r", `\n`,
+		"\n", `\n`,
+		`;`, `\;`,
+		`,`, `\,`,
+	}
+	for c := 0x00; c <= 0x1F; c++ {
+		if c == '\t' || c == '\n' || c == '\r' {
+			continue
+		}
+		pairs = append(pairs, string(rune(c)), "")
+	}
+	pairs = append(pairs, "\x7f", "")
+	return strings.NewReplacer(pairs...)
+}
 
 func ToText(s string) string {
 	// Some special characters for iCalendar format should be escaped while
