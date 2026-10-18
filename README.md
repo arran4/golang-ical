@@ -8,6 +8,10 @@ An ICS / ICal parser and serialiser for Golang.
 
 [![GoDoc](https://godoc.org/github.com/arran4/golang-ical?status.svg)](https://godoc.org/github.com/arran4/golang-ical)
 
+## Generated Sourcey docs
+
+A Sourcey-generated API reference for this repository is available at https://tttt28444.github.io/golang-ical-sourcey/. The page includes the Sourcey config, package map, llms.txt, and spot checks against the source.
+
 Because the other libraries didn't quite do what I needed.
 
 ## Parsing Calendars
