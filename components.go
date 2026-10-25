@@ -547,7 +547,7 @@ func (cb *ComponentBase) setPriority(p int, params ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) setResources(r string, params ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyResources, r, params...)
+	cb.SetProperty(ComponentPropertyResources, ToText(r), params...)
 }
 
 func (cb *ComponentBase) AddAttendee(s string, params ...PropertyParameter) {
@@ -593,7 +593,7 @@ func (cb *ComponentBase) AddComment(s string, params ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) AddCategory(s string, params ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyCategories, s, params...)
+	cb.AddProperty(ComponentPropertyCategories, ToText(s), params...)
 }
 
 type Attendee struct {

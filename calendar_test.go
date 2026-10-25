@@ -1028,3 +1028,26 @@ func BenchmarkSerialize(b *testing.B) {
 		cal.Serialize()
 	}
 }
+
+func TestCategoriesAndResourcesKeepTheirValues(t *testing.T) {
+	input := "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:x\r\nBEGIN:VEVENT\r\nUID:1\r\nDTSTAMP:20240101T000000Z\r\n" +
+		"CATEGORIES:Work,Personal\r\n" +
+		"RESOURCES:Projector,Room A\\, 2nd floor\r\n" +
+		"END:VEVENT\r\nEND:VCALENDAR\r\n"
+	cal, err := ParseCalendar(strings.NewReader(input))
+	if !assert.NoError(t, err) {
+		return
+	}
+	out := cal.Serialize(WithNewLineWindows)
+	assert.Contains(t, out, "CATEGORIES:Work,Personal\r\n")
+	assert.Contains(t, out, "RESOURCES:Projector,Room A\\, 2nd floor\r\n")
+
+	// A value added with the setters stays a single value.
+	cal = NewCalendar()
+	event := cal.AddEvent("2")
+	event.AddCategory("Ideas, misc")
+	event.SetResources("Easel, large")
+	out = cal.Serialize(WithNewLineWindows)
+	assert.Contains(t, out, "CATEGORIES:Ideas\\, misc\r\n")
+	assert.Contains(t, out, "RESOURCES:Easel\\, large\r\n")
+}

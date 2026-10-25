@@ -198,7 +198,7 @@ func (bp *BaseProperty) SerializeTo(w io.Writer, serialConfig *SerializationConf
 	if bp.IANAToken == string(PropertyTzid) {
 		propertyValue = serializeTZIDValue(serialConfig, string(ParameterTzid), propertyValue)
 	}
-	if bp.GetValueType() == ValueDataTypeText {
+	if bp.GetValueType() == ValueDataTypeText && !bp.isTextList() {
 		propertyValue = ToText(propertyValue)
 	}
 	b.WriteString(propertyValue)
@@ -519,10 +519,21 @@ func parsePropertyValue(r *BaseProperty, contentLine string, p int) *BasePropert
 		return nil
 	}
 	r.Value = contentLine[p : p+tokenPos[1]]
-	if r.GetValueType() == ValueDataTypeText {
+	if r.GetValueType() == ValueDataTypeText && !r.isTextList() {
 		r.Value = FromText(r.Value)
 	}
 	return r
+}
+
+// isTextList reports whether the property's value is a comma-separated list
+// of TEXT values. Unescaping such a value would merge the separating commas
+// with escaped commas inside the values, so it is kept in its escaped form.
+func (bp *BaseProperty) isTextList() bool {
+	switch Property(bp.IANAToken) {
+	case PropertyCategories, PropertyResources:
+		return true
+	}
+	return false
 }
 
 var textEscaper = strings.NewReplacer(
