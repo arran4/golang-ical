@@ -248,13 +248,22 @@ func serializeTZIDValue(serialConfig *SerializationConfiguration, key, value str
 	return value
 }
 
+// RFC 5545 3.1 allows no CONTROL in a param-value, and no escape for one.
+// HTAB is WSP, the one control SAFE-CHAR and QSAFE-CHAR permit.
+func isParamValueControl(r rune) bool {
+	return (r < 0x20 || r == 0x7f) && r != '\t'
+}
+
 func escapeValueString(v string) string {
 	changed := 0
 	result := ""
 	for i, r := range v {
-		switch r {
-		case ',', '"', ';', ':', '\\', '\'':
+		switch {
+		case r == ',', r == '"', r == ';', r == ':', r == '\\', r == '\'':
 			result = result + v[changed:i] + "\\" + string(r)
+			changed = i + 1
+		case isParamValueControl(r):
+			result = result + v[changed:i]
 			changed = i + 1
 		}
 	}
@@ -268,9 +277,12 @@ func quotedValueString(v string) string {
 	changed := 0
 	result := ""
 	for i, r := range v {
-		switch r {
-		case '"', '\\':
+		switch {
+		case r == '"', r == '\\':
 			result = result + v[changed:i] + "\\" + string(r)
+			changed = i + 1
+		case isParamValueControl(r):
+			result = result + v[changed:i]
 			changed = i + 1
 		}
 	}
