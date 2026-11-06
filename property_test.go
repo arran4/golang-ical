@@ -1,6 +1,7 @@
 package ics
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -251,5 +252,69 @@ func TestFixValueStrings(t *testing.T) {
 				t.Errorf("got %q, want %q", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestToText(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		// unchanged escaping of the existing specials
+		{"backslash", `a\b`, `a\\b`},
+		{"semicolon", "a;b", `a\;b`},
+		{"comma", "a,b", `a\,b`},
+		{"lf", "a\nb", `a\nb`},
+		// a literal backslash-n must not be double-escaped, only the backslash
+		{"literal escape stays single", `a\nb`, `a\\nb`},
+		// line-break normalisation: CR, CRLF and LF all become a single \n
+		{"cr", "a\rb", `a\nb`},
+		{"crlf", "line1\r\nline2", `line1\nline2`},
+		{"double crlf", "a\r\n\r\nb", `a\n\nb`},
+		{"lf then cr", "a\n\rb", `a\n\nb`},
+		// HTAB is the one control RFC 5545 permits in TEXT
+		{"htab kept", "a\tb", "a\tb"},
+		// every other control character has no escape and is dropped
+		{"nul", "a\x00b", "ab"},
+		{"bel", "a\x07b", "ab"},
+		{"vertical tab", "a\x0bb", "ab"},
+		{"form feed", "a\x0cb", "ab"},
+		{"escape", "a\x1bb", "ab"},
+		{"del", "a\x7fb", "ab"},
+		{"mixed", "x,y;z\\w\ne\rf", `x\,y\;z\\w\ne\nf`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, ToText(tt.input))
+		})
+	}
+}
+
+// TestSerializeNoRawControlCharacters checks that no TEXT value can put a
+// disallowed raw control byte into a serialized content line, across the whole
+// control range 0x00-0x1F and 0x7F (RFC 5545 §3.3.11 CONTROL, HTAB excepted).
+func TestSerializeNoRawControlCharacters(t *testing.T) {
+	for b := 0; b <= 0x7F; b++ {
+		if b > 0x1F && b != 0x7F {
+			continue // not a control character
+		}
+		cal := NewCalendar()
+		event := cal.AddEvent("uid")
+		event.SetProperty(ComponentPropertySummary, "A"+string(rune(b))+"B")
+		serialized := cal.Serialize(WithNewLineWindows)
+		// with the CRLF delimiter stripped, nothing left in a content line may
+		// be a disallowed control byte
+		for _, line := range strings.Split(serialized, "\r\n") {
+			for i := 0; i < len(line); i++ {
+				c := line[i]
+				if c == '\t' {
+					continue // HTAB is allowed
+				}
+				if c < 0x20 || c == 0x7F {
+					t.Fatalf("input control 0x%02x produced raw control 0x%02x in content line %q", b, c, line)
+				}
+			}
+		}
 	}
 }
