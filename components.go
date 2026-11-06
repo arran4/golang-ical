@@ -321,9 +321,9 @@ func (cb *ComponentBase) getTimeProp(componentProperty ComponentProperty, expect
 	}
 
 	if cb.timezoneMapper != nil {
-		return parseTimeValue(timeProp.BaseProperty.Value, timeProp.ICalParameters, expectAllDay, cb.timezoneMapper)
+		return parseTimeValue(timeProp.Value, timeProp.ICalParameters, expectAllDay, cb.timezoneMapper)
 	}
-	return parseTimeValue(timeProp.BaseProperty.Value, timeProp.ICalParameters, expectAllDay)
+	return parseTimeValue(timeProp.Value, timeProp.ICalParameters, expectAllDay)
 }
 
 // parseTimeValue parses a single iCal time value string with the given parameters.
@@ -547,7 +547,7 @@ func (cb *ComponentBase) setPriority(p int, params ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) setResources(r string, params ...PropertyParameter) {
-	cb.SetProperty(ComponentPropertyResources, r, params...)
+	cb.SetProperty(ComponentPropertyResources, ToText(r), params...)
 }
 
 func (cb *ComponentBase) AddAttendee(s string, params ...PropertyParameter) {
@@ -593,7 +593,7 @@ func (cb *ComponentBase) AddComment(s string, params ...PropertyParameter) {
 }
 
 func (cb *ComponentBase) AddCategory(s string, params ...PropertyParameter) {
-	cb.AddProperty(ComponentPropertyCategories, s, params...)
+	cb.AddProperty(ComponentPropertyCategories, ToText(s), params...)
 }
 
 type Attendee struct {
@@ -679,7 +679,7 @@ type VEvent struct {
 }
 
 func (event *VEvent) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return event.ComponentBase.serializeThis(w, ComponentVEvent, serialConfig)
+	return event.serializeThis(w, ComponentVEvent, serialConfig)
 }
 
 func (event *VEvent) Serialize(serialConfig *SerializationConfiguration) string {
@@ -689,7 +689,7 @@ func (event *VEvent) Serialize(serialConfig *SerializationConfiguration) string 
 
 func (event *VEvent) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := event.ComponentBase.serializeThis(b, ComponentVEvent, serialConfig)
+	err := event.serializeThis(b, ComponentVEvent, serialConfig)
 	return b.String(), err
 }
 
@@ -753,7 +753,7 @@ type VTodo struct {
 }
 
 func (todo *VTodo) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return todo.ComponentBase.serializeThis(w, ComponentVTodo, serialConfig)
+	return todo.serializeThis(w, ComponentVTodo, serialConfig)
 }
 
 func (todo *VTodo) Serialize(serialConfig *SerializationConfiguration) string {
@@ -763,7 +763,7 @@ func (todo *VTodo) Serialize(serialConfig *SerializationConfiguration) string {
 
 func (todo *VTodo) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := todo.ComponentBase.serializeThis(b, ComponentVTodo, serialConfig)
+	err := todo.serializeThis(b, ComponentVTodo, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -879,7 +879,7 @@ type VJournal struct {
 }
 
 func (journal *VJournal) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return journal.ComponentBase.serializeThis(w, ComponentVJournal, serialConfig)
+	return journal.serializeThis(w, ComponentVJournal, serialConfig)
 }
 
 func (journal *VJournal) Serialize(serialConfig *SerializationConfiguration) string {
@@ -889,7 +889,7 @@ func (journal *VJournal) Serialize(serialConfig *SerializationConfiguration) str
 
 func (journal *VJournal) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := journal.ComponentBase.serializeThis(b, ComponentVJournal, serialConfig)
+	err := journal.serializeThis(b, ComponentVJournal, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -935,7 +935,7 @@ func (busy *VBusy) Serialize(serialConfig *SerializationConfiguration) string {
 
 func (busy *VBusy) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := busy.ComponentBase.serializeThis(b, ComponentVFreeBusy, serialConfig)
+	err := busy.serializeThis(b, ComponentVFreeBusy, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -943,7 +943,7 @@ func (busy *VBusy) serialize(serialConfig *SerializationConfiguration) (string, 
 }
 
 func (busy *VBusy) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return busy.ComponentBase.serializeThis(w, ComponentVFreeBusy, serialConfig)
+	return busy.serializeThis(w, ComponentVFreeBusy, serialConfig)
 }
 
 func NewBusy(uniqueId string) *VBusy {
@@ -985,7 +985,7 @@ func (timezone *VTimezone) Serialize(serialConfig *SerializationConfiguration) s
 
 func (timezone *VTimezone) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := timezone.ComponentBase.serializeThis(b, ComponentVTimezone, serialConfig)
+	err := timezone.serializeThis(b, ComponentVTimezone, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -993,7 +993,7 @@ func (timezone *VTimezone) serialize(serialConfig *SerializationConfiguration) (
 }
 
 func (timezone *VTimezone) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return timezone.ComponentBase.serializeThis(w, ComponentVTimezone, serialConfig)
+	return timezone.serializeThis(w, ComponentVTimezone, serialConfig)
 }
 
 func (timezone *VTimezone) AddStandard() *Standard {
@@ -1045,7 +1045,7 @@ func (c *VAlarm) Serialize(serialConfig *SerializationConfiguration) string {
 
 func (c *VAlarm) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := c.ComponentBase.serializeThis(b, ComponentVAlarm, serialConfig)
+	err := c.serializeThis(b, ComponentVAlarm, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1053,7 +1053,7 @@ func (c *VAlarm) serialize(serialConfig *SerializationConfiguration) (string, er
 }
 
 func (c *VAlarm) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return c.ComponentBase.serializeThis(w, ComponentVAlarm, serialConfig)
+	return c.serializeThis(w, ComponentVAlarm, serialConfig)
 }
 
 // NewAlarm creates a new VALARM component.
@@ -1104,7 +1104,7 @@ func (standard *Standard) Serialize(serialConfig *SerializationConfiguration) st
 
 func (standard *Standard) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := standard.ComponentBase.serializeThis(b, ComponentStandard, serialConfig)
+	err := standard.serializeThis(b, ComponentStandard, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1112,7 +1112,7 @@ func (standard *Standard) serialize(serialConfig *SerializationConfiguration) (s
 }
 
 func (standard *Standard) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return standard.ComponentBase.serializeThis(w, ComponentStandard, serialConfig)
+	return standard.serializeThis(w, ComponentStandard, serialConfig)
 }
 
 type Daylight struct {
@@ -1126,7 +1126,7 @@ func (daylight *Daylight) Serialize(serialConfig *SerializationConfiguration) st
 
 func (daylight *Daylight) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := daylight.ComponentBase.serializeThis(b, ComponentDaylight, serialConfig)
+	err := daylight.serializeThis(b, ComponentDaylight, serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1134,7 +1134,7 @@ func (daylight *Daylight) serialize(serialConfig *SerializationConfiguration) (s
 }
 
 func (daylight *Daylight) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return daylight.ComponentBase.serializeThis(w, ComponentDaylight, serialConfig)
+	return daylight.serializeThis(w, ComponentDaylight, serialConfig)
 }
 
 type GeneralComponent struct {
@@ -1149,7 +1149,7 @@ func (general *GeneralComponent) Serialize(serialConfig *SerializationConfigurat
 
 func (general *GeneralComponent) serialize(serialConfig *SerializationConfiguration) (string, error) {
 	b := &strings.Builder{}
-	err := general.ComponentBase.serializeThis(b, ComponentType(general.Token), serialConfig)
+	err := general.serializeThis(b, ComponentType(general.Token), serialConfig)
 	if err != nil {
 		return "", err
 	}
@@ -1157,7 +1157,7 @@ func (general *GeneralComponent) serialize(serialConfig *SerializationConfigurat
 }
 
 func (general *GeneralComponent) SerializeTo(w io.Writer, serialConfig *SerializationConfiguration) error {
-	return general.ComponentBase.serializeThis(w, ComponentType(general.Token), serialConfig)
+	return general.serializeThis(w, ComponentType(general.Token), serialConfig)
 }
 
 func GeneralParseComponent(cs *CalendarStream, startLine *BaseProperty) (Component, error) {
