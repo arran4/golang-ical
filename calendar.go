@@ -169,7 +169,7 @@ func (cp ComponentProperty) Multiple(c Component) bool {
 }
 
 func ComponentPropertyExtended(s string) ComponentProperty {
-	return ComponentProperty("X-" + strings.TrimPrefix("X-", s))
+	return ComponentProperty("X-" + strings.TrimPrefix(s, "X-"))
 }
 
 type Property string
