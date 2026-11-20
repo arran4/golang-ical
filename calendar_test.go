@@ -42,6 +42,14 @@ func captureMalformedPropertyParser(lines *[]string, next PropertyParser) Proper
 	}
 }
 
+func TestComponentPropertyExtended(t *testing.T) {
+	for _, input := range []string{"CUSTOM", "X-CUSTOM"} {
+		if got := ComponentPropertyExtended(input); got != "X-CUSTOM" {
+			t.Errorf("ComponentPropertyExtended(%q) = %q, want %q", input, got, "X-CUSTOM")
+		}
+	}
+}
+
 func TestTimeParsing(t *testing.T) {
 	calFile, err := TestData.Open("testdata/timeparsing.ics")
 	if err != nil {
