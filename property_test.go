@@ -1,6 +1,7 @@
 package ics
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -251,5 +252,52 @@ func TestFixValueStrings(t *testing.T) {
 				t.Errorf("got %q, want %q", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestValueTypeCaseCalendarRoundTrip(t *testing.T) {
+	const value = `Board, prep; C:\Reports`
+	for _, kind := range []string{"TEXT", "text", "Text"} {
+		t.Run(kind, func(t *testing.T) {
+			cal := NewCalendar()
+			cal.AddEvent("value-type").SetSummary(value, WithValue(kind))
+			serialized := cal.Serialize(WithNewLineWindows)
+			if !assert.Contains(t, serialized, `SUMMARY;VALUE=`+kind+`:Board\, prep\; C:\\Reports`) {
+				return
+			}
+			parsed, err := ParseCalendar(strings.NewReader(serialized))
+			if !assert.NoError(t, err) || !assert.Len(t, parsed.Events(), 1) {
+				return
+			}
+			property := parsed.Events()[0].GetProperty(ComponentPropertySummary)
+			if assert.NotNil(t, property) {
+				assert.Equal(t, value, property.Value)
+				assert.Equal(t, ValueDataTypeText, property.GetValueType())
+			}
+		})
+	}
+}
+
+func TestValueParameterNameCase(t *testing.T) {
+	for _, name := range []string{"value", "VaLuE"} {
+		t.Run(name, func(t *testing.T) {
+			property, err := ParseProperty(ContentLine("X-REPORT;" + name + "=uri:https://example.com/a,b"))
+			if !assert.NoError(t, err) || !assert.NotNil(t, property) {
+				return
+			}
+			assert.Equal(t, ValueDataTypeUri, property.GetValueType())
+			var output strings.Builder
+			assert.NoError(t, property.SerializeTo(&output, defaultSerializationOptions()))
+			assert.Contains(t, output.String(), ":https://example.com/a,b")
+			assert.Equal(t, []string{"uri"}, property.ICalParameters[name])
+		})
+	}
+}
+
+func TestUnknownValueTypeSpelling(t *testing.T) {
+	for _, kind := range []string{"X-Custom", "vendor-Type"} {
+		p := BaseProperty{ICalParameters: map[string][]string{"VALUE": {kind}}}
+		assert.Equal(t, ValueDataType(kind), p.GetValueType())
+		assert.Equal(t, []string{kind}, p.ICalParameters["VALUE"])
 	}
 }

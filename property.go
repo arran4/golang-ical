@@ -119,10 +119,33 @@ func (bp *BaseProperty) parameterValue(param Parameter) (string, error) {
 }
 
 func (bp *BaseProperty) GetValueType() ValueDataType {
-	for k, v := range bp.ICalParameters {
-		if Parameter(k) == ParameterValue && len(v) == 1 {
-			return ValueDataType(v[0])
+	values, found := bp.ICalParameters[string(ParameterValue)]
+	if !found {
+		for name, v := range bp.ICalParameters {
+			if strings.EqualFold(name, string(ParameterValue)) {
+				if found {
+					values = nil // Multiple aliases retain the existing default behavior.
+					break
+				}
+				values, found = v, true
+			}
 		}
+	}
+	if len(values) == 1 {
+		kind := ValueDataType(strings.ToUpper(values[0]))
+		switch kind {
+		case ValueDataTypeBinary, ValueDataTypeBoolean, ValueDataTypeCalAddress,
+			ValueDataTypeDate, ValueDataTypeDateTime, ValueDataTypeDuration,
+			ValueDataTypeFloat, ValueDataTypeInteger, ValueDataTypePeriod,
+			ValueDataTypeRecur, ValueDataTypeText, ValueDataTypeTime,
+			ValueDataTypeUri, ValueDataTypeUtcOffset:
+			// ToUpper maps one rune to one rune; equal length with an ASCII
+			// type name excludes non-ASCII spellings such as "urı".
+			if len(kind) == len(values[0]) {
+				return kind
+			}
+		}
+		return ValueDataType(values[0])
 	}
 
 	// defaults from spec if unspecified
