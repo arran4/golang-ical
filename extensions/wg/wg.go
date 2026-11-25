@@ -21,34 +21,7 @@ func SetProperty(cal *ical.Calendar, property string, value string, params ...ic
 	if cal == nil {
 		return
 	}
-	// Fallback to directly modify CalendarProperties if no public SetProperty exists
-	found := false
-	for i := range cal.CalendarProperties {
-		if cal.CalendarProperties[i].IANAToken == property {
-			cal.CalendarProperties[i].Value = value
-			cal.CalendarProperties[i].ICalParameters = map[string][]string{}
-			for _, p := range params {
-				k, v := p.KeyValue()
-				cal.CalendarProperties[i].ICalParameters[k] = v
-			}
-			found = true
-			break
-		}
-	}
-	if !found {
-		r := ical.CalendarProperty{
-			BaseProperty: ical.BaseProperty{
-				IANAToken:      property,
-				Value:          value,
-				ICalParameters: map[string][]string{},
-			},
-		}
-		for _, p := range params {
-			k, v := p.KeyValue()
-			r.ICalParameters[k] = v
-		}
-		cal.CalendarProperties = append(cal.CalendarProperties, r)
-	}
+	cal.SetProperty(ical.Property(property), value, params...)
 }
 
 // SetTimezone sets the X-WG-TIMEZONE property

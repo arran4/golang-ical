@@ -1,6 +1,9 @@
 package xapple
 
 import (
+	"errors"
+	"image/color"
+
 	ical "github.com/arran4/golang-ical"
 )
 
@@ -29,34 +32,7 @@ func SetProperty(cal *ical.Calendar, property string, value string, params ...ic
 	if cal == nil {
 		return
 	}
-	// Fallback to directly modify CalendarProperties if no public SetProperty exists
-	found := false
-	for i := range cal.CalendarProperties {
-		if cal.CalendarProperties[i].IANAToken == property {
-			cal.CalendarProperties[i].Value = value
-			cal.CalendarProperties[i].ICalParameters = map[string][]string{}
-			for _, p := range params {
-				k, v := p.KeyValue()
-				cal.CalendarProperties[i].ICalParameters[k] = v
-			}
-			found = true
-			break
-		}
-	}
-	if !found {
-		r := ical.CalendarProperty{
-			BaseProperty: ical.BaseProperty{
-				IANAToken:      property,
-				Value:          value,
-				ICalParameters: map[string][]string{},
-			},
-		}
-		for _, p := range params {
-			k, v := p.KeyValue()
-			r.ICalParameters[k] = v
-		}
-		cal.CalendarProperties = append(cal.CalendarProperties, r)
-	}
+	cal.SetProperty(ical.Property(property), value, params...)
 }
 
 func SetComponentProperty(c ical.Component, property string, value string, params ...ical.PropertyParameter) {
@@ -73,6 +49,37 @@ func SetComponentProperty(c ical.Component, property string, value string, param
 // SetCalendarColor sets the X-APPLE-CALENDAR-COLOR property for the calendar
 func SetCalendarColor(cal *ical.Calendar, color string, params ...ical.PropertyParameter) {
 	SetProperty(cal, string(PropertyCalendarColor), color, params...)
+}
+
+// SetCalendarColorFromColor sets the X-APPLE-CALENDAR-COLOR property from a color.Color.
+func SetCalendarColorFromColor(cal *ical.Calendar, c color.Color, params ...ical.PropertyParameter) {
+	SetCalendarColor(cal, string(ical.HexFromColor(c)), params...)
+}
+
+// GetCalendarColor returns the X-APPLE-CALENDAR-COLOR property from the calendar.
+func GetCalendarColor(cal *ical.Calendar) *ical.CalendarProperty {
+	if cal == nil {
+		return nil
+	}
+	return cal.GetProperty(PropertyCalendarColor)
+}
+
+// GetCalendarColorAsString returns the X-APPLE-CALENDAR-COLOR value from the calendar.
+func GetCalendarColorAsString(cal *ical.Calendar) string {
+	p := GetCalendarColor(cal)
+	if p == nil {
+		return ""
+	}
+	return p.Value
+}
+
+// GetCalendarColorAsColor returns the X-APPLE-CALENDAR-COLOR value as a color.Color.
+func GetCalendarColorAsColor(cal *ical.Calendar) (color.Color, error) {
+	p := GetCalendarColor(cal)
+	if p == nil {
+		return nil, errors.New("x-apple-calendar-color property not found")
+	}
+	return ical.ColorFromHex(p.Value)
 }
 
 // SetRegion sets the X-APPLE-REGION property for the calendar

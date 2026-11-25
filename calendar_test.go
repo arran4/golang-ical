@@ -1028,3 +1028,54 @@ func BenchmarkSerialize(b *testing.B) {
 		cal.Serialize()
 	}
 }
+
+func TestCalendarColorIntegration(t *testing.T) {
+	tests := []struct {
+		name      string
+		iCal      string
+		wantName  string
+		wantColor string
+	}{
+		{
+			name: "None",
+			iCal: "BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR",
+		},
+		{
+			name:      "NameAndColorName",
+			iCal:      "BEGIN:VCALENDAR\nVERSION:2.0\nX-WR-CALNAME:Some Calendar\nCOLOR:lightblue\nEND:VCALENDAR",
+			wantName:  "Some Calendar",
+			wantColor: "lightblue",
+		},
+		{
+			name:      "HexColor",
+			iCal:      "BEGIN:VCALENDAR\nVERSION:2.0\nCOLOR:#123456\nEND:VCALENDAR",
+			wantColor: "#123456",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cal, err := ParseCalendar(strings.NewReader(tt.iCal))
+			if err != nil {
+				t.Fatalf("ParseCalendar error: %v", err)
+			}
+
+			// Name validation (X-WR-CALNAME is accessed via properties currently)
+			nameProp := cal.GetProperty(PropertyXWRCalName)
+			if tt.wantName != "" {
+				if nameProp == nil || nameProp.Value != tt.wantName {
+					t.Errorf("got name %v, want %v", nameProp, tt.wantName)
+				}
+			}
+
+			colorProp := cal.GetColor()
+			if tt.wantColor != "" {
+				if colorProp == nil {
+					t.Errorf("expected COLOR property")
+				} else if got := cal.GetColorAsString(); got != tt.wantColor {
+					t.Errorf("got color %v, want %v", got, tt.wantColor)
+				}
+			}
+		})
+	}
+}
