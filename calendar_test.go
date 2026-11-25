@@ -3,7 +3,6 @@ package ics
 import (
 	"bytes"
 	"embed"
-	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -421,7 +420,6 @@ SUMMARY:Test Event
 END:VEVENT
 END:VCALENDAR
 `,
-			parseOptions: []any{WithUnknownPropertyHandler(AcceptUnknownPropertyHandler)},
 			output: `BEGIN:VCALENDAR
 VERSION:2.0
 TIMEZONE-ID:VT
@@ -476,7 +474,7 @@ func TestIssue52(t *testing.T) {
 			if err != nil && errors.Is(err, io.EOF) {
 				t.Fatalf("Error reading file: %s", err)
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 
 			if _, err := ParseCalendar(f); err != nil && !errors.Is(err, io.EOF) {
 				t.Fatalf("Error parsing file: %s", err)
@@ -852,6 +850,78 @@ END:VCALENDAR
 	assert.True(t, found, "expected recovered calendar-level property")
 }
 
+func TestWithUnknownPropertyHandler_CalendarLevel(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//Test//Test//EN
+END:VCALENDAR
+`
+
+	var states []string
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input),
+		WithUnknownPropertyHandler(func(cal *Calendar, state string, cl *BaseProperty) error {
+			states = append(states, state)
+			cal.CalendarProperties = append(cal.CalendarProperties, CalendarProperty{*cl})
+			return nil
+		}),
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, []string{"properties"}, states)
+	found := false
+	for _, p := range cal.CalendarProperties {
+		if p.IANAToken == "X-CUSTOM-FIELD" {
+			found = true
+			assert.Equal(t, "test", p.Value)
+		}
+	}
+	assert.True(t, found, "expected recovered calendar-level property")
+}
+
+func TestStrictUnknownCalendarPropertyHandler_AllowsExperimentalXProperty(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+X-CUSTOM-FIELD:test
+PRODID:-//Test//Test//EN
+END:VCALENDAR
+`
+
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input),
+		WithUnknownPropertyHandler(StrictUnknownCalendarPropertyHandler),
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	found := false
+	for _, p := range cal.CalendarProperties {
+		if p.IANAToken == "X-CUSTOM-FIELD" {
+			found = true
+			assert.Equal(t, "test", p.Value)
+		}
+	}
+	assert.True(t, found, "expected experimental calendar property to be preserved")
+}
+
+func TestStrictUnknownCalendarPropertyHandler_RejectsNonExperimentalProperty(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+BAD-CALENDAR-PROP:test
+PRODID:-//Test//Test//EN
+END:VCALENDAR
+`
+
+	_, err := ParseCalendarWithOptions(strings.NewReader(input),
+		WithUnknownPropertyHandler(StrictUnknownCalendarPropertyHandler),
+	)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unknown calendar property")
+	}
+}
+
 func TestWithPropertyParser_NestedComponentRecover(t *testing.T) {
 	input := `BEGIN:VCALENDAR
 VERSION:2.0
@@ -964,6 +1034,45 @@ func TestComponentParseWithOptions_InvalidOptionType(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.ErrorIs(t, err, ErrInvalidOpArg)
 		assert.Contains(t, err.Error(), "0")
+	}
+}
+
+func TestParseCalendarWithOptions_StrictUnknownComponentHandlerRejectsUnknown(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:FOO
+SUMMARY:unsupported
+END:FOO
+END:VCALENDAR
+`
+
+	_, err := ParseCalendarWithOptions(strings.NewReader(input), WithUnknownComponentHandler(StrictUnknownComponentHandler))
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unknown component")
+	}
+}
+
+func TestParseCalendarWithOptions_StrictUnknownComponentHandlerAllowsExperimentalXComponent(t *testing.T) {
+	input := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:X-FOO
+SUMMARY:experimental
+END:X-FOO
+END:VCALENDAR
+`
+
+	cal, err := ParseCalendarWithOptions(strings.NewReader(input), WithUnknownComponentHandler(StrictUnknownComponentHandler))
+	if !assert.NoError(t, err) {
+		return
+	}
+	if assert.Len(t, cal.Components, 1) {
+		general, ok := cal.Components[0].(*GeneralComponent)
+		if assert.True(t, ok) {
+			assert.Equal(t, "X-FOO", general.Token)
+			assert.Equal(t, "experimental", general.GetProperty(ComponentPropertySummary).Value)
+		}
 	}
 }
 
