@@ -213,6 +213,50 @@ func TestSetMailtoPrefix(t *testing.T) {
 	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ATTENDEE:mailto:att2@provider.com") {
 		t.Errorf("expected single mailto: prefix for email att2")
 	}
+
+	e.SetOrganizer("MAILTO:org3@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ORGANIZER:MAILTO:org3@provider.com") {
+		t.Errorf("expected single mailto: prefix for email org3")
+	}
+
+	e.SetOrganizer("Mailto:org4@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ORGANIZER:Mailto:org4@provider.com") {
+		t.Errorf("expected single mailto: prefix for email org4")
+	}
+
+	e.AddAttendee("MAILTO:att3@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ATTENDEE:MAILTO:att3@provider.com") {
+		t.Errorf("expected single mailto: prefix for email att3")
+	}
+
+	e.AddAttendee("Mailto:att4@provider.com")
+	if !strings.Contains(e.Serialize(defaultSerializationOptions()), "ATTENDEE:Mailto:att4@provider.com") {
+		t.Errorf("expected single mailto: prefix for email att4")
+	}
+}
+
+func TestAttendeeEmail(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "lower case scheme", value: "mailto:a@example.com", want: "a@example.com"},
+		{name: "upper case scheme", value: "MAILTO:a@example.com", want: "a@example.com"},
+		{name: "mixed case scheme", value: "Mailto:a@example.com", want: "a@example.com"},
+		{name: "no scheme", value: "a@example.com", want: "a@example.com"},
+		{name: "scheme only", value: "mailto:", want: ""},
+		{name: "value shorter than scheme", value: "mail", want: "mail"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := NewEvent("test-attendee-email")
+			e.AddProperty(ComponentPropertyAttendee, tc.value)
+			attendees := e.Attendees()
+			if assert.Len(t, attendees, 1) {
+				assert.Equal(t, tc.want, attendees[0].Email())
+			}
+		})
+	}
 }
 
 func TestRemoveProperty(t *testing.T) {
@@ -242,6 +286,108 @@ END:VTODO
 			text := strings.ReplaceAll(e.Serialize(defaultSerializationOptions()), "\r\n", "\n")
 
 			assert.Equal(t, tc.output, text)
+		})
+	}
+}
+
+func TestRemovePropertyByValue(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		value   string
+		removed []int
+		kept    []int
+	}{
+		{"matching attendees", "mailto:a@x", []int{1, 3}, []int{0, 2, 4}},
+		{"other property value", "u", nil, []int{0, 1, 2, 3, 4}},
+		{"missing value", "mailto:missing@x", nil, []int{0, 1, 2, 3, 4}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cal := NewCalendar()
+			e := cal.AddEvent("u")
+			e.AddAttendee("a@x", WithCN("First"))
+			e.AddAttendee("b@x", WithCN("Second"))
+			e.AddAttendee("a@x", WithCN("Duplicate"))
+			e.SetSummary("mailto:a@x")
+
+			var wantRemoved, wantKept []IANAProperty
+			for _, i := range tc.removed {
+				wantRemoved = append(wantRemoved, e.Properties[i])
+			}
+			for _, i := range tc.kept {
+				wantKept = append(wantKept, e.Properties[i])
+			}
+
+			removed := e.RemovePropertyByValue(ComponentPropertyAttendee, tc.value)
+
+			assert.Equal(t, wantRemoved, removed)
+			assert.Equal(t, wantKept, e.Properties)
+			parsed, err := ParseCalendar(strings.NewReader(cal.Serialize()))
+			if assert.NoError(t, err) && assert.Len(t, parsed.Events(), 1) {
+				assert.Equal(t, cal.Serialize(), parsed.Serialize())
+			}
+		})
+	}
+}
+
+func TestRemovePropertyByFunc(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		property ComponentProperty
+		remove   func(IANAProperty) bool
+		removed  []int
+		kept     []int
+		visited  []int
+	}{
+		{
+			name: "matching parameter", property: ComponentPropertyAttendee,
+			remove:  func(p IANAProperty) bool { return p.ICalParameters["CN"][0] == "Remove" },
+			removed: []int{2}, kept: []int{0, 1, 3}, visited: []int{1, 2},
+		},
+		{
+			name: "no predicate matches", property: ComponentPropertyAttendee,
+			remove: func(IANAProperty) bool { return false },
+			kept:   []int{0, 1, 2, 3}, visited: []int{1, 2},
+		},
+		{
+			name: "all predicate matches", property: ComponentPropertyAttendee,
+			remove:  func(IANAProperty) bool { return true },
+			removed: []int{1, 2}, kept: []int{0, 3}, visited: []int{1, 2},
+		},
+		{
+			name: "missing property", property: ComponentPropertyComment,
+			remove: func(IANAProperty) bool { return true },
+			kept:   []int{0, 1, 2, 3},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := NewEvent("u")
+			e.AddAttendee("a@x", WithCN("Keep"))
+			e.AddAttendee("a@x", WithCN("Remove"))
+			e.SetSummary("s")
+
+			var wantRemoved, wantKept, wantVisited []IANAProperty
+			for _, i := range tc.removed {
+				wantRemoved = append(wantRemoved, e.Properties[i])
+			}
+			for _, i := range tc.kept {
+				wantKept = append(wantKept, e.Properties[i])
+			}
+			for _, i := range tc.visited {
+				wantVisited = append(wantVisited, e.Properties[i])
+			}
+
+			var visited []IANAProperty
+			removed := e.RemovePropertyByFunc(tc.property, func(p IANAProperty) bool {
+				visited = append(visited, p)
+				if !assert.Equal(t, string(tc.property), p.IANAToken) {
+					return false
+				}
+				return tc.remove(p)
+			})
+
+			assert.Equal(t, wantRemoved, removed)
+			assert.Equal(t, wantKept, e.Properties)
+			assert.Equal(t, wantVisited, visited)
 		})
 	}
 }
