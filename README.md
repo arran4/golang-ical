@@ -71,6 +71,35 @@ When to use which constructor:
 
 Use `NewCalendarFor(service)` when you publish ICS from multiple applications/tenants and want each feed to identify its producer via `PRODID` while still using library defaults.
 
+### Adding Reminders (VALARM)
+
+To attach a reminder/alarm to an event, create a `VALARM` component and add it to the event:
+
+```golang
+event := cal.AddEvent("event-uid@domain")
+event.SetSummary("Team meeting")
+event.SetStartAt(time.Now())
+event.SetEndAt(time.Now().Add(time.Hour))
+
+alarm := ics.NewAlarm("") // the string arg is unused for VALARM (no UID property per RFC 5545)
+alarm.SetAction(ics.ActionDisplay)
+alarm.SetTrigger("-PT15M") // fires 15 minutes before DTSTART
+alarm.SetDescription("Team meeting starting soon")
+event.AddVAlarm(alarm)
+```
+
+**Note on `DISPLAY` alarms:** per RFC 5545 §3.6.6, a `DISPLAY` alarm's required properties are `ACTION`, `DESCRIPTION`, and `TRIGGER` — not `SUMMARY`. `SUMMARY` only applies to `EMAIL`-action alarms, where it's used as the message subject. Most calendar clients (Google Calendar, Apple Calendar, Outlook) read `DESCRIPTION` to render the alarm's message text, so make sure to call `SetDescription(...)` — calling only `SetSummary(...)` will produce a valid but silent reminder in many clients.
+
+`TRIGGER` takes an ISO-8601 duration relative to the event's start; a negative duration fires before the start (e.g. `-PT15M` = 15 minutes before, `-PT2H` = 2 hours before).
+
+### Important Note on Line Endings (RFC 5545 Compliance)
+
+By default, `.Serialize()` uses Unix-style line endings (`LF`). To strictly comply with the iCalendar specification (**RFC 5545**), which requires Windows-style line endings (`CRLF`) for broad compatibility with email and calendar clients like Outlook and Apple Calendar, pass the explicit formatting option:
+
+```golang
+return cal.Serialize(ics.WithNewLineWindows)
+```
+
 ## Parsing malformed properties (strict/skip/recover)
 
 By default, parsing is strict and returns an error for malformed content lines.

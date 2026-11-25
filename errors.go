@@ -115,6 +115,8 @@ var (
 	ErrUnbalancedEnd = errors.New("unbalanced end")
 	// ErrOutOfLines reports that the parser ran out of content lines.
 	ErrOutOfLines = errors.New("ran out of lines")
+	// ErrComponentNestingTooDeep reports that nested components exceeded the maximum allowed depth.
+	ErrComponentNestingTooDeep = errors.New("component nesting too deep")
 	// ErrorPropertyNotFound is retained for compatibility with older callers.
 	ErrorPropertyNotFound = ErrPropertyNotFound
 
