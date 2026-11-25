@@ -200,9 +200,9 @@ func (r *RecurrenceRule) String() string {
 
 	if !r.Until.IsZero() {
 		if r.UntilDateOnly {
-			parts = append(parts, "UNTIL="+r.Until.Format(icalDateFormatLocal))
+			parts = append(parts, "UNTIL="+r.Until.Format(icalDateFormat))
 		} else {
-			parts = append(parts, "UNTIL="+r.Until.Format(icalTimestampFormatUtc))
+			parts = append(parts, "UNTIL="+r.Until.Format(icalTimestampFormatUTC))
 		}
 	}
 	if r.Count != 0 {
@@ -260,19 +260,19 @@ func isValidFrequency(f Frequency) bool {
 
 func parseRecurrenceTime(s string) (time.Time, bool, error) {
 	// Try datetime with UTC (20060102T150405Z)
-	if t, err := time.Parse(icalTimestampFormatUtc, s); err == nil {
+	if t, err := time.Parse(icalTimestampFormatUTC, s); err == nil {
 		return t, false, nil
 	}
 	// Try date only with UTC (20060102Z)
-	if t, err := time.Parse(icalDateFormatUtc, s); err == nil {
+	if t, err := time.Parse(icalDateFormatUTC, s); err == nil {
 		return t, true, nil
 	}
 	// Try date only without timezone (20060102)
-	if t, err := time.Parse(icalDateFormatLocal, s); err == nil {
+	if t, err := time.Parse(icalDateFormat, s); err == nil {
 		return t, true, nil
 	}
 	// Try datetime without UTC (20060102T150405)
-	if t, err := time.Parse(icalTimestampFormatLocal, s); err == nil {
+	if t, err := time.Parse(icalTimestampFormat, s); err == nil {
 		return t, false, nil
 	}
 	return time.Time{}, false, fmt.Errorf("cannot parse time %q", s)

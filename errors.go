@@ -51,6 +51,9 @@ func NewMalformedError(line, character int, err error) error {
 }
 
 var (
+	// ErrStartAndEndDateNotDefined reports a missing start and end time.
+	ErrStartAndEndDateNotDefined = errors.New("start time and end time not defined")
+
 	// ErrUnexpectedParamValueLength reports a truncated parameter value.
 	ErrUnexpectedParamValueLength = errors.New("unexpected end of param value")
 
