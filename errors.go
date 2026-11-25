@@ -51,6 +51,8 @@ func NewMalformedError(line, character int, err error) error {
 }
 
 var (
+	ErrorUnsupportedOptionalArgument = errors.New("unsupported time property type")
+
 	// ErrUnexpectedParamValueLength reports a truncated parameter value.
 	ErrUnexpectedParamValueLength = errors.New("unexpected end of param value")
 
@@ -115,8 +117,8 @@ var (
 	ErrOutOfLines = errors.New("ran out of lines")
 	// ErrComponentNestingTooDeep reports that nested components exceeded the maximum allowed depth.
 	ErrComponentNestingTooDeep = errors.New("component nesting too deep")
-	// ErrorPropertyNotFound reports that a requested property was not found.
-	ErrorPropertyNotFound = errors.New("property not found")
+	// ErrorPropertyNotFound is retained for compatibility with older callers.
+	ErrorPropertyNotFound = ErrPropertyNotFound
 
 	// ErrInvalidOpArg marks an invalid variadic option argument.
 	ErrInvalidOpArg = errors.New("invalid option argument")
