@@ -3,7 +3,6 @@ package ics
 import (
 	"bytes"
 	"embed"
-	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -476,7 +475,7 @@ func TestIssue52(t *testing.T) {
 			if err != nil && errors.Is(err, io.EOF) {
 				t.Fatalf("Error reading file: %s", err)
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 
 			if _, err := ParseCalendar(f); err != nil && !errors.Is(err, io.EOF) {
 				t.Fatalf("Error parsing file: %s", err)
