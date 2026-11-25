@@ -1431,6 +1431,17 @@ func NewCalendarFor(service string) *Calendar {
 	return c
 }
 
+// Serialize converts the Calendar and all its nested components (such as events,
+// timezones, and alarms) into a single, fully formatted iCalendar string.
+//
+// It accepts optional configuration arguments (ops) to customize the output layout,
+// such as setting custom line folding lengths or overriding line endings.
+//
+// Note on Line Endings: By default, uses Unix-style line endings (LF). To strictly comply with the iCalendar
+// specification (RFC 5545), which requires Windows-style line endings (CRLF) for broad
+// compatibility with clients like Outlook and Apple Calendar, pass the explicit formatting option:
+//
+//	cal.Serialize(ics.WithNewLineWindows)
 func (cal *Calendar) Serialize(ops ...any) string {
 	b := &strings.Builder{}
 	// We are intentionally ignoring the return value. _ used to communicate this to lint.
@@ -1446,7 +1457,9 @@ func (cal *Calendar) SerializeTo(w io.Writer, ops ...any) error {
 	if err != nil {
 		return err
 	}
-	_, _ = io.WriteString(w, "BEGIN:VCALENDAR"+serializeConfig.NewLine)
+	if _, err := io.WriteString(w, "BEGIN:VCALENDAR"+serializeConfig.NewLine); err != nil {
+		return err
+	}
 	for _, p := range cal.CalendarProperties {
 		err := p.SerializeTo(w, serializeConfig)
 		if err != nil {
@@ -1459,8 +1472,8 @@ func (cal *Calendar) SerializeTo(w io.Writer, ops ...any) error {
 			return err
 		}
 	}
-	_, _ = io.WriteString(w, "END:VCALENDAR"+serializeConfig.NewLine)
-	return nil
+	_, err = io.WriteString(w, "END:VCALENDAR"+serializeConfig.NewLine)
+	return err
 }
 
 // SerializationConfiguration controls how calendars and components are written
@@ -2027,9 +2040,10 @@ func DefaultUnknownCalendarPropertyHandler(cal *Calendar, state string, cl *Base
 // handles line folding as described in RFC 5545 section 3.1 so that callers see
 // logical lines without CRLF continuations.
 type CalendarStream struct {
-	r    io.Reader
-	b    *bufio.Reader
-	line int
+	r     io.Reader
+	b     *bufio.Reader
+	line  int
+	depth int
 }
 
 // NewCalendarStream wraps r so the caller can read unfolded content lines.  The

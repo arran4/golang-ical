@@ -86,7 +86,9 @@ func (cb *ComponentBase) addComponent(c Component) {
 }
 
 func (cb *ComponentBase) serializeThis(writer io.Writer, componentType ComponentType, serialConfig *SerializationConfiguration) error {
-	_, _ = io.WriteString(writer, "BEGIN:"+string(componentType)+serialConfig.NewLine)
+	if _, err := io.WriteString(writer, "BEGIN:"+string(componentType)+serialConfig.NewLine); err != nil {
+		return err
+	}
 	for _, p := range cb.Properties {
 		err := p.SerializeTo(writer, serialConfig)
 		if err != nil {
@@ -208,8 +210,8 @@ func (cb *ComponentBase) RemoveProperty(removeProp ComponentProperty) []IANAProp
 	return removedProperties
 }
 
-// RemovePropertyByValue removes from the component all properties that has a particular property type and value,
-// return a count of removed properties
+// RemovePropertyByValue removes properties matching the given type and value.
+// It returns a slice of the removed properties.
 func (cb *ComponentBase) RemovePropertyByValue(removeProp ComponentProperty, value string) []IANAProperty {
 	return cb.RemovePropertyByFunc(removeProp, func(p IANAProperty) bool {
 		return p.Value == value
@@ -222,7 +224,7 @@ func (cb *ComponentBase) RemovePropertyByFunc(removeProp ComponentProperty, remo
 	var keptProperties []IANAProperty
 	var removedProperties []IANAProperty
 	for i := range cb.Properties {
-		if cb.Properties[i].IANAToken != string(removeProp) && remove(cb.Properties[i]) {
+		if cb.Properties[i].IANAToken != string(removeProp) || !remove(cb.Properties[i]) {
 			keptProperties = append(keptProperties, cb.Properties[i])
 		} else {
 			removedProperties = append(removedProperties, cb.Properties[i])
@@ -541,11 +543,15 @@ func (cb *ComponentBase) SetURL(s string, params ...PropertyParameter) {
 	cb.SetProperty(ComponentPropertyUrl, s, params...)
 }
 
+func hasMailtoPrefix(s string) bool {
+	return len(s) >= len("mailto:") && strings.EqualFold(s[:len("mailto:")], "mailto:")
+}
+
 // SetOrganizer sets the ORGANIZER property (RFC 5545 section 3.8.4.3)
 // to the specified calendar address. The address is prefixed with
 // "mailto:" if not already present.
 func (cb *ComponentBase) SetOrganizer(s string, params ...PropertyParameter) {
-	if !strings.HasPrefix(s, "mailto:") {
+	if !hasMailtoPrefix(s) {
 		s = "mailto:" + s
 	}
 	cb.SetProperty(ComponentPropertyOrganizer, s, params...)
@@ -574,7 +580,7 @@ func (cb *ComponentBase) setResources(r string, params ...PropertyParameter) {
 // AddAttendee appends an ATTENDEE property (RFC 5545 section 3.8.4.1)
 // identifying a participant of the event.
 func (cb *ComponentBase) AddAttendee(s string, params ...PropertyParameter) {
-	if !strings.HasPrefix(s, "mailto:") {
+	if !hasMailtoPrefix(s) {
 		s = "mailto:" + s
 	}
 	cb.AddProperty(ComponentPropertyAttendee, s, params...)
@@ -640,7 +646,7 @@ type Attendee struct {
 }
 
 func (p *Attendee) Email() string {
-	if strings.HasPrefix(p.Value, "mailto:") {
+	if hasMailtoPrefix(p.Value) {
 		return p.Value[len("mailto:"):]
 	}
 	return p.Value
@@ -1099,11 +1105,9 @@ func (c *VAlarm) SerializeTo(w io.Writer, serialConfig *SerializationConfigurati
 	return c.serializeThis(w, ComponentVAlarm, serialConfig)
 }
 
-// NewAlarm creates a bare VALARM component.  The tzId argument is kept for
-// backward compatibility but is not currently used when constructing the
-// component.
-func NewAlarm(tzId string) *VAlarm {
-	_ = tzId // parameter reserved for future use
+// NewAlarm creates a new VALARM component.
+// Note: The string parameter is unused as VALARM components do not have a UID property per RFC 5545.
+func NewAlarm(_ string) *VAlarm {
 	e := &VAlarm{}
 	return e
 }
@@ -1467,11 +1471,24 @@ func parseComponentOptions(opts ...any) (componentParseConfig, error) {
 	return cfg, nil
 }
 
+// maxComponentNestingDepth bounds how deeply nested BEGIN/END components may be
+// before parsing is aborted. Nested components recurse through
+// parseComponentWithHandler, so without a limit an input consisting of many
+// repeated BEGIN lines drives unbounded recursion and crashes the program with a
+// fatal stack overflow. Real-world calendars nest only a few levels deep
+// (e.g. VCALENDAR > VEVENT > VALARM), so this limit is far above any legitimate use.
+const maxComponentNestingDepth = 1000
+
 func parseComponentWithHandler(cs *CalendarStream, startLine *BaseProperty, opts ...any) (ComponentBase, error) {
 	cfg, err := parseComponentOptions(opts...)
 	cb := ComponentBase{timezoneMapper: cfg.timezoneMapper}
 	if err != nil {
 		return cb, err
+	}
+	cs.depth++
+	defer func() { cs.depth-- }()
+	if cs.depth > maxComponentNestingDepth {
+		return cb, NewMalformedError(cs.line, -1, ErrComponentNestingTooDeep)
 	}
 	lastLine := 0
 	cont := true

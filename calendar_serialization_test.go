@@ -5,9 +5,10 @@ package ics
 
 import (
 	"bytes"
+	"embed"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
+	"path"
 	"strings"
 	"testing"
 
@@ -16,26 +17,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//go:embed testdata/serialization/*.ics testdata/serialization/expected/*.ics
+var serializationFixtures embed.FS
+
 func TestCalendar_ReSerialization(t *testing.T) {
 	testDir := "testdata/serialization"
-	expectedDir := filepath.Join(testDir, "expected")
-	actualDir := filepath.Join(testDir, "actual")
+	expectedDir := path.Join(testDir, "expected")
+	testFiles, err := fs.Glob(serializationFixtures, testDir+"/*.ics")
+	require.NoError(t, err)
+	require.NotEmpty(t, testFiles)
 
-	testFileNames := []string{
-		"input1.ics",
-		"input2.ics",
-		"input3.ics",
-		"input4.ics",
-		"input5.ics",
-		"input6.ics",
-		"input7.ics",
-	}
-
-	for _, filename := range testFileNames {
-		fp := filepath.Join(testDir, filename)
+	for _, fp := range testFiles {
+		filename := path.Base(fp)
 		t.Run(fmt.Sprintf("compare serialized -> deserialized -> serialized: %s", fp), func(t *testing.T) {
 			//given
-			originalSeriailizedCal, err := os.ReadFile(fp)
+			originalSeriailizedCal, err := serializationFixtures.ReadFile(fp)
 			require.NoError(t, err)
 
 			//when
@@ -44,24 +40,16 @@ func TestCalendar_ReSerialization(t *testing.T) {
 			serializedCal := deserializedCal.Serialize(WithNewLineWindows)
 
 			//then
-			expectedCal, err := os.ReadFile(filepath.Join(expectedDir, filename))
+			expectedCal, err := serializationFixtures.ReadFile(path.Join(expectedDir, filename))
 			require.NoError(t, err)
 			if diff := cmp.Diff(string(expectedCal), serializedCal); diff != "" {
-				err = os.MkdirAll(actualDir, 0755)
-				if err != nil {
-					t.Logf("failed to create actual dir: %v", err)
-				}
-				err = os.WriteFile(filepath.Join(actualDir, filename), []byte(serializedCal), 0644)
-				if err != nil {
-					t.Logf("failed to write actual file: %v", err)
-				}
 				t.Error(diff)
 			}
 		})
 
 		t.Run(fmt.Sprintf("compare deserialized -> serialized -> deserialized: %s", filename), func(t *testing.T) {
 			//given
-			loadIcsContent, err := os.ReadFile(filepath.Join(testDir, filename))
+			loadIcsContent, err := serializationFixtures.ReadFile(path.Join(testDir, filename))
 			require.NoError(t, err)
 			originalDeserializedCal, err := ParseCalendar(bytes.NewReader(loadIcsContent))
 			require.NoError(t, err)
